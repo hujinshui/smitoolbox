@@ -17,12 +17,15 @@ function R = tilemat(Ms)
 %
 
 % Created by Dahua Lin, on Apr 4, 2010
+% Change the error handling, on May 24, 2010
 %
 
 %% main
 
-assert(ndims(Ms) <= 4, 'tilemat:invalidarg', ...
-    'Ms should be an array with ndims(Ms) <= 4.');
+if ndims(Ms) > 4
+    error('tilemat:invalidarg', ...
+        'Ms should be an array with ndims(Ms) <= 4.');
+end
 
 if ndims(Ms) == 2
     R = Ms;
