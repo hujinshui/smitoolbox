@@ -6,6 +6,8 @@
 mat2x2_cimp: calc/private/mat2x2_cimp.cpp
 
 pieces_cimp: calc/private/pieces_cimp.cpp
+
+intcount_cimp: calc/private/intcount_cimp.cpp
     
 pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp
 
