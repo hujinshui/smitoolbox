@@ -77,11 +77,12 @@ end
 
 %% main
 
+n = numel(L1);
 I = L1 + m1 * (L2 - 1);
 C = intcount([1, m1 * m2], I);
 
 if nrm
-    C = C / sum(C);
+    C = C / n;
 end
 
 C = reshape(C, m1, m2);
