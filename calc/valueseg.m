@@ -2,8 +2,8 @@ function [sp, ep, v] = valueseg(x)
 %VALUESEG divides a vector of numeric values into constant-value segments
 %
 %   [sp, ep] = valueseg(x);
-%       divides the numeric vector x into ranges, such that the elements
-%       in each range have the same value.
+%       divides the numeric/logical/char vector x into ranges, such that 
+%       the elements in each range have the same value.
 %
 %       In the output, sp and ep are vectors of equal sizes, whose length
 %       equals the number of segments. They respectively give the start
@@ -16,36 +16,19 @@ function [sp, ep, v] = valueseg(x)
 
 %   History
 %       - Created by Dahua Lin, on May 30, 2008
+%       - Modified by Dahua Lin, on May 26, 2010
+%           - based on C++-mex implementation
 %
+
+%% verify input
+
+if ~isvector(x) || isempty(x) || issparse(x)
+    error('valueseg:invalidarg', 'x should be a non-empty full vector.');
+end
 
 %% main
 
-if isempty(x)
-    sp = [];
-    ep = [];
-    return
-end
-
-assert(isnumeric(x) && isvector(x), 'valueseg:invalidarg', ...
-    'x should be a numeric vector.');
-
-n = numel(x);
-
-if n == 1
-    sp = 1;
-    ep = 1;
-    
-else
-    dp = find(diff(x));
-    
-    if size(x, 1) == 1      % row vector
-        sp = [1, 1 + dp];
-        ep = [dp, n];
-    else                    % column vector
-        sp = [1; 1 + dp];
-        ep = [dp; n];
-    end
-end
+[sp, ep] = valueseg_cimp(x);
 
 if nargout >= 3
     v = x(sp);
