@@ -3,7 +3,7 @@
 # Last updated: Apr 7, 2010
 #
 
-mat2x2_cimp: calc/private/mat2x2_cimp.cpp
+mat2x2_cimp: matrix/private/mat2x2_cimp.cpp
 
 pieces_cimp: calc/private/pieces_cimp.cpp
 
