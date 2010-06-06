@@ -1,14 +1,15 @@
-function B = repelem(A, nr, nc)
-%REPELEM Construct a new matrix by repeating its elements
+function B = exelem(A, nr, nc)
+% Construct a new matrix by expanding its elements into sub-matrices
 %
-%   B = repelem(A, nr, nc);
-%       creates a new matrix B by repeating the elements in matrix A.
-%       In particular, each element in A gives rise to an nr x nc 
-%       block in B. If the size of A is m x n, then the size of B is
-%       (m x nr) x (n x nc).
+%   B = exelem(A, nr, nc);
+%       creates a new matrix B by expanding each element in matrix A
+%       into a sub-matrix of size nr x nc. 
+%
+%       Let A is a matrix of size m x n, then in the output, B is a 
+%       matrix of the same class as A, whose size is (m x nr) x (n x nc).
 %       
-%       Example
-%       -------
+%       Example:
+%
 %           A = [3 4; 5 6];
 %           B = repelem(A, 2, 3);
 %
@@ -18,12 +19,17 @@ function B = repelem(A, nr, nc)
 %               5 5 5 6 6 6
 %
 
-% Created by Dahua Lin, on Apr 6, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 6, 2010
+%       - Modified by Dahua Lin, on Jun 6, 2010
+%           - change name from repelem to exelem
+%           - change error handling (make it lightweight)
 %
 
-%% verify input arguments
+%% verify input
 
-assert(ndims(A) == 2, 'repelem:invalidarg', ...
+assert(ndims(A) == 2, 'exelem:invalidarg', ...
     'A should be a matrix with ndims(A) == 2.');
 
 %% main
