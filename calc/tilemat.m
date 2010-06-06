@@ -1,12 +1,15 @@
 function R = tilemat(Ms)
-% Tiling the matrices to form a big matrix
+% Tile multiple matrices to form a single large one
 %
 %   R = tilemat(Ms);
-%       Creates a big matrix by tiling the matrices given by pages of 
-%       the array Ms.
-%   
-%       Let Ms be an array of size p x q x m x n, and M_ij denote
-%       the matrix given by Ms(:,:,i,j). 
+%       Creates a big matrix by tiling the matrices given in Ms.
+%
+%       In the input, Ms can be either of the following form:
+%       - an array of size p x q x m x n, where M(:,:,i,j) gives a 
+%         sub-matrix.
+%       - a cell array of size m x n, where each cell is a matrix of
+%         size p x q.
+%
 %       Then the output R is a matrix of size (p x m) x (q x n), in
 %       the following form:
 %       
@@ -15,33 +18,59 @@ function R = tilemat(Ms)
 %           ..., ..., ..., ...
 %           M_m1, M_m2, ..., M_mn
 %
+%       Here, M_{ij} is the (i, j)-th sub-matrix.
+%
 
-% Created by Dahua Lin, on Apr 4, 2010
-% Change the error handling, on May 24, 2010
+% History
+% -------
+%   - Created by Dahua Lin, on Apr 4, 2010
+%   - Change the error handling, on May 24, 2010
+%   - Change to support cell array input additionally, on Jun 6, 2010
 %
 
 %% main
 
-if ndims(Ms) > 4
-    error('tilemat:invalidarg', ...
-        'Ms should be an array with ndims(Ms) <= 4.');
+if isnumeric(Ms)
+
+    if ndims(Ms) > 4
+        error('tilemat:invalidarg', ...
+            'When it is a numeric array, Ms should have ndims(Ms) <= 4.');
+    end
+    
+    if ndims(Ms) == 2
+        R = Ms;
+        return;
+    else
+        [p, q, m, n] = size(Ms); 
+    end
+
+elseif iscell(Ms)
+    
+    if ndims(Ms) > 2
+        error('tilemat:invalidarg', ...
+            'When it is a cell array, Ms should have ndims(Ms) == 2.');
+    end
+    
+    if numel(Ms) == 1
+        R = Ms{1};   
+        return;
+    else        
+        [p, q] = size(Ms{1});
+        [m, n] = size(Ms);
+        Ms = [Ms{:}];
+    end        
+    
 end
 
-if ndims(Ms) == 2
-    R = Ms;
-    
+
+if m == 1
+    R = reshape(Ms, [p, q * n]);
+
 else
-    [p, q, m, n] = size(Ms);
-    
-    if m == 1
-        R = reshape(Ms, [p, q * n]);
-        
-    else
-        R = reshape(Ms, [p, q * m, n]);
-        I = reshape(1:q*m, q, m).';
-        R = R(:, I(:), :);
-        R = reshape(R, [p * m, q * n]);
-    end
+    R = reshape(Ms, [p, q * m, n]);
+    I = reshape(1:q*m, q, m).';
+    R = R(:, I(:), :);
+    R = reshape(R, [p * m, q * n]);
 end
 
 
