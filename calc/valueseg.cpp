@@ -65,8 +65,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     const mxArray *mxV = prhs[0];
     
+    int nr = mxGetM(mxV);
+    int nc = mxGetN(mxV);
+    
+    if (!(mxGetNumberOfDimensions(mxV) == 2 && !mxIsSparse(mxV) && !mxIsEmpty(mxV) 
+        && (nr == 1 || nc == 1) ))
+        mexErrMsgIdAndTxt("valueseg:invalidarg", 
+                "x should be a full non-empty vector.");
+                
     int n = mxGetNumberOfElements(mxV);
     bool make_row = mxGetM(mxV) == 1;
+        
     
     // delegate by type
     

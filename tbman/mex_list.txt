@@ -9,6 +9,8 @@ intcount: calc/intcount.cpp
 
 intgroup: calc/intgroup.cpp
 
+valueseg: calc/valueseg.cpp
+
 
 mat2x2_cimp: matrix/private/mat2x2_cimp.cpp
 
