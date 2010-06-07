@@ -1,6 +1,6 @@
 % Count the number of occurrence of integers
 %
-%   c = intcount([v0, v1], v);
+%   c = intcount([v0, v1], V);
 %       counts the number of integers in [v0, v1] that occurs in V.
 %       
 %       In the input, V is an array containing integer values (whose

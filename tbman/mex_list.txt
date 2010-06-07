@@ -7,6 +7,8 @@ repnum: calc/repnum.cpp
 
 intcount: calc/intcount.cpp
 
+intgroup: calc/intgroup.cpp
+
 
 mat2x2_cimp: matrix/private/mat2x2_cimp.cpp
 

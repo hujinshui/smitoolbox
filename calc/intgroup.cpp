@@ -1,14 +1,15 @@
 /********************************************************************
  *
- *  intcount_cimp.cpp
+ *  intgroup.cpp
  *
- *  The C++ mex implementation of integer counting
+ *  The C++ mex implementation of intgroup
  *
- *  Created by Dahua Lin, on May 26, 2010
+ *  Created by Dahua Lin, on June 6, 2010
  *
  ********************************************************************/
 
 #include <mex.h>
+#include <vector>
 
 inline void get_range(const mxArray *mxRgn, int& v0, int& v1)
 {
@@ -38,79 +39,96 @@ inline void get_range(const mxArray *mxRgn, int& v0, int& v1)
     }
     else
     {
-        mexErrMsgIdAndTxt("intcount:invalidarg", 
+        mexErrMsgIdAndTxt("intgroup:invalidarg", 
                 "The range [v0 v1] should be of class double, single, or int32");
     }
 }
 
 
 template<typename T>
-void count(int v0, int v1, const T *v, int n, double *c)
+void group(int v0, int v1, const T *v, int n, std::vector<double>* gs)
 {
     for (int i = 0; i < n; ++i)
     {
         int cv = (int)(v[i]);
         if (cv >= v0 && cv <= v1)
         {
-            ++ c[cv - v0];
+            gs[cv - v0].push_back(i + 1);
         }
     }
 }
 
-
-inline mxArray* do_count(int v0, int v1, const mxArray *mxVals)
-{
-    int m = v1 - v0 + 1;
-    mxArray *mxCount = mxCreateDoubleMatrix(1, m, mxREAL);
-    double *c = mxGetPr(mxCount);
+inline void do_group(int v0, int v1, const mxArray *mxVals, std::vector<double>* gs)
+{        
     
     int n = mxGetNumberOfElements(mxVals);
     
     if (mxIsDouble(mxVals))
     {
         const double *v = (const double*)mxGetData(mxVals);
-        count(v0, v1, v, n, c);
+        group(v0, v1, v, n, gs);
     }
     else if (mxIsSingle(mxVals))
     {
         const float *v = (const float*)mxGetData(mxVals);
-        count(v0, v1, v, n, c);
+        group(v0, v1, v, n, gs);
     }
     else if (mxIsInt32(mxVals))
     {
         const int *v = (const int*)mxGetData(mxVals);
-        count(v0, v1, v, n, c);
+        group(v0, v1, v, n, gs);
     }
     else
     {
-        mexErrMsgIdAndTxt("intcount:invalidarg", 
+        mexErrMsgIdAndTxt("intgroup:invalidarg", 
                 "The class of values should be either double, single, int32");
-    }
-    
-    return mxCount;
+    }    
 }
 
 
-/***********
+mxArray *to_mx_vector(const std::vector<double>& g)
+{
+    int n = (int)g.size();
+    mxArray *mxV = mxCreateDoubleMatrix(1, n, mxREAL);
+    
+    double *v = mxGetPr(mxV);
+    for (int i = 0; i < n; ++i)
+    {
+        v[i] = g[i];
+    }
+    
+    return mxV;
+}
+
+
+mxArray *groups_to_cells(int ng, const std::vector<double>* gs)
+{    
+    mxArray *mxC = mxCreateCellMatrix(1, ng);
+    
+    for (int i = 0; i < ng; ++i)
+    {
+        mxSetCell(mxC, i, to_mx_vector(gs[i]));
+    }
+    
+    return mxC;    
+}
+
+
+/**
+ * Main entry:
  *
- *  Main entry
- *   
- *  Input:
- *    [0]:  the value range in form of [v0, v1] [pair (double|single|int32)]
- *    [1]:  the array of values to count [array (double|single|int32)]
+ *   Input:
+ *     [0]: rgn:    the integer range in form of [v0, v1] (pair) 
+ *     [1]: V:      the values array (double|single|int32)
+ *   Output:
+ *     [0]: G:      the cell array of indices for each value
  *
- *  Output:
- *    [0]:  the vector of counts (of size 1 x (v1 - v0 + 1)) [double array]
- *
- *  No 
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    // take input
-    
     if (nrhs != 2)
-        mexErrMsgIdAndTxt("intcount:invalidarg", 
-                "The number of inputs to intcount should be 2.");
+        mexErrMsgIdAndTxt("intgroup:invalidarg", 
+                "The number of inputs to intgroup should be 2.");
     
     const mxArray *mxRgn = prhs[0];
     const mxArray *mxVals = prhs[1];
@@ -118,7 +136,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int v0, v1;
     get_range(mxRgn, v0, v1);    
     
-    plhs[0] = do_count(v0, v1, mxVals);
+    int ng = v1 - v0 + 1;
+    std::vector<double> *vecs = new std::vector<double>[ng];
+    
+    do_group(v0, v1, mxVals, vecs);            
+    
+    plhs[0] = groups_to_cells(ng, vecs);
+    
+    delete[] vecs;
 }
+
+
 
 
