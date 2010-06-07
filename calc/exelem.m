@@ -29,8 +29,11 @@ function B = exelem(A, nr, nc)
 
 %% verify input
 
-assert(ndims(A) == 2, 'exelem:invalidarg', ...
-    'A should be a matrix with ndims(A) == 2.');
+if ndims(A) ~= 2
+    error('exelem:invalidarg', ...
+        'A should be a matrix with ndims(A) == 2.');
+end
+
 
 %% main
 

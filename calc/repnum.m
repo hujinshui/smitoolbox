@@ -1,5 +1,4 @@
-function x = repnum(ns)
-%Generates a vector by repeating numbers
+% Generates a vector by repeating numbers
 %
 %   x = repnum(ns);
 %       generates a vector x, whose length is sum(ns), by repeating i for
@@ -17,42 +16,10 @@ function x = repnum(ns)
 %           x(repnum([2 2 3])) is [0.1 0.1 0.2 0.2 0.4 0.4 0.4].
 %
 
-% Created by Dahua Lin, on Nov 3, 2009
+%   History
+%   -------
+%       - Created by Dahua Lin, on Nov 3, 2009
+%       - Modified by Dahua Lin, on Jun 6, 2010
+%           - use C++ mex to improve efficiency
 %
-
-%% parse and verify input arguments
-
-assert(isnumeric(ns) && isvector(ns), 'repnum:invalidarg', ...
-    'ns should be a numeric vector.');
-
-%% main
-
-if size(ns, 1) > 1
-    tt = true;
-    ns = ns.';
-else
-    tt = false;
-end
-
-if ~all(ns)
-    v = find(ns);
-    ns = ns(v);
-    uv = true;
-else
-    uv = false;
-end
-
-N = sum(ns);
-x = zeros(1, N);
-
-x([1, 1 + cumsum(ns(1:end-1))]) = 1;
-
-x = cumsum(x);
-if uv
-    x = v(x);
-end
-
-if tt
-    x = x.';
-end
 

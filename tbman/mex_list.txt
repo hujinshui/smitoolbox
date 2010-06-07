@@ -3,6 +3,8 @@
 # Last updated: Apr 7, 2010
 #
 
+repnum: calc/repnum.cpp
+
 mat2x2_cimp: matrix/private/mat2x2_cimp.cpp
 
 pieces_cimp: calc/private/pieces_cimp.cpp
