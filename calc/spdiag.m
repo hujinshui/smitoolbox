@@ -11,7 +11,9 @@ function M = spdiag(v1, v2)
 %       v. Here v is a scalar.
 %
 
-% Created by Dahua Lin, on Apr 17, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 17, 2010
 %
 
 %% main
