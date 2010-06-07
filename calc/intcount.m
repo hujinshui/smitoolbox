@@ -1,4 +1,3 @@
-function c = intcount(rgn, V)
 % Count the number of occurrence of integers
 %
 %   c = intcount([v0, v1], v);
@@ -11,25 +10,9 @@ function c = intcount(rgn, V)
 %       v0 + (i-1) occurs in V.
 %
 
-% Created by Dahua Lin, on May 26, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on May 26, 2010
+%       - Modified by Dahua Lin, on Jun 6, 2010
+%           - Use pure C++ mex implementation
 %
-
-%% verify input arguments
-
-if ~(isnumeric(rgn) && numel(rgn) == 2)
-    error('intcount:invalidarg', ...
-        'The value range should be given in form of a pair of numbers.');
-end
-
-if ~(isnumeric(V))
-    error('intcount:invalidarg', 'V should be a numeric array.');
-end
-
-%% main
-
-if ~isa(V, 'int32')
-    V = int32(V);
-end
-
-c = intcount_cimp(double(rgn), V);
-
