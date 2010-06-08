@@ -1,86 +1,104 @@
-function y = pieces(x, edges, dir, op2)
+function y = pieces(x, edges, dir, alg)
 % PIECES Locates the piece that the input values are in
 %
 %   y = pieces(x, edges);
-%   y = pieces(x, edges, 'left');
-%       returns the index of the pieces that each value in x is in.
-%       The pieces are delimited by the values in edges.
-%       x is assumed to be in non-decreasing order.
+%   y = pieces(x, edges, 'L');
+%   y = pieces(x, edges, 'R');
+%
+%       determines which bins each value of x is in. Particularly, 
+%       let edges be a vector of length m+1 as [e_0, ..., e_m].
+%       These edges divide the real line into m+2 bins. 
+%
+%       If the third argument is 'L' (or omitted), the bins are
+%       left-closed, as given by
+%       (-inf, e_0), [e_0, e_1), ..., [e_{m-1}, e_m), [e_m, inf).
+%
+%       If the third argument is 'R', the bins are right-closed, as
+%       given by
+%       (-inf, e_0], (e_0, e_1], ..., (e_{m-1}, e_m], (e_m, inf).
+%
+%       The indices of these bins are 0, 1, ..., m+1. If x(i) falls in
+%       the bin whose index is k, then y(i) is k.
+%
+%       x should be a matrix of class double, or single, then y will be
+%       a matrix of the same size of class double.
 %       
-%       Suppose, you have n consecutive pieces given by
-%       [e_0, e_1), [e_1, e_2), [e_2, e_3), ... [e_{n-1}, e_n),
-%       Then the edges should be a vector of length n+1 as
-%       [e_0, e_1, ..., e_n].
 %
-%       In the output, y is of the same size as x, with y(i) giving
-%       the piece index for x(i).
-%       Concretely, if x(i) has e_{k-1} <= x(i) < e_k, then y(i) = k.
-%       If x(i) < e_0, then y(i) = 0, and if x(i) >= e_n, then y(i) = n+1.
+%   y = pieces(x, edges, dir, alg);
+%       further specifies which algorithm the function should use.
 %
-%   y = pieces(x, edges, 'right');
-%       Under this syntax, the pieces are left-open and right-close, as 
-%       (e_0, e_1], (e_1, e_2], ..., (e_{n-1}, e_n].
-%
-%   y = pieces(x, edges, direction, 'unsorted');
-%       By default, x is assumed to be in non-decreasing order.
-%       If x is not in such order, then one can use the option 'unsorted'.
-%
-%       In this case, the function will sort the values first, and 
-%       re-arrange the output to the original order finally. This 
-%       would incur overhead of time-complexity O(nlog(n)).
+%       The value of alg can be either if the following:
+%       - 'std':    the standard implementation. The complexity is
+%                   O(m n), where m is the number of bins and n the
+%                   number of values in x.
+%       - 'sorted': the implementation specially for the case when
+%                   x is sorted. This should be used only when x is
+%                   really sorted. The complexity is O(m + n).
+%       - 'auto':   it automatically chooses the algorithm.
+%                   In particular, 
+%                   if m > 2 * log(n), then it first sort x and then 
+%                   use the method designed for sorted values;
+%                   otherwise, it uses the standard implementation.
+%       
+%       If alg is not specified, it uses the default 'auto'.
 %   
 
-% Created by Dahua Lin, on Mar 22, 2010
+%   History 
+%   -------
+%       - Created by Dahua Lin, on June 8, 2010
 %
 
-%% parse and verify input arguments
+%% verify input
 
-assert(isfloat(x) && isvector(x), 'pieces:invalidarg', ...
-    'x should be a numeric vector.');
+if ~(ndims(x) == 2 && isfloat(x) && ~issparse(x) && isreal(x))
+    error('pieces:invalidarg', 'x should be a non-sparse real matrix.');
+end
 
-assert(isvector(edges) && isa(edges, class(x)), 'pieces:invalidarg', ...
-    'edges should be a numeric vector of the same type as x.');
+if ~(isvector(edges) && isa(edges, class(edges)) && ~issparse(edges))
+    error('pieces:invalidarg', 'edges should be a vector of the same class as x.');
+end
 
-if nargin < 3 || isempty(dir)
+if nargin < 3
     is_left = true;
 else
-    assert(ischar(dir), 'pieces:invalidarg', ...
-        'The 3rd argument can only be either ''left'' or ''right''.');
-    
-    if strcmp(dir, 'left')
+    if strcmp(dir, 'L')
         is_left = true;
-    elseif strcmp(dir, 'right')
+    elseif strcmp(dir, 'R')
         is_left = false;
     else
         error('pieces:invalidarg', ...
-            'The 3rd argument can only be either ''left'' or ''right''.');
+            'dir should be a char with value ''L'' or ''R''.');
     end
-end        
+end
 
 if nargin < 4
-    is_sorted = true;
+    alg = 'auto';
 else
-    assert(ischar(op2) && strcmp(op2, 'unsorted'), ...
-        'pieces:invalidarg', ...
-        'The 4th argument can only be ''unsorted'' if specified.');
-    is_sorted = false;
+    if ~ischar(alg)
+        error('pieces:invalidarg', ...
+            'alg should be a string giving the algorithm name.');
+    end              
 end
-
+        
 %% main
 
-if ~is_sorted
-    [x, si] = sort(x);
+switch alg
+    
+    case 'std'
+        y = pieces_cimp(x, edges, is_left, false);
+        
+    case 'sorted'
+        y = pieces_cimp(x, edges, is_left, true);
+        
+    case 'auto'    
+        if numel(edges) > 2 * log(numel(x))
+            [sx, si] = sort(x);
+            sy = pieces_cimp(sx, edges, is_left, true);
+            y = zeros(size(sy));
+            y(si) = sy;
+        else
+            y = pieces_cimp(x, edges, is_left, false);
+        end            
 end
-
-y = pieces_cimp(x, edges, is_left);
-y = double(y);
-
-if size(x, 1) > 1
-    y = y.';
-end
-
-if ~is_sorted
-    y(si) = y;
-end
-
+        
 
