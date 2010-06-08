@@ -30,6 +30,7 @@ function P = cartprod(nums, op)
 %
 
 %   History
+%   -------
 %       - Created by Dahua Lin, on May 30, 2008
 %       - Modified by Dahua Lin, on Mar 22, 2010
 %           - add the option for setting whether the first element changes
