@@ -36,199 +36,90 @@ end
 
 %% Test functions
 
-function test_det() %#ok<DEFNU>
-
-disp('Testing det ...');
-
-% Test generic matrix inversion
-
-A = gen_rand_gm_ns();
-n = size(A, 3);
-
-R1 = zeros(1, n);
-for i = 1 : n
-    R1(i) = det2x2(A(:,:,i));
-end
-
-R = det2x2(A);
-assert(isequal(R1, R));
-
-R0 = arrayfun(@(i) det(A(:,:,i)), 1:n);
-devs = abs(R - R0);
-
-if any(devs > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'det2x2 on gm has large deviation with max(dev) = %g.', max(devs));
-end
-
-% Test symmetric matrix inversion
-
-B = gen_rand_sm();
-nb = size(B, 2);
-
-S1 = zeros(1, nb);
-for i = 1 : nb    
-    S1(i) = det2x2(B(:,i));
-end
-
-S = det2x2(B);
-assert(isequal(S1, S));
-
-B = reshape(B([1 2 2 3], :), [2 2 nb]);
-S0 = arrayfun(@(i) det(B(:,:,i)), 1:nb);
-devs_b = abs(S - S0);
-
-if any(devs_b > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'det2x2 on sm has large deviation with max(dev) = %g.', max(devs_b));
-end
-
-
-
 function test_inv() %#ok<DEFNU>
 
-disp('Testing inv ...');
+n = 1000;
 
-% Test generic matrix inversion
+X1 = gen_gm(n);
 
-A = gen_rand_gm_ns();
-n = size(A, 3);
+% test 4 x n form
 
-R1 = zeros(size(A));
+R1 = inv2x2(X1);
+n1 = size(X1, 2);
+assert(isequal(size(R1), [4 n1]));
+
+% test 2 x 2 x n form
+
+X2 = reshape(X1, [2 2 n1]);
+R2 = inv2x2(X2);
+assert(isequal(size(R2), [2 2 n1]));
+
+assert(isequal(R1, reshape(R2, [4 n1])));
+
+% test 3 x n form
+
+X3 = gen_pdm(n);
+n3 = size(X3, 2);
+R3 = inv2x2(X3);
+assert(isequal(size(R3), [3 n3]));
+
+X4 = reshape(X3([1 2 2 3], :), [2 2 n3]);
+R4 = reshape(R3([1 2 2 3], :), [2 2 n3]);
+
+% compare result
+
+Z20 = [ones(1, n1); zeros(1, n1); zeros(1, n1); ones(1, n1)];
+Z2 = zeros(4, n1);
+for i = 1 : n1
+    M = 0.5 * (R2(:,:,i) * X2(:,:,i) + X2(:,:,i) * R2(:,:,i));
+    Z2(:,i) = M(:);
+end
+
+Z40 = [ones(1, n3); zeros(1, n3); zeros(1, n3); ones(1, n3)];
+Z4 = zeros(4, n3);
+for i = 1 : n3
+    M = 0.5 * (R4(:,:,i) * X4(:,:,i) + X4(:,:,i) * R4(:,:,i));
+    Z4(:,i) = M(:);
+end
+
+
+compare('inv_gm', Z20, Z2, 5e-12);
+compare('inv_sm', Z40, Z4, 5e-12);
+
+
+
+%% Data generation
+
+
+function X = gen_gm(n)
+% generate a batch of generic matrix
+
+X = randn(4, n);
+
+dv = X(1,:) .* X(4,:) - X(2,:) .* X(3,:);
+
+si = abs(dv) > 1e-3;
+X = X(:, si);
+
+
+function X = gen_pdm(n)
+% generate a batch of positive definite matrix
+
+X = randn(2, 2, n);
+
 for i = 1 : n
-    R1(:,:,i) = inv2x2(A(:,:,i));
+    X(:,:,i) = X(:,:,i) * X(:,:,i)';
 end
 
-R = inv2x2(A);
+X = reshape(X, 4, n);
+X = X([1 2 4], :);
 
-assert(isequal(R1, R));
+dv = X(1,:) .* X(3,:) - X(2,:).^2;
+si = abs(dv) > 1e-3;
 
-I = eye(2);
-
-devs = arrayfun(@(i) calcdev(A(:,:,i) * R(:,:,i), I), 1:n) + ...
-    arrayfun(@(i) calcdev(R(:,:,i) * A(:,:,i), I), 1:n);
-
-if any(devs > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'inv2x2 on gm has large deviation with max(dev) = %g.', max(devs));
-end
-
-% Test symmetric matrix inversion
-
-B = gen_rand_sm();
-nb = size(B, 2);
-
-S1 = zeros(2, 2, nb);
-for i = 1 : nb
-    r = inv2x2(B(:,i));
-    S1(:,:,i) = [r(1) r(2); r(2) r(3)];
-end
-
-S = inv2x2(B);
-S = reshape(S([1 2 2 3], :), [2 2 nb]);
-assert(isequal(S1, S));
-
-B = reshape(B([1 2 2 3], :), [2 2 nb]);
-
-devs_b = arrayfun(@(i) calcdev(B(:,:,i) * S(:,:,i), I), 1:nb) + ...
-    arrayfun(@(i) calcdev(S(:,:,i) * B(:,:,i), I), 1:nb);
-
-if any(devs_b > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'inv2x2 on sm has large deviation with max(dev) = %g.', max(devs_b));
-end
+X = X(:, si);
 
 
-function test_chol()  %#ok<DEFNU>
-
-disp('Testing chol ...');
-
-A = gen_rand_sm();
-n = size(A, 2);
-A = reshape(A([1 2 2 3], :), [2 2 n]);
-
-R1 = zeros(2, 2, n);
-for i = 1 : n
-    R1(:,:,i) = chol2x2(A(:,:,i));
-end
-R = chol2x2(A);
-
-assert(isequal(R1, R));
-
-B = zeros(2, 2, n);
-for i = 1 : n
-    B(:,:,i) = R(:,:,i) * R(:,:,i)';
-end
-
-devs = arrayfun(@(i) calcdev(A(:,:,i), B(:,:,i)), 1:n);
-
-if any(devs > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'chol2x2 on sm has large deviation with max(dev) = %g.', max(devs));
-end
-
-
-function test_eigs()  %#ok<DEFNU>
-
-disp('Testing eigs ...');
-
-A = gen_rand_sm();
-n = size(A, 2);
-A = reshape(A([1 2 2 3], :), [2 2 n]);
-
-e1 = zeros(2, n);
-t1 = zeros(1, n);
-for i = 1 : n
-    [e1(:,i), t1(i)] = eigs2x2(A(:,:,i));
-end
-[e, t] = eigs2x2(A);
-
-assert(isequal(e1, e) && isequal(t1, t));
-assert(all(e(1,:) >= e(2,:)));
-assert(all(abs(t) <= pi/2));
-
-R = rotmat2(t);
-
-B = zeros(2, 2, n);
-for i = 1 : n
-    B(:,:,i) = R(:,:,i)' * [e(1,i) 0; 0 e(2,i)] * R(:,:,i);
-end
-
-devs = arrayfun(@(i) calcdev(A(:,:,i), B(:,:,i)), 1:n);
-
-if any(devs > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'eigs2x2 on sm has large deviation with max(dev) = %g.', max(devs));
-end
-
-
-function test_sqrtm()  %#ok<DEFNU>
-
-disp('Testing sqrtm ...');
-
-A = gen_rand_sm();
-n = size(A, 2);
-A = reshape(A([1 2 2 3], :), [2 2 n]);
-
-R1 = zeros(2, 2, n);
-for i = 1 : n
-    R1(:,:,i) = sqrtm2x2(A(:,:,i));
-end
-R = sqrtm2x2(A);
-
-assert(isequal(R1, R));
-
-B = zeros(2, 2, n);
-for i = 1 : n
-    B(:,:,i) = R(:,:,i) * R(:,:,i);
-end
-
-devs = arrayfun(@(i) calcdev(A(:,:,i), B(:,:,i)), 1:n);
-
-if any(devs > 1e-13)
-    warning('test_mat2x2c:largedev', ...
-        'sqrtm2x2 on sm has large deviation with max(dev) = %g.', max(devs));
-end
 
 
 
@@ -236,49 +127,12 @@ end
 
 %% Auxiliary functions
 
-function A = gen_rand_gm()
-% generate generic matrices
+function compare(title, A, B, thres)
 
-v = -1 : 0.2 : 1;
-V = v(cartprod([11 11 11 11]));
+d = max(abs(A(:) - B(:)));
+if d > thres
+    warning('test_mat2x2c:largedev', ...
+        'Large observation observed for %s (dev = %g)', title, d);
+end
 
-A = reshape(V, 2, 2, size(V, 2));
-
-
-function A = gen_rand_gm_ns()
-% generate generic non-singular matrices
-
-v = -1 : 0.2 : 1;
-V = v(cartprod([11 11 11 11]));
-
-dv = V(1,:) .* V(4,:) - V(2,:) .* V(3,:);
-
-V = V(:, abs(dv) > 1e-8);
-A = reshape(V, 2, 2, size(V, 2));
-
-
-function A = gen_rand_sm()
-% generate symmetric (p.d.) matrices
-
-p = 0.1 : 0.1 : 1.5;
-q = 0.1 : 0.1 : 1.5;
-t = (0 : 1/16 : 1) * (2 * pi);
-
-cp = cartprod([length(p), length(q), length(t)]);
-
-ps = p(cp(1,:));
-qs = q(cp(2,:));
-ts = t(cp(3,:));
-
-as = ps .* cos(ts).^2 + qs .* sin(ts).^2;
-bs = (qs - ps) .* cos(ts) .* sin(ts);
-cs = qs .* cos(ts).^2 + ps .* sin(ts).^2;
-
-A = [as; bs; cs];
-A(abs(A) < 1e-14) = 0;
-
-
-function r = calcdev(X, Y)
-
-r = max(abs(X(:) - Y(:)));
 

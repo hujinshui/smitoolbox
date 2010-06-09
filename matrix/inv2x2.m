@@ -1,4 +1,3 @@
-function R = inv2x2(A)
 % Compute the inverse of 2x2 matrices using fast implementation
 %
 %   R = inv2x2(A);
@@ -17,31 +16,11 @@ function R = inv2x2(A)
 %       The output will be in the same form as the input.
 %
 
-% Created by Dahua Lin, on Apr 7, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 7, 2010
+%       - Modified by Dahua Lin, on June 8, 2010
+%           - use pure C++ mex implementation
 %
 
-%% verify input arguments
-
-if ~(isfloat(A) && ~issparse(A) && isreal(A))
-    error('inv2x2:invalidarg', ...
-        'A should be a non-sparse real-valued array.');
-end
-
-[m, n] = size(A);
-
-if ~((m == 2 && mod(n, 2) == 0) || m == 3 || m == 4)
-    error('inv2x2:invalidarg', 'The size of A is invalid.');
-end
-
-%% main
-
-if m == 2 || m == 4
-    R = mat2x2_cimp(A, 3);  % for generic matrix
-else
-    R = mat2x2_cimp(A, 4);  % for compact form of symmetric matrix
-end
-
-if size(A, 1) == 2
-    R = reshape(R, size(A));
-end
 
