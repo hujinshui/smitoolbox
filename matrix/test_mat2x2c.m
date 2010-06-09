@@ -7,9 +7,7 @@ function test_mat2x2c(varargin)
 %   either of the following values:
 %   'inv':      matrix inverse
 %   'det':      matrix determinant
-%   'chol':     Cholesky decomposition
-%   'eigs':     eigen-system analysis
-%   'sqrtm':    square root of matrix
+%   'trace':    matrix trace
 %
 
 % Created by Dahua Lin, on Apr 7, 2010
@@ -18,7 +16,7 @@ function test_mat2x2c(varargin)
 %% verify input arguments
 
 assert(iscellstr(varargin) && ... 
-    all(ismember(varargin, {'inv', 'det', 'chol', 'eigs', 'sqrtm'})), ...
+    all(ismember(varargin, {'inv', 'det', 'trace'})), ...
     'test_mat2x2c:invalidarg', ...
     'Invalid item.');
 
@@ -125,6 +123,45 @@ compare('det_gm', r10, r1, 1e-15);
 compare('det_sm', r30, r3, 1e-15);
 
 
+function test_trace() %#ok<DEFNU>
+
+n = 1000;
+
+X1 = gen_gm(n);
+
+% test 4 x n form
+
+r1 = trace2x2(X1);
+n1 = size(X1, 2);
+assert(isequal(size(r1), [1 n1]));
+
+r10 = X1(1,:) + X1(4,:);
+
+% test 2 x 2 x n form
+
+X2 = reshape(X1, [2 2 n1]);
+r2 = trace2x2(X2);
+assert(isequal(size(r2), [1 n1]));
+
+assert(isequal(r1, r2));
+
+% test 3 x n form
+
+X3 = gen_pdm(n);
+n3 = size(X3, 2);
+r3 = trace2x2(X3);
+assert(isequal(size(r3), [1 n3]));
+
+r30 = X3(1,:) + X3(3,:);
+
+
+% compare result
+
+compare('det_gm', r10, r1, 1e-15);
+compare('det_sm', r30, r3, 1e-15);
+
+
+
 
 %% Data generation
 
@@ -156,9 +193,6 @@ dv = X(1,:) .* X(3,:) - X(2,:).^2;
 si = abs(dv) > 1e-3;
 
 X = X(:, si);
-
-
-
 
 
 
