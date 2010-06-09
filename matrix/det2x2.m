@@ -1,4 +1,3 @@
-function R = det2x2(A)
 % Compute the determinant of 2x2 matrices using fast implementation
 %
 %   R = det2x2(A);
@@ -17,27 +16,10 @@ function R = det2x2(A)
 %       The output will be a 1 x n row vector.
 %
 
-% Created by Dahua Lin, on Apr 7, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 7, 2010
+%       - Modified by Dahua Lin, on June 20, 2010
+%           - based on pure C++ mex implementation
 %
-
-%% verify input arguments
-
-if ~(isfloat(A) && ~issparse(A) && isreal(A))
-    error('det2x2:invalidarg', ...
-        'A should be a non-sparse real-valued array.');
-end
-
-[m, n] = size(A);
-
-if ~((m == 2 && mod(n, 2) == 0) || m == 3 || m == 4)
-    error('det2x2:invalidarg', 'The size of A is invalid.');
-end
-
-%% main
-
-if m == 2 || m == 4
-    R = mat2x2_cimp(A, 1);  % for generic matrix
-else
-    R = mat2x2_cimp(A, 2);  % for compact form of symmetric matrix
-end
 

@@ -87,6 +87,44 @@ compare('inv_gm', Z20, Z2, 5e-12);
 compare('inv_sm', Z40, Z4, 5e-12);
 
 
+function test_det() %#ok<DEFNU>
+
+n = 1000;
+
+X1 = gen_gm(n);
+
+% test 4 x n form
+
+r1 = det2x2(X1);
+n1 = size(X1, 2);
+assert(isequal(size(r1), [1 n1]));
+
+r10 = X1(1,:) .* X1(4,:) - X1(2,:) .* X1(3,:);
+
+% test 2 x 2 x n form
+
+X2 = reshape(X1, [2 2 n1]);
+r2 = det2x2(X2);
+assert(isequal(size(r2), [1 n1]));
+
+assert(isequal(r1, r2));
+
+% test 3 x n form
+
+X3 = gen_pdm(n);
+n3 = size(X3, 2);
+r3 = det2x2(X3);
+assert(isequal(size(r3), [1 n3]));
+
+r30 = X3(1,:) .* X3(3,:) - X3(2,:) .* X3(2,:);
+
+
+% compare result
+
+compare('det_gm', r10, r1, 1e-15);
+compare('det_sm', r30, r3, 1e-15);
+
+
 
 %% Data generation
 
