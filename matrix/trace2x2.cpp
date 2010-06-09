@@ -2,7 +2,7 @@
  *
  *  det2x2.cpp
  *
- *  The C++ mex implementation of determinant of 2x2 matrices
+ *  The C++ mex implementation of trace of 2x2 matrices
  *
  *  Created by Dahua Lin, on Jun 8, 2010
  *
@@ -13,7 +13,7 @@
 
 
 template<typename T>
-inline mxArray* do_det2x2(const mxArray *mxA)
+inline mxArray* do_trace2x2(const mxArray *mxA)
 {    
     int n = 0;
     
@@ -25,7 +25,7 @@ inline mxArray* do_det2x2(const mxArray *mxA)
     
         for (int i = 0; i < n; ++i)
         {
-            r[i] = det(A[i]);
+            r[i] = trace(A[i]);
         }
         
         return mxR;
@@ -38,7 +38,7 @@ inline mxArray* do_det2x2(const mxArray *mxA)
         
         for (int i = 0; i < n; ++i)
         {
-            r[i] = det(A[i]);
+            r[i] = trace(A[i]);
         }
         
         return mxR;
@@ -51,14 +51,14 @@ inline mxArray* do_det2x2(const mxArray *mxA)
         
         for (int i = 0; i < n; ++i)
         {
-            r[i] = det(A[i]);
+            r[i] = trace(A[i]);
         }
         
         return mxR;
     }
     else
     {
-        mexErrMsgIdAndTxt("det2x2:invalidarg", "The size of input array is invalid.");
+        mexErrMsgIdAndTxt("trace2x2:invalidarg", "The size of input array is invalid.");
     }
 }
 
@@ -78,26 +78,26 @@ inline mxArray* do_det2x2(const mxArray *mxA)
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     if (nrhs != 1)
-        mexErrMsgIdAndTxt("det2x2:invalidarg", 
-                "The number of input arguments to det2x2 should be 1.");
+        mexErrMsgIdAndTxt("trace2x2:invalidarg", 
+                "The number of input arguments to trace2x2 should be 1.");
     
     const mxArray *mxA = prhs[0];
     
-    general_input_check(mxA, "det2x2:invalidarg");
+    general_input_check(mxA, "trace2x2:invalidarg");
         
     mxArray *mxR = 0;
     
     if (mxIsDouble(mxA))
     {
-        mxR = do_det2x2<double>(mxA);
+        mxR = do_trace2x2<double>(mxA);
     }
     else if (mxIsSingle(mxA))
     {
-        mxR = do_det2x2<float>(mxA);
+        mxR = do_trace2x2<float>(mxA);
     }
     else
     {
-        mexErrMsgIdAndTxt("det2x2:invalidarg", 
+        mexErrMsgIdAndTxt("trace2x2:invalidarg", 
                 "The input array should be of class double or single.");
     }    
     

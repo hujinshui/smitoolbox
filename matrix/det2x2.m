@@ -7,7 +7,6 @@
 %       A can be in either of the following forms:
 %       - 2 x 2 matrix
 %       - 2 x 2 x n array, with each page being a matrix
-%       - 2 x (2 x n) matrix, with all matrices juxtaposed
 %       - 4 x n matrix, each column represents a matrix 
 %         as [a(1,1), a(2,1), a(1,2), a(2,2)].
 %       - 3 x n matrix, each column represents a symmetric matrix
