@@ -11,7 +11,6 @@
 
 #include "smallmat.h"
 
-
 template<typename T>
 inline mxArray* do_sqrtm2x2(const mxArray *mxA)
 {
