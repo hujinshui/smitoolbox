@@ -54,6 +54,16 @@ struct Polar2
     T theta;
 };
 
+template<typename T>
+struct LTMat2x2
+{
+    T v11;
+    T v21;
+    T v22;
+};
+
+
+
 
 // input manipulation
 
@@ -222,15 +232,15 @@ inline void polar_(T v11, T v12, T v22, T& a, T& b, T& theta)
     else
     {
         T y = 2 * v12;
-        T x = v11 - v12;
+        T x = v11 - v22;
         
         T d = std::sqrt(x * x + y * y);
-        T s = v11 + v12;
+        T s = v11 + v22;
         
         a = (s + d) / 2;
         b = (s - d) / 2;   
         
-        theta = std::atan2(y, x);                
+        theta = std::atan2(y, x) / 2;                
     }
 }
 
@@ -249,9 +259,95 @@ inline void polar(const Mat2x2<T>& A, Polar2<T>& R)
 }
 
 
+template<typename T>
+inline void polar2mat(const Polar2<T>& p, SMat2x2<T>& R)
+{
+    T c = std::cos(p.theta);
+    T s = std::sin(p.theta);
+    
+    T c2 = c * c;
+    T s2 = s * s;
+    
+    T a = p.a;
+    T b = p.b;
+    
+    R.v11 = a * c2 + b * s2;
+    R.v12 = (a - b) * c * s;
+    R.v22 = a * s2 + b * c2;    
+}
+
+
+template<typename T>
+inline void polar2mat(const Polar2<T>& p, Mat2x2<T>& R)
+{
+    T c = std::cos(p.theta);
+    T s = std::sin(p.theta);
+    
+    T c2 = c * c;
+    T s2 = s * s;
+    
+    T a = p.a;
+    T b = p.b;
+    
+    R.v11 = a * c2 + b * s2;
+    R.v12 = R.v21 = (a - b) * c * s;
+    R.v22 = a * s2 + b * c2;    
+}
 
 
 
+template<typename T>
+inline void sqrtm(const SMat2x2<T>& A, SMat2x2<T>& R)
+{
+    Polar2<T> p;
+    polar(A, p);
+    p.a = std::sqrt(p.a);
+    p.b = std::sqrt(p.b);
+    polar2mat(p, R);    
+}
+
+template<typename T>
+inline void sqrtm(const Mat2x2<T>& A, Mat2x2<T>& R)
+{
+    Polar2<T> p;
+    polar(A, p);
+    p.a = std::sqrt(p.a);
+    p.b = std::sqrt(p.b);
+    polar2mat(p, R);    
+}
+
+
+template<typename T>
+inline void chol_(T v11, T v21, T v22, T& r11, T& r21, T& r22)
+{
+    if (v11 == 0 && v21 == 0)
+    {
+        r11 = 0;
+        r21 = 0;
+        r22 = std::sqrt(v22);        
+    }
+    else
+    {
+        r11 = std::sqrt(v11);
+        r21 = v21 / r11;
+        r22 = std::sqrt(v22 - r21 * r21);
+    }
+}
+
+
+
+template<typename T>
+inline void chol(const Mat2x2<T>& A, Mat2x2<T>& R)
+{
+    chol_(A.v11, A.v21, A.v22, R.v11, R.v21, R.v22);
+    R.v12 = 0;
+}
+
+template<typename T>
+inline void chol(const SMat2x2<T>& A, LTMat2x2<T>& R)
+{
+    chol_(A.v11, A.v12, A.v22, R.v11, R.v21, R.v22);
+}
 
 
 

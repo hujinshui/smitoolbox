@@ -1,4 +1,3 @@
-function R = sqrtm2x2(A)
 % Matrix square root of 2x2 positive definite matrices using fast 
 % implementation
 %
@@ -19,37 +18,9 @@ function R = sqrtm2x2(A)
 %       The output will be in the same form as the input.
 %
 
-% Created by Dahua Lin, on Apr 7, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 7, 2010
+%       - Modified by Dahua Lin, on June 10, 2010
+%   
 %
-
-%% verify input arguments
-
-if ~(isfloat(A) && ~issparse(A) && isreal(A))
-    error('sqrtm2x2:invalidarg', ...
-        'A should be a non-sparse real-valued array.');
-end
-
-[m, n] = size(A);
-
-if ~((m == 2 && mod(n, 2) == 0) || m == 3 || m == 4)
-    error('sqrtm2x2:invalidarg', 'The size of A is invalid.');
-end
-
-%% main
-
-if m == 2
-    siz0 = size(A);
-    A = reshape(A, 4, []);
-    A = A([1 2 4], :);    
-elseif m == 4
-    A = A([1 2 4], :);
-end
-    
-R = mat2x2_cimp(A, 7);  
-
-if m ~= 3
-    R = R([1 2 2 3], :);
-    if m ~= 4
-        R = reshape(R, siz0);
-    end
-end
