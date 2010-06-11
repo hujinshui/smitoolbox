@@ -3,19 +3,25 @@
 # Last updated: Apr 7, 2010
 #
 
+# for calc
+
 repnum: calc/repnum.cpp
-
 intcount: calc/intcount.cpp
-
 intgroup: calc/intgroup.cpp
-
 valueseg: calc/valueseg.cpp
-
 pieces_cimp: calc/private/pieces_cimp.cpp
 
 
+# for matrix
 
-mat2x2_cimp: matrix/private/mat2x2_cimp.cpp
+inv2x2: matrix/inv2x2.cpp
+det2x2: matrix/det2x2.cpp
+trace2x2: matrix/trace2x2.cpp
+sqrtm2x2: matrix/sqrtm2x2.cpp
+polarm2x2: matrix/polarm2x2.cpp
+chol2x2: matrix/chol2x2.cpp
+
+
     
 pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp
 
