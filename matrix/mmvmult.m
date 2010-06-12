@@ -9,18 +9,26 @@ function Y = mmvmult(A, X)
 %           Y(:,i) = A(:,:,i) * X(:,i).
 %
 
-% Created by Dahua Lin, on Apr 4, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 4, 2010
+%       - Modified by Dahua Lin, on June 11, 2010
+%           - change the error handling.
 %
 
 %% verify input arguments
 
-assert(isfloat(A) && ndims(A) <= 3, 'mmvmult:invalidarg', ...
-    'A should be a numeric array with ndims(A) <= 3');
+if ~(isfloat(A) && ndims(A) <= 3) 
+    error('mmvmult:invalidarg', ...
+        'A should be a numeric array with ndims(A) <= 3');
+end
 
 [p, q, n] = size(A);
 
-assert(isfloat(X) && isequal(size(X), [q n]), 'mmvmult:invalidarg', ...
-    'X should be a numeric matrix of size q x n.');
+if ~(isfloat(X) && isequal(size(X), [q n]))
+    error('mmvmult:invalidarg', ...
+        'X should be a numeric matrix of size q x n.');
+end
 
 %% main
 
