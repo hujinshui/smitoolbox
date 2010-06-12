@@ -11,5 +11,10 @@ function v = lndet(C)
 %       avoid the issue of overflow or underflow.
 %
 
+%  History
+%  -------
+%       - Created by Dahua Lin, on June 11, 2009
+%
+
 L = chol(C);
 v = 2 * sum(log(diag(L)));
