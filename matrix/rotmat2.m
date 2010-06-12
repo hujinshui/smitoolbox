@@ -7,7 +7,9 @@ function R = rotmat2(t)
 %       R(:,;,i) corresponding to t(i).
 %
 
-% Created by Dahua Lin, on Apr 7, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 7, 2010
 %
 
 %% verify input arguments
