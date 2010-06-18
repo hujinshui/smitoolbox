@@ -32,6 +32,8 @@ test_combine(classname, ds, ns);
 
 test_join(classname, ds, ns);
 
+test_inv(classname, ds, ns);
+
 test_character(classname, ds, ns);
 
 test_quad(classname, ds, ns);
@@ -223,6 +225,32 @@ for d = ds
 end
 
 
+function test_inv(classname, ds, ns)
+% Test the matrix inverse
+
+disp('Test matrix inverse ...');
+
+for d = ds
+    for n = ns
+        fprintf('\tfor d = %d, n= %d\n', d, n);
+        
+        A = randpdmat(classname, d, n);
+        B = inv(A);
+        
+        assert(isa(B, classname) && B.d == d && B.n == n);
+        
+        IAB = A * B; %#ok<MINV>
+        IBA = B * A; %#ok<MINV>
+        
+        I = repmat(eye(d), [1 1 n]);
+        
+        checkdev('inv (I - AB)', fullform(IAB), I, 1e-12);
+        checkdev('inv (I - BA)', fullform(IBA), I, 1e-12);        
+    end
+end
+
+
+
 
 function test_join(classname, ds, ns)
 % Test matrix object joining
@@ -300,14 +328,15 @@ for d = ds
         
         A = randpdmat(classname, d, n);        
         X = rand(d, m);
+        Y = rand(d, m);
         
-        Q = quad(A, X);
+        Q = quad(A, X, Y);
         assert(isnumeric(Q) && isequal(size(Q), [n, m]));
         
         Q0 = zeros(n, m);
         for i = 1 : n
             cA = A.getm(i);            
-            Q0(i, :) = sum(X .* (cA * X), 1);            
+            Q0(i, :) = sum(X .* (cA * Y), 1);            
         end        
         
         checkdev('quad', Q, Q0, 1e-13);        

@@ -21,6 +21,8 @@ sqrtm2x2: matrix/sqrtm2x2.cpp
 polarm2x2: matrix/polarm2x2.cpp
 chol2x2: matrix/chol2x2.cpp
 
+mtimes_sm2v2: matrix/mtimes_sm2v2.cpp
+
 
     
 pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp

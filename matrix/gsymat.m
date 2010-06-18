@@ -353,6 +353,29 @@ classdef gsymat
         end
         
         
+        %% Matrix Inverse
+        
+        function B = inv(A)
+            % Compute the matrix inverse
+            %
+            %   B = inv(A)
+            %
+            
+            n_ = A.n;
+            if n_ == 1
+                B = gsymat(inv(A.M));
+            else
+                d_ = A.d;
+                AM = A.M;
+                BM = zeros(d_, d_, n_, class(AM));
+                for i = 1 : n_
+                    BM(:,:,i) = inv(AM(:,:,i));
+                end
+                B = gsymat(BM);
+            end
+        end
+        
+        
         
         %% Characteristic numbers
         
@@ -399,14 +422,14 @@ classdef gsymat
         
         %% Quadratic form
                         
-        function Q = quad(A, X)
+        function Q = quad(A, X, Y)
             % Compute quadratic terms 
             %
-            %   Q = A.quad(V);
+            %   Q = A.quad(X, Y);
             %
-            %   It returns an n x nv matrix Q, where Q(k,i) is the
-            %   x_i' * A_k * x_i, where A_k is the k-th matrix in A,
-            %   and x_i is X(:,i).
+            %   It returns an n x nx matrix Q, where Q(k,i) is the
+            %   x_i' * A_k * y_i, where A_k is the k-th matrix in A,
+            %   and x_i is X(:,i), y_i is Y(:,i).
             %
             
             n_ = A.n;
@@ -415,7 +438,7 @@ classdef gsymat
             
             Q = zeros(n_, m, class(AM(1) * X(1)));
             for i = 1 : n_
-                Q(i, :) = sum(X .* (AM(:,:,i) * X), 1);
+                Q(i, :) = sum(X .* (AM(:,:,i) * Y), 1);
             end
         end                                       
         
