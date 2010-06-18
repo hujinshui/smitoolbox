@@ -322,6 +322,19 @@ classdef udmat
         end
         
         
+        %% Matrix Inverse
+        
+        function B = inv(A)
+            % Compute the matrix inverse
+            %
+            %   B = inv(A)
+            %
+            
+            B = udmat(A.d, 1 ./ A.dv);
+        end
+        
+        
+        
         
         %% Characteristic numbers
         
@@ -348,18 +361,18 @@ classdef udmat
         
         %% Quadratic form
                         
-        function Q = quad(A, X)
+        function Q = quad(A, X, Y)
             % Compute quadratic terms 
             %
-            %   Q = A.quad(V);
+            %   Q = A.quad(X, Y);
             %
-            %   It returns an n x nv matrix Q, where Q(k,i) is the
-            %   x_i' * A_k * x_i, where A_k is the k-th matrix in A,
-            %   and x_i is X(:,i).
+            %   It returns an n x nx matrix Q, where Q(k,i) is the
+            %   x_i' * A_k * y_i, where A_k is the k-th matrix in A,
+            %   and x_i is X(:,i), y_i is Y(:,i).
             %
             
             n_ = A.n;
-            Q = sum(X .^ 2, 1);
+            Q = sum(X .* Y, 1);
             if n_ == 1
                 Q = Q * A.dv;
             else

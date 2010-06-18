@@ -354,6 +354,26 @@ inline void chol(const SMat2x2<T>& A, LTMat2x2<T>& R)
 }
 
 
+// matrix and vector multiplication
+
+template<typename T>
+inline void mtimes(const SMat2x2<T>& A, const SMat2x2<T>& B, SMat2x2<T>& C)
+{
+    C.v11 = A.v11 * B.v11 + A.v12 * B.v12;
+    C.v12 = A.v11 * B.v12 + A.v12 * B.v22;
+    C.v22 = A.v12 * B.v12 + A.v22 * B.v22;        
+}
+
+
+template<typename T>
+inline void mtimes(const SMat2x2<T>& A, const Vec2<T>& X, Vec2<T>& Y)
+{
+    Y.v1 = A.v11 * X.v1 + A.v12 * X.v2;
+    Y.v2 = A.v12 * X.v1 + A.v22 * X.v2;
+}
+
+
+
 
 
 
