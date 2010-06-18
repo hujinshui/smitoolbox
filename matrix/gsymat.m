@@ -1,5 +1,5 @@
-classdef dmat
-    % The class for representing a diagonal matrix
+classdef gsymat
+    % The class for representing a generic symmetric matrix
     %
     
     % History
@@ -11,29 +11,30 @@ classdef dmat
         d;      % the dimension (the matrix is of size d x d)
         n;      % the number of matrices contained in the object
         
-        dv;     % the diagonal value (d x n)
+        M;      % the matrices (d x d x n)
     end
     
     methods
         
         %% constructor
         
-        function A = dmat(dv)
-            % Construct an object of diagonal matrices
+        function A = gsymat(M)
+            % Construct an object of symmetric matrices
             %
-            %   A = dmat(dv);
-            %       construct a dmat object containing d x d diagonal 
-            %       matrices, where the diagonal values of the i-th 
-            %       diagonal matrix is given by dv(i), and the number
-            %       of diagonal matrices is size(dv, 2).                        
+            %   A = gsymat(dv);
+            %       construct a gsymat object containing d x d symmetirc
+            %       matrices. In the input, M should be an array of
+            %       size d x d x n, with M(:,:,i) being the i-th
+            %       symmetric matrix.
             %
             
-            if isfloat(dv) && ndims(dv) == 2                                    
-                [A.d, A.n] = size(dv);
-                A.dv = dv;
+            if isfloat(M) && ndims(M) <= 3 && size(M,1) == size(M,2)
+                A.d = size(M, 1);
+                A.n = size(M, 3);
+                A.M = M;
             else
-                error('dmat:invalidarg', ...
-                    'dv should be a numeric matrix.');
+                error('gsymat:invalidarg', ...
+                    'M should be a numeric array with ndims(M) <= 3.');
             end
         end
         
@@ -46,7 +47,7 @@ classdef dmat
             %   C = A.take(i);
             %
             
-            C = dmat(A.dv(:, i));
+            C = gsymat(A.M(:,:,i));
         end
         
         
@@ -56,10 +57,7 @@ classdef dmat
             %   C = A.getm(i);
             %
             
-            d_ = A.d;
-            dv_ = A.dv;
-            C = zeros(d_, class(dv_));
-            C(1 + (0:d_-1) * (d_+1)) = dv_(:,i);            
+            C = A.M(:,:,i);         
         end
         
         
@@ -69,19 +67,7 @@ classdef dmat
             %   M = fullform(A);
             %
             
-            d_ = A.d;                        
-            n_ = A.n;            
-            
-            if n_ == 1                            
-                M = zeros(d_, d_, class(A.dv));
-                M(1 + (0:d_-1) * (d_+1)) = A.dv;
-            elseif d_ == 1
-                M = reshape(A.dv, [1, 1, n_]);
-            else
-                M = zeros(d_ * d_, n_, class(A.dv));
-                M(1 + (0:d_ - 1) * (d_ + 1), :) = A.dv;
-                M = reshape(M, [d_, d_, n_]);
-            end
+            M = A.M;
         end
         
         
@@ -95,9 +81,9 @@ classdef dmat
             
             if A.d == B.d
                 if A.n == B.n
-                    C = dmat(A.dv + B.dv); 
+                    C = gsymat(A.M + B.M); 
                 else
-                    C = dmat(bsxfun(@plus, A.dv, B.dv));
+                    C = gsymat(bsxfun(@plus, A.M, B.M));
                 end
             else
                 error('MATLAB:dimagree', ...
@@ -114,9 +100,9 @@ classdef dmat
             
             if A.d == B.d
                 if A.n == B.n
-                    C = dmat(A.dv - B.dv);
+                    C = gsymat(A.M - B.M);
                 else
-                    C = dmat(bsxfun(@minus, A.dv, B.dv));
+                    C = gsymat(bsxfun(@minus, A.M, B.M));
                 end
             else
                 error('MATLAB:dimagree', ...
@@ -143,11 +129,12 @@ classdef dmat
                 X = A;
             end
             
-            dv_ = X.dv;
-            if isscalar(k) || X.d == 1
-                C = dmat(k .* dv_);
-            else
-                C = dmat(bsxfun(@times, k, dv_));
+            M_ = X.M;
+            if isscalar(k)
+                C = gsymat(k .* M_);
+            else                
+                k = reshape(k, [1, 1, length(k)]);
+                C = gsymat(bsxfun(@times, k, X.M));
             end
         end                
         
@@ -174,17 +161,13 @@ classdef dmat
                 
                 if n_ == 1
                     if size(A, 2) == d_
-                        if d_ == 1
-                            C = A * B.dv;                            
-                        else
-                            C = bsxfun(@times, A, B.dv.');
-                        end
+                        C = A * B.M;
                     else
                         error('MATLAB:innerdim', ...
                             'Inner matrix dimension must agree.');
                     end
                 else
-                    error('dmat:singlemat', ...
+                    error('gsymat:singlemat', ...
                         'A single-matrix object is required.');
                 end
             elseif isnumeric(B)
@@ -193,32 +176,39 @@ classdef dmat
                 
                 if n_ == 1
                     if size(B, 1) == d_
-                        if d_ == 1
-                            C = A.dv * B;
+                        C = A.M * B;
+                    else
+                        error('MATLAB:innerdim', ...
+                            'Inner matrix dimension must agree.');
+                    end
+                else
+                    error('gsymat:singlemat', ...
+                        'A single-matrix object is required.');
+                end
+            else
+                n_ = A.n;
+                d_ = A.d;
+                if n_ == B.n
+                    if d_ == B.d
+                        if n_ == 1
+                            C = gsymat(A.M * B.M);
                         else
-                            C = bsxfun(@times, A.dv, B);
+                            AM = A.M;
+                            BM = B.M;
+                            CM = zeros(d_, d_, n_, class(AM(1) * BM(1)));
+                            for i = 1 : n_
+                                CM(:,:,i) = AM(:,:,i) * BM(:,:,i);
+                            end
+                            C = gsymat(CM);
                         end
                     else
                         error('MATLAB:innerdim', ...
                             'Inner matrix dimension must agree.');
                     end
                 else
-                    error('dmat:singlemat', ...
-                        'A single-matrix object is required.');
-                end
-            else
-                d_ = A.d;
-                if A.n == B.n
-                    if d_ == B.d
-                        C = dmat(A.dv .* B.dv);
-                    else
-                        error('MATLAB:innerdim', ...
-                            'Inner matrix dimension must agree.');
-                    end
-                else
-                    error('dmat:numagree', ...
+                    error('gsymat:numagree', ...
                         'A and B should have the same number of matrices.');
-                end                               
+                end                                 
             end                
         end
         
@@ -237,16 +227,16 @@ classdef dmat
             if A.n == 1
                 if size(B, 1) == d_
                     if d_ == 1
-                        C = B * (1 / A.dv);
+                        C = B * (1 / A.M);
                     else
-                        C = bsxfun(@times, B, 1 ./ A.dv);
+                        C = A.M \ B;
                     end
                 else
                     error('MATLAB:dimagree', ...
                         'Matrix dimensions must agree.');
                 end
             else
-                error('dmat:singlemat', ...
+                error('gsymat:singlemat', ...
                     'A single-matrix object is required.');
             end
         end
@@ -261,7 +251,21 @@ classdef dmat
             %   a d x n matrix, with Y(:,i) = A_i * X(:,i).
             %
             
-            Y = X .* A.dv;
+            n_ = A.n;
+            if size(X, 2) == n_
+                if n_ == 1
+                    Y = A.M * X;
+                else
+                    AM = A.M;
+                    Y = zeros(A.d, n_, class(AM(1) * X(1)));
+                    for i = 1 : n_
+                        Y(:,i) = AM(:,:,i) * X(:,i);
+                    end
+                end
+            else
+                error('gsymat:numagree', ...
+                    'The numbers of matrices/vectors must agree.');
+            end
         end
         
         
@@ -274,7 +278,21 @@ classdef dmat
             %   a d x n matrix, with Y(:,i) = A_i \ X(:,i).
             %
             
-            Y = X ./ A.dv;
+            n_ = A.n;
+            if size(X, 2) == n_
+                if n_ == 1
+                    Y = A.M \ X;
+                else
+                    AM = A.M;
+                    Y = zeros(A.d, n_, class(AM(1) * X(1)));
+                    for i = 1 : n_
+                        Y(:,i) = AM(:,:,i) \ X(:,i);
+                    end
+                end
+            else
+                error('gsymat:numagree', ...
+                    'The numbers of matrices/vectors must agree.');
+            end
         end                                        
         
         
@@ -288,9 +306,12 @@ classdef dmat
             %
             
             if nargin < 2 || isempty(w)
-                C = dmat(sum(A.dv, 2));
+                C = gsymat(sum(A.M, 3));
             else
-                C = dmat(A.dv * w');
+                d_ = A.d;
+                n_ = A.n;
+                AM = reshape(A.M, d_^2, n_);
+                C = gsymat(reshape(AM * w', d_, d_));
             end
         end
         
@@ -312,22 +333,22 @@ classdef dmat
                 d_ = A.d;
                 for i = 1 : K
                     if varargin{i}.d ~= d_
-                        error('dmat:invalidarg', ...
+                        error('gsymat:invalidarg', ...
                             'All matrices should have the same dimension.');
                     end
                     ns(i) = varargin{i}.n;
                 end
                 tn = A.n + sum(ns);
                 
-                dvs = zeros(d_, tn);
-                dvs(:, 1:A.n) = A.dv;
+                CM = zeros(d_, d_, tn);
+                CM(:, :, 1:A.n) = A.M;
                 p = A.n;
                 for i = 1 : K
-                    dvs(:, p+1 : p+ns(i)) = varargin{i}.dv;
+                    CM(:, :, p+1 : p+ns(i)) = varargin{i}.M;
                     p = p + ns(i);
                 end
                 
-                C = dmat(dvs);
+                C = gsymat(CM);
             end
         end
         
@@ -343,9 +364,14 @@ classdef dmat
             %
             
             if A.d == 1
-                v = log(A.dv);
+                v = log(reshape(A.M, 1, A.n));
             else
-                v = sum(log(A.dv), 1);
+                n_ = A.n;
+                AM = A.M;
+                v = zeros(1, n_, class(AM));
+                for i = 1 : n_
+                    v(i) = lndet(AM(:,:,i));
+                end
             end
         end
         
@@ -357,9 +383,16 @@ classdef dmat
             %
             
             if A.d == 1
-                v = A.dv;
+                v = reshape(A.M, 1, A.n);
             else
-                v = sum(A.dv, 1);
+                n_ = A.n;
+                d_ = A.d;
+                if n_ == 1
+                    v = sum(A.M(1 + (d_+1) * (0:d_-1)));
+                else
+                    AM = reshape(A.M, d_ * d_, n_);
+                    v = sum(AM(1 + (d_+1) * (0:d_-1), :), 1);
+                end
             end
         end
         
@@ -376,7 +409,14 @@ classdef dmat
             %   and x_i is X(:,i).
             %
             
-            Q = A.dv' * (X.^2);       
+            n_ = A.n;
+            m = size(X, 2);
+            AM = A.M;
+            
+            Q = zeros(n_, m, class(AM(1) * X(1)));
+            for i = 1 : n_
+                Q(i, :) = sum(X .* (AM(:,:,i) * X), 1);
+            end
         end                                       
         
     end
@@ -388,10 +428,19 @@ classdef dmat
         function A = randpdm(d, n)
             % Create an object with random positive definite matrix
             %
-            %   A = dmat.random(d, n);
+            %   A = gsymat.random(d, n);
             %
             
-            A = dmat(rand(d, n));                        
+            CM = zeros(d, d, n);
+            for i = 1 : n
+                R = orth(randn(d, d));
+                dv = rand(d, 1);
+                Mi = R' * bsxfun(@times, dv, R);
+                Mi = 0.5 * (Mi + Mi');
+                CM(:,:,i) = Mi;
+            end
+            
+            A = gsymat(CM);                        
         end
         
         

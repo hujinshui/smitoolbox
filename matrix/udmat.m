@@ -182,12 +182,17 @@ classdef udmat
                 end
             else
                 d_ = A.d;
-                if d_ == B.d
-                    C = udmat(d_, A.dv .* B.dv);
+                if A.n == B.n
+                    if d_ == B.d
+                        C = udmat(d_, A.dv .* B.dv);
+                    else
+                        error('MATLAB:innerdim', ...
+                            'Inner matrix dimension must agree.');
+                    end
                 else
-                    error('MATLAB:innerdim', ...
-                        'Inner matrix dimension must agree.');
-                end                                 
+                    error('udmat:numagree', ...
+                        'A and B should have the same number of matrices.');
+                end
             end                
         end
         
