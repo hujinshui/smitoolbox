@@ -38,73 +38,10 @@ classdef udmat
             A.dv = dv;
             A.n = numel(dv);
         end
+        
+        
+        %% Matrix retrieval
        
-        %% operator overloading
-        
-        function C = plus(A, B)
-            % compute the sum of two matrices
-            %
-            %   C = A + B;
-            %
-            
-            if (A.d ~= B.d)
-                error('udmat:invalidarg', ...
-                    'A and B should have the same dimension.');
-            end            
-            C = udmat(A.d, A.dv + B.dv);
-        end
-        
-        
-        function C = minus(A, B)
-            % Subtract B from A
-            %
-            %   C = A - B;
-            %
-            
-            if (A.d ~= B.d)
-                error('udmat:invalidarg', ...
-                    'A and B should have the same dimension.');
-            end            
-            C = udmat(A.d, A.dv - B.dv);
-        end
-        
-        
-        function C = mtimes(A, B)
-            % Compute scalar multiplication or matrix multiplication
-            %
-            %   C = alpha * A;
-            %   C = A * alpha;
-            %   C = A * B;
-            %
-            
-            if isnumeric(A)  % scalar mult. with scalar on the left                
-                C = udmat(B.d, A .* B.dv);                                
-            elseif isnumeric(B)  % scalar mult. with scalar on the right
-                C = udmat(A.d, A.dv .* B);
-            else  % matrix mult.
-                if (A.d ~= B.d)
-                    error('udmat:invalidarg', ...
-                        'A and B should have the same dimension.');
-                end                
-                C = udmat(A.d, A.dv .* B.dv);
-            end
-        end
-        
-        
-        function C = mldivide(A, B)
-            % Compute left matrix division: inv(A) * B
-            %
-            %   C = A \ B
-            %
-            
-            if (A.d ~= B.d)
-                error('udmat:invalidarg', ...
-                    'A and B should have the same dimension.');
-            end
-            C = udmat(A.d, B.dv ./ A.dv);            
-        end
-        
-        
         function C = take(A, i)
             % Take a subset of matrix as object
             %
@@ -127,6 +64,207 @@ classdef udmat
         end
         
         
+        function M = fullform(A)
+            % Get the full form of the array of all matrices
+            %
+            %   M = fullform(A);
+            %
+            
+            d_ = A.d;                        
+            n_ = A.n;
+            
+            if n_ == 1                            
+                M = zeros(d_, d_, class(A.dv));
+                M(1 + (0:d_-1) * (d_+1)) = A.dv;
+            elseif d_ == 1
+                M = reshape(A.dv, [1, 1, n_]);
+            else
+                M = zeros(d_ * d_, n_, class(A.dv));
+                M(1 + (0:d_ - 1) * (d_ + 1), :) = A.dv(ones(d_, 1), :);
+                M = reshape(M, [d_, d_, n_]);
+            end
+        end
+        
+        
+        %% matrix calculation
+        
+        function C = plus(A, B)
+            % compute the sum of two matrices
+            %
+            %   C = A + B;
+            %
+            
+            if A.d == B.d
+                C = udmat(A.d, A.dv + B.dv);                 
+            else
+                error('MATLAB:dimagree', ...
+                    'Matrix dimensions must agree.');
+            end                           
+        end
+        
+        
+        function C = minus(A, B)
+            % Subtract B from A
+            %
+            %   C = A - B;
+            %
+            
+            if A.d == B.d
+                C = udmat(A.d, A.dv - B.dv);                 
+            else
+                error('MATLAB:dimagree', ...
+                    'Matrix dimensions must agree.');
+            end
+        end
+                
+        
+        function C = times(A, B)
+            % Sclalar multiplication
+            %
+            %   C = k .* A;
+            %   C = A .* k;
+            %
+            %   The output is an object C with C_i = k(i) * A_i.
+            %   k can be a scalar, or a vector with n elements
+            %
+            
+            if isnumeric(A)
+                k = A;
+                X = B;
+            else
+                k = B;
+                X = A;
+            end
+            
+            C = udmat(X.d, k .* X.dv);                            
+        end                
+        
+        
+        function C = mtimes(A, B)
+            % Compute matrix multiplication
+            %
+            %   C = A * B;
+            %
+            %   If both A and B are objects, then they should have
+            %   the same dimension d and same number of matrices n.
+            %   In this case, the output C is also an object with
+            %   the same d and n, with C_i = A_i * B_i.
+            %
+            %   If either of A or B is a numeric matrix, then the
+            %   other one should be an object with n == 1. In this
+            %   case, matrix multiplication in normal sense is 
+            %   performed, and the output is also a numeric matrix.
+            %                                    
+            
+            if isnumeric(A)
+                if B.n == 1
+                    if size(A, 2) == B.d
+                        C = B.dv * A;
+                    else
+                        error('MATLAB:innerdim', ...
+                            'Inner matrix dimension must agree.');
+                    end
+                else
+                    error('udmat:singlemat', ...
+                        'A single-matrix object is required.');
+                end
+            elseif isnumeric(B)
+                if A.n == 1
+                    if size(B, 1) == A.d
+                        C = A.dv * B;
+                    else
+                        error('MATLAB:innerdim', ...
+                            'Inner matrix dimension must agree.');
+                    end
+                else
+                    error('udmat:singlemat', ...
+                        'A single-matrix object is required.');
+                end
+            else
+                d_ = A.d;
+                if d_ == B.d
+                    C = udmat(d_, A.dv .* B.dv);
+                else
+                    error('MATLAB:innerdim', ...
+                        'Inner matrix dimension must agree.');
+                end                                 
+            end                
+        end
+        
+        
+        function C = mldivide(A, B)
+            % Compute left matrix division: inv(A) * B
+            %
+            %   C = A \ B
+            %
+            %   Here, A should be a single-matrix object,
+            %   and B should be a numeric matrix with size(B,1) == A.d.
+            %
+            
+            if A.n == 1
+                if A.d == size(B, 1)
+                    C = B * (1 / A.dv);
+                else
+                    error('MATLAB:dimagree', ...
+                        'Matrix dimensions must agree.');
+                end
+            else
+                error('udmat:singlemat', ...
+                    'A single-matrix object is required.');
+            end
+        end
+        
+        
+        function Y = cmv(A, X)
+            % Compute matrix-vector with corresponding vectors
+            %
+            %   Y = cmv(A, X);
+            %
+            %   Here, X should be a d x n matrix, then Y is also
+            %   a d x n matrix, with Y(:,i) = A_i * X(:,i).
+            %
+            
+            n_ = A.n;
+            if n_ == size(X, 2)
+                if A.d == size(X, 1)
+                    Y = bsxfun(@times, A.dv, X);
+                else
+                    error('MATLAB:dimagree', ...
+                        'Matrix dimensions must agree.');
+                end
+            else
+                error('udmat:numagree', ...
+                    'The numbers of matrices/vectors must agree.');
+            end
+        end
+        
+        
+        function Y = cdv(A, X)
+            % Compute left-division with corresponding vectors
+            %
+            %   Y = cdv(A, X);
+            %
+            %   Here, X should be a d x n matrix, then Y is also
+            %   a d x n matrix, with Y(:,i) = A_i \ X(:,i).
+            %
+            
+            n_ = A.n;
+            if n_ == size(X, 2)
+                if A.d == size(X, 1)
+                    Y = bsxfun(@times, 1 ./ A.dv, X);
+                else
+                    error('MATLAB:dimagree', ...
+                        'Matrix dimensions must agree.');
+                end
+            else
+                error('udmat:numagree', ...
+                    'The numbers of matrices/vectors must agree.');
+            end
+        end                                        
+        
+        
+        %% Combine and join
+        
         function C = combine(A, w)
             % Compute the weighted combination of contained matrices
             %
@@ -142,8 +280,106 @@ classdef udmat
         end
         
         
+        function C = join(A, varargin)
+            % Join multiple objects together
+            %
+            %   C = join(A1, A2, ...)
+            %
+            %   A1, A2, ... should be objects with the same dimension.
+            %   C is an object that contains all matrices in A1, A2, ...
+            %
+            
+            if isempty(varargin)
+                C = A;
+            else
+                K = numel(varargin);
+                ns = zeros(1, K);
+                d_ = A.d;
+                for i = 1 : K
+                    if varargin{i}.d ~= d_
+                        error('udmat:invalidarg', ...
+                            'All matrices should have the same dimension.');
+                    end
+                    ns(i) = varargin{i}.n;
+                end
+                tn = A.n + sum(ns);
+                
+                dvs = zeros(1, tn);
+                dvs(1:A.n) = A.dv;
+                p = A.n;
+                for i = 1 : K
+                    dvs(p+1 : p+ns(i)) = varargin{i}.dv;
+                    p = p + ns(i);
+                end
+                
+                C = udmat(d_, dvs);
+            end
+        end
+        
+        
+        
+        %% Characteristic numbers
+        
+        
+        function v = lndet(A)
+            % Compute the logarithm of determinant
+            %
+            %   v = lndet(A);
+            %
+            
+            v = log(A.dv) * A.d;
+        end
+        
+        
+        function v = trace(A)
+            % Compute the trace
+            %
+            %   v = trace(A);
+            %
+            
+            v = A.dv * A.d;
+        end
+        
+        
+        %% Quadratic form
+                        
+        function Q = quad(A, X)
+            % Compute quadratic terms 
+            %
+            %   Q = A.quad(V);
+            %
+            %   It returns an n x nv matrix Q, where Q(k,i) is the
+            %   x_i' * A_k * x_i, where A_k is the k-th matrix in A,
+            %   and x_i is X(:,i).
+            %
+            
+            n_ = A.n;
+            Q = sum(X .^ 2, 1);
+            if n_ == 1
+                Q = Q * A.dv;
+            else
+                Q = bsxfun(@times, Q, A.dv.');
+            end            
+        end                                       
+        
+    end
+    
+    
+    
+    methods(Static)
+        
+        function A = randpdm(d, n)
+            % Create an object with random positive definite matrix
+            %
+            %   A = udmat.random(d, n);
+            %
+            
+            A = udmat(d, rand(1, n));                        
+        end
+        
         
     end
     
     
 end
+
