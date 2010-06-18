@@ -1,41 +1,39 @@
-classdef udmat
-    % The class for representing a uniform diagonal matrix (i.e. dv * I)
+classdef dmat
+    % The class for representing a diagonal matrix
     %
     
     % History
     % -------
-    %   - Created by Dahua Lin, on June 11, 2010
+    %   - Created by Dahua Lin, on June 18, 2010
     %
     
     properties(GetAccess='public', SetAccess='private')       
         d;      % the dimension (the matrix is of size d x d)
         n;      % the number of matrices contained in the object
         
-        dv;     % the diagonal value (1 x n)
+        dv;     % the diagonal value (d x n)
     end
     
     methods
         
         %% constructor
         
-        function A = udmat(d, dv)
-            % Construct an object of uniform diagonal matrices
+        function A = dmat(dv)
+            % Construct an object of diagonal matrices
             %
-            %   A = udmat(d, dv);
-            %       construct a udmat object containing d x d
-            %       uniformly diagonal matrices, where the
-            %       diagonal value of the i-th diagonal matrix
-            %       is given by dv(i). 
-            %
-            %       dv should be an 1 x n vector.
+            %   A = dmat(dv);
+            %       construct a dmat object containing d x d diagonal 
+            %       matrices, where the diagonal values of the i-th 
+            %       diagonal matrix is given by dv(i), and the number
+            %       of diagonal matrices is size(dv, 2).                        
             %
             
-            if isfloat(dv) && ndims(dv) == 2 && size(dv,1) == 1            
-                A.d = d;
-                A.n = size(dv, 2);
+            if isfloat(dv) && ndims(dv) == 2                                    
+                [A.d, A.n] = size(dv);
                 A.dv = dv;
             else
-                error('udmat:invalidarg', 'dv should be a row vector.');
+                error('dmat:invalidarg', ...
+                    'dv should be a numeric matrix.');
             end
         end
         
@@ -48,7 +46,7 @@ classdef udmat
             %   C = A.take(i);
             %
             
-            C = udmat(A.d, A.dv(i));
+            C = dmat(A.dv(:, i));
         end
         
         
@@ -58,9 +56,10 @@ classdef udmat
             %   C = A.getm(i);
             %
             
-            dim = A.d;
-            C = zeros(dim, class(A.dv));
-            C(1 + (0:dim-1) * (dim+1)) = A.dv(i);            
+            d_ = A.d;
+            dv_ = A.dv;
+            C = zeros(d_, class(dv_));
+            C(1 + (0:d_-1) * (d_+1)) = dv_(:,i);            
         end
         
         
@@ -71,7 +70,7 @@ classdef udmat
             %
             
             d_ = A.d;                        
-            n_ = A.n;
+            n_ = A.n;            
             
             if n_ == 1                            
                 M = zeros(d_, d_, class(A.dv));
@@ -80,7 +79,7 @@ classdef udmat
                 M = reshape(A.dv, [1, 1, n_]);
             else
                 M = zeros(d_ * d_, n_, class(A.dv));
-                M(1 + (0:d_ - 1) * (d_ + 1), :) = A.dv(ones(d_, 1), :);
+                M(1 + (0:d_ - 1) * (d_ + 1), :) = A.dv;
                 M = reshape(M, [d_, d_, n_]);
             end
         end
@@ -95,7 +94,11 @@ classdef udmat
             %
             
             if A.d == B.d
-                C = udmat(A.d, A.dv + B.dv);                 
+                if A.n == B.n
+                    C = dmat(A.dv + B.dv); 
+                else
+                    C = dmat(bsxfun(@plus, A.dv, B.dv));
+                end
             else
                 error('MATLAB:dimagree', ...
                     'Matrix dimensions must agree.');
@@ -110,7 +113,11 @@ classdef udmat
             %
             
             if A.d == B.d
-                C = udmat(A.d, A.dv - B.dv);                 
+                if A.n == B.n
+                    C = dmat(A.dv - B.dv);
+                else
+                    C = dmat(bsxfun(@minus, A.dv, B.dv));
+                end
             else
                 error('MATLAB:dimagree', ...
                     'Matrix dimensions must agree.');
@@ -136,7 +143,12 @@ classdef udmat
                 X = A;
             end
             
-            C = udmat(X.d, k .* X.dv);                            
+            dv_ = X.dv;
+            if isscalar(k) || X.d == 1
+                C = dmat(k .* dv_);
+            else
+                C = dmat(bsxfun(@times, k, dv_));
+            end
         end                
         
         
@@ -157,33 +169,51 @@ classdef udmat
             %                                    
             
             if isnumeric(A)
-                if B.n == 1
-                    if size(A, 2) == B.d
-                        C = B.dv * A;
+                n_ = B.n;
+                d_ = B.d;
+                
+                if n_ == 1
+                    if size(A, 2) == d_
+                        if d_ == 1
+                            C = A * B.dv;                            
+                        else
+                            C = bsxfun(@times, A, B.dv.');
+                        end
                     else
                         error('MATLAB:innerdim', ...
                             'Inner matrix dimension must agree.');
                     end
                 else
-                    error('udmat:singlemat', ...
+                    error('dmat:singlemat', ...
                         'A single-matrix object is required.');
                 end
             elseif isnumeric(B)
-                if A.n == 1
-                    if size(B, 1) == A.d
-                        C = A.dv * B;
+                n_ = A.n;
+                d_ = A.d;
+                
+                if n_ == 1
+                    if size(B, 1) == d_
+                        if d_ == 1
+                            C = A.dv * B;
+                        else
+                            C = bsxfun(@times, A.dv, B);
+                        end
                     else
                         error('MATLAB:innerdim', ...
                             'Inner matrix dimension must agree.');
                     end
                 else
-                    error('udmat:singlemat', ...
+                    error('dmat:singlemat', ...
                         'A single-matrix object is required.');
                 end
             else
                 d_ = A.d;
                 if d_ == B.d
-                    C = udmat(d_, A.dv .* B.dv);
+                    if A.n == B.n
+                        C = dmat(A.dv .* B.dv);
+                    else
+                        C = dmat(bsxfun(@times, A.dv, B.dv));
+                    end
                 else
                     error('MATLAB:innerdim', ...
                         'Inner matrix dimension must agree.');
@@ -201,15 +231,21 @@ classdef udmat
             %   and B should be a numeric matrix with size(B,1) == A.d.
             %
             
+            d_ = A.d;
+            
             if A.n == 1
-                if A.d == size(B, 1)
-                    C = B * (1 / A.dv);
+                if size(B, 1) == d_
+                    if d_ == 1
+                        C = B * (1 / A.dv);
+                    else
+                        C = bsxfun(@times, B, 1 ./ A.dv);
+                    end
                 else
                     error('MATLAB:dimagree', ...
                         'Matrix dimensions must agree.');
                 end
             else
-                error('udmat:singlemat', ...
+                error('dmat:singlemat', ...
                     'A single-matrix object is required.');
             end
         end
@@ -224,18 +260,7 @@ classdef udmat
             %   a d x n matrix, with Y(:,i) = A_i * X(:,i).
             %
             
-            n_ = A.n;
-            if n_ == size(X, 2)
-                if A.d == size(X, 1)
-                    Y = bsxfun(@times, A.dv, X);
-                else
-                    error('MATLAB:dimagree', ...
-                        'Matrix dimensions must agree.');
-                end
-            else
-                error('udmat:numagree', ...
-                    'The numbers of matrices/vectors must agree.');
-            end
+            Y = X .* A.dv;
         end
         
         
@@ -248,18 +273,7 @@ classdef udmat
             %   a d x n matrix, with Y(:,i) = A_i \ X(:,i).
             %
             
-            n_ = A.n;
-            if n_ == size(X, 2)
-                if A.d == size(X, 1)
-                    Y = bsxfun(@times, 1 ./ A.dv, X);
-                else
-                    error('MATLAB:dimagree', ...
-                        'Matrix dimensions must agree.');
-                end
-            else
-                error('udmat:numagree', ...
-                    'The numbers of matrices/vectors must agree.');
-            end
+            Y = X ./ A.dv;
         end                                        
         
         
@@ -273,9 +287,9 @@ classdef udmat
             %
             
             if nargin < 2 || isempty(w)
-                C = udmat(A.d, sum(A.dv));
+                C = dmat(sum(A.dv, 2));
             else
-                C = udmat(A.d, A.dv * w');
+                C = dmat(A.dv * w');
             end
         end
         
@@ -297,22 +311,22 @@ classdef udmat
                 d_ = A.d;
                 for i = 1 : K
                     if varargin{i}.d ~= d_
-                        error('udmat:invalidarg', ...
+                        error('dmat:invalidarg', ...
                             'All matrices should have the same dimension.');
                     end
                     ns(i) = varargin{i}.n;
                 end
                 tn = A.n + sum(ns);
                 
-                dvs = zeros(1, tn);
-                dvs(1:A.n) = A.dv;
+                dvs = zeros(d_, tn);
+                dvs(:, 1:A.n) = A.dv;
                 p = A.n;
                 for i = 1 : K
-                    dvs(p+1 : p+ns(i)) = varargin{i}.dv;
+                    dvs(:, p+1 : p+ns(i)) = varargin{i}.dv;
                     p = p + ns(i);
                 end
                 
-                C = udmat(d_, dvs);
+                C = dmat(dvs);
             end
         end
         
@@ -327,7 +341,11 @@ classdef udmat
             %   v = lndet(A);
             %
             
-            v = log(A.dv) * A.d;
+            if A.d == 1
+                v = log(A.dv);
+            else
+                v = sum(log(A.dv), 1);
+            end
         end
         
         
@@ -337,7 +355,11 @@ classdef udmat
             %   v = trace(A);
             %
             
-            v = A.dv * A.d;
+            if A.d == 1
+                v = A.dv;
+            else
+                v = sum(A.dv, 1);
+            end
         end
         
         
@@ -353,13 +375,7 @@ classdef udmat
             %   and x_i is X(:,i).
             %
             
-            n_ = A.n;
-            Q = sum(X .^ 2, 1);
-            if n_ == 1
-                Q = Q * A.dv;
-            else
-                Q = bsxfun(@times, Q, A.dv.');
-            end            
+            Q = A.dv' * (X.^2);       
         end                                       
         
     end
@@ -371,10 +387,10 @@ classdef udmat
         function A = randpdm(d, n)
             % Create an object with random positive definite matrix
             %
-            %   A = udmat.random(d, n);
+            %   A = dmat.random(d, n);
             %
             
-            A = udmat(d, rand(1, n));                        
+            A = dmat(rand(d, n));                        
         end
         
         
