@@ -18,6 +18,7 @@ classdef gaussd
     %   as follows:
     %   - c2 = inv(sigma)
     %   - c1 = c2 * mu
+    %   - c0 = mu' * inv(sigma) * mu + lndet(sigma) + d * log(2*pi)
     %   Or, equivalently,
     %   - sigma = inv(c2)
     %   - mu = sigma * c1
@@ -109,7 +110,7 @@ classdef gaussd
             
             if ~(isfloat(mu) && ndims(mu) == 2)
                 error('gaussd:from_mp:invalidarg', ...
-                    'mu should be a two-dimensional matrix.');
+                    'mu should be a numeric matrix.');
             end
             
             if ~(isobject(sigma))
@@ -134,6 +135,199 @@ classdef gaussd
                 end
             end
             
+            if nargin >= 3
+                if strcmp(ucp, 'cp')
+                    ucp = true;
+                else
+                    error('gaussd:from_mp:invalidarg', ...
+                        'The 3rd argument should be ''cp''.');
+                end
+            else
+                ucp = false;
+            end
+            
+            if ~ucp
+                G = gaussd(d, n, mu, sigma, [], [], []);
+            else
+                c2_ = inv(sigma);
+                
+                if isequal(mu, 0)
+                    c1_ = 0;
+                    c0_ = lndet(sigma) + d * log(2*pi);
+                else
+                    if sn == 1
+                        c1_ = c2_ * mu; %#ok<MINV>
+                    else
+                        c1_ = cmv(c2_, mu);
+                    end
+                    c0_ = sum(c1_ .* mu, 1) + lndet(sigma) + d * log(2*pi);
+                end
+                G = gaussd(d, n, mu, sigma, c0_, c1_, c2_);
+            end
+        end
+        
+        
+        function G = from_cp(c1, c2, c0)
+            % Create Gaussian distribution(s) from canonical
+            % parameterization
+            %
+            %   G = gaussd.from_cp(c1, c2);
+            %   G = gaussd.from_cp(c1, c2, c0);
+            %       creates an object to represent Gaussian distributions
+            %       using canonical parameterization.
+            %
+            %       Input:
+            %       - c1:   the coefficient of 1st order term [d x n matrix]
+            %               (inv(sigma) * mu).
+            %               For the models with zero means, c1 can be
+            %               simply input as a scalar 0.
+            %
+            %       - c2:   the coefficient of 2nd order term
+            %               (inv(sigma))
+            %       - c0:   the constant term. The function will compute
+            %               c0 if it is not specified.
+            %
+            %   Note that the mean parameterization will also be 
+            %   derived during the construction.
+            %
+            
+            if ~(isfloat(c1) && ndims(c1) == 2)
+                error('gaussd:from_cp:invalidarg', ...
+                    'c1 should be a numeric matrix.');
+            end
+            
+            if ~isobject(c2)
+                error('gaussd:from_cp:invalidarg', ...
+                    'c2 should be an object of symmetric matrix.');
+            end
+            
+            if isequal(c1, 0)
+                d = c2.d;
+                n = c2.n;
+                sigma_ = inv(c2);
+                mu_ = 0;                
+            else
+                [d, n] = size(c1);
+                if c2.d ~= d
+                    error('gaussd:from_cp:invalidarg', ...
+                        'The dimension of c2 does not match that of c1.');
+                end
+                
+                sn = c2.n;
+                if sn > 1 && sn ~= n
+                    error('gaussd:from_cp:invalidarg', ...
+                        'The c2.n does not match size(c1, 2).');
+                end
+                
+                sigma_ = inv(c2);
+                if sn == 1
+                    mu_ = sigma_ * c1; %#ok<MINV>
+                else
+                    mu_ = cmv(sigma_, c1);
+                end
+            end
+                                                            
+            if nargin >= 3 && ~isempty(c0)
+                if ~(isfloat(c0) && isequal(size(c0), [1 n]))
+                    error('gaussd:from_cp:invalidarg', ...
+                        'c0 should be a numeric vector of size 1 x n.');
+                end
+            else
+                c0 = lndet(sigma_) + d * log(2*pi);
+                if ~isequal(c1, 0)
+                    c0 = sum(c1 .* mu_, 1) + c0;
+                end
+            end                      
+                                
+            G = gaussd(d, n, mu_, sigma_, c0, c1, c2);                
+        end
+    end
+        
+    
+    %% Probability evaluation
+    
+    methods
+        
+        function L = logprob(G, X, si)
+            % Compute logarithm of PDF of given samples
+            %
+            %   L = logprob(G, X)
+            %       compute logarithm of probability density function
+            %       at the samples given by columns of X.
+            %
+            %       Let m be the number of distributions contained in G,
+            %       and n be the number of samples in X. Then L will be
+            %       a matrix of size m x n, with L(i, j) being the pdf
+            %       value at X(:,j) w.r.t the j-th Gaussian.
+            %
+            %   L = logprob(G, X, si);
+            %       compute the logarithm of pdf with respect to the 
+            %       models selected by the index vector si.
+            %
+            
+            if ~G.use_cp
+                error('gaussd:logprob:nocp', ...
+                    'Canonical parameterization is required.');
+            end
+            
+            c0_ = G.c0;
+            c1_ = G.c1;
+            c2_ = G.c2;
+            n_ = G.num;
+            
+            if n_ == 1   % single model                
+                if isequal(c1_, 0) 
+                    t2 = quad(c2_, X, X);
+                    L = -0.5 * (t2 + c0_);
+                else
+                    t1 = (-2) * c1_' * X;
+                    t2 = quad(c2_, X, X);                    
+                    L = -0.5 * (t1 + t2  + c0_);
+                end                
+                if nargin >= 3 && ~isequal(si, 1)
+                    L = L(si, :);
+                end                
+                
+            elseif c2_.n == 1 % tied covariance
+                if nargin < 3
+                    t1 = (-2) * c1_' * X;
+                    t0 = c0_;
+                else
+                    t1 = (-2) * c1_(:, si)' * X;
+                    t0 = c0_(si);
+                end
+                t2 = quad(c2_, X, X);
+                if size(t1, 1) == 1
+                    L = -0.5 * (t1 + t2 + t0);
+                else
+                    L = -0.5 * bsxfun(@plus, ...
+                        bsxfun(@plus, t1, t2), t0.');
+                end       
+                
+            else  % multiple models with respective covariance
+                if isequal(c1_, 0)
+                    if nargin < 3
+                        t2 = quad(c2_, X, X);
+                        t0 = c0_;
+                    else
+                        t2 = quad(c2_.take(si), X, X);
+                        t0 = c0_(si);
+                    end
+                    L = -0.5 * bsxfun(@plus, t2, t0.');
+                else
+                    if nargin < 3
+                        t1 = (-2) * c1_' * X;
+                        t2 = quad(c2_, X, X);
+                        t0 = c0_;
+                    else
+                        t1 = (-2) * c1_(:, si)' * X;
+                        t2 = quad(c2_.take(si), X, X);
+                        t0 = c0_(si);
+                    end
+                    L = -0.5 * bsxfun(@plus, t1 + t2, t0.');
+                end
+            end
+            
         end
         
         
@@ -142,4 +336,8 @@ classdef gaussd
     
     
     
+    
 end
+
+
+
