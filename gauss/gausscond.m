@@ -57,7 +57,7 @@ classdef gausscond
             %       of weights, where each sample has a weight 1.
             %
             %       In the output, dc1 is a matrix of size d x k, and
-            %       dc2 is a symmetric matrix object, with dc2.d == dx
+            %       dc2 is a symmetric matrix object, with dc2.d == d
             %       and dc2.n == k.
             %
             
