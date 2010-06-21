@@ -331,12 +331,20 @@ classdef gaussd
         end
         
         
-        
+        function Gpos = inject(Gpri, dc1, dc2)
+            % Get posterior Gaussian by incorporating updates to c1 and c2
+            %
+            %   Gpos = Gpri.inject(dc1, dc2);
+            %       it returns a Gaussian distribution whose canonical
+            %       parameters are given by c1 + dc1 and c2 + dc2.
+            %
+            
+            Gpos = gaussd.from_cp(Gpri.c1 + dc1, Gpri.c2 + dc2);
+        end
+                        
     end
     
-    
-    
-    
+        
 end
 
 
