@@ -50,40 +50,54 @@ function x = qplec(H, f, A, b)
 % History
 % -------
 %   - Created by Dahua Lin, on Nov 26, 2009
+%   - Modified by Dahua Lin, on Jul 21, 2010
+%       - change the error handling to light weighting
 %
 
 %% parse and verify input arguments
 
-assert(isfloat(H) && isreal(H) && ndims(H) == 2 && size(H,1) == size(H,2), ...
-    'qplec:invalidarg', 'H should be a real valued square matrix.');
+if ~(isfloat(H) && isreal(H) && ndims(H) == 2 && size(H,1) == size(H,2))
+    error('qplec:invalidarg', 'H should be a real valued square matrix.');
+end
 
-assert(isfloat(f) && isreal(f) && ndims(f) == 2, ...
-    'qplec:invalidarg', 'f should be a real valued matrix.');
+if ~(isfloat(f) && isreal(f) && ndims(f) == 2)
+    error('qplec:invalidarg', 'f should be a real valued matrix.');
+end
 
 n = size(H, 1);
-assert(size(f, 1) == n, 'qplec:invalidarg', 'f should have n rows.');
+if size(f, 1) ~= n
+    error('qplec:invalidarg', 'The sizes of H and f are inconsistent.');
+end
 kf = size(f, 2);
 
 if nargin < 3 || isempty(A)
     A = [];
     b = [];
 else
-    assert(isfloat(A) && isreal(A) && ndims(A) == 2, ...
-        'qplec:invalidarg', 'A should be a real valued matrix.');
+    if ~(isfloat(A) && isreal(A) && ndims(A) == 2)
+        error('qplec:invalidarg', 'A should be a real valued matrix.');
+    end
     
-    assert(isfloat(b) && isreal(b) && ndims(b) == 2, ...
-        'qplec:invalidarg', 'b should be a real valued matrix.');
+    if ~(isfloat(b) && isreal(b) && ndims(b) == 2)
+        error('qplec:invalidarg', 'b should be a real valued matrix.');
+    end
     
-    assert(size(A, 2) == n, 'qplec:invalidarg', 'A should have n columns.');
+    if size(A, 2) ~= n 
+        error('qplec:invalidarg', 'A should have n columns.');
+    end
     
     m = size(A, 1);
-    assert(size(b, 1) == m, 'qplec:invalidarg', 'b should have m columns.');
+    if size(b, 1) ~= m
+        error('qplec:invalidarg', 'b should have m columns.');
+    end
     
     kb = size(b, 2);
     
     if kf > 1 && kb > 1
-        assert(kf == kb, 'qplec:invalidarg', ...
+        if kf ~= kb
+            error('qplec:invalidarg', ...
             'when both f and b have multiple columns, the number of columns should be the same.');
+        end
     end
 end
 

@@ -25,14 +25,22 @@ chol2x2: matrix/chol2x2.cpp
 mtimes_sm2v2: matrix/mtimes_sm2v2.cpp
 
 
+# for metrics
+
     
 pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp
-
 pwminkdist_cimp: metrics/private/pwminkdist_cimp.cpp
-
 measure_mtimes_cimp: stats/private/measure_mtimes_cimp.cpp
-
 pwjsdiv_ulogu_cimp: stats/private/pwjsdiv_ulogu_cimp.cpp
+
+
+# for optim
+
+qpps optim/qpps.cpp
+
+
+
+# Others
     
 graphcut_cimp:  wrappers/graphcut/graphcut_cimp.cpp
 
