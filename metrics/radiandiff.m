@@ -18,28 +18,19 @@ function dists = radiandiff(X1, X2)
 
 %   History
 %       - Created by Dahua Lin, on Jun 3, 2008
+%       - Modified by Dahua Lin, on Jul 22, 2010
+%           - based on nrmdot
 %
-
-%% parse and verify input arguments
-
-assert(isnumeric(X1) && isnumeric(X2) && ndims(X1) == 2 && ndims(X2) == 2, ...
-    'radiandiff:invalidarg', ...
-    'X1 and X2 should be both numeric matrices.');
-
-[d, n] = size(X1);
-assert(size(X2, 1) == d && size(X2, 2) == n, ...
-    'radiandiff:invalidsize', ...
-    'X1 and X2 should be of the same size.');
-
 
 %% main
 
-s1 = sum(X1 .* X1, 1);
-s2 = sum(X2 .* X2, 1);
+nds = nrmdot(X1, X2);
 
-ndp = sum(X1 .* X2, 1) ./ sqrt(s1 .* s2);
-ndp(ndp < -1) = -1;
-ndp(ndp > 1) = 1;
+nds(nds > 1) = 1;
+nds(nds < -1) = -1;
 
-dists = acos(ndp); 
+dists = acos(nds);
+
+
+
 
