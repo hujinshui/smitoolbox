@@ -1,4 +1,4 @@
-function dists = mahdist(X1, X2, A, op)
+function dists = mahdist(X1, X2, A)
 %MAHDIST Computes the Mahalanobis distances
 %
 %   dists = mahdist(X1, X2, A);
@@ -21,46 +21,14 @@ function dists = mahdist(X1, X2, A, op)
 %       taking the square root in the above formula.
 %
 %   Remarks
-%       - It is the caller's responsibility to ensure A is symmetric, the
+%       - The matrix A should be a positive definite matrix, the
 %         function in itself does not perform the checking for efficiency.
 %
 
 %   History
 %       - Created by Dahua Lin, on Jun 2, 2008
+%       - Modified by Dahua Lin, on Jul 22, 2010
+%           - based on sqmahdist.m
 %
 
-%% main
-
-assert(isnumeric(X1) && isnumeric(X2) && ndims(X1) == 2 && ndims(X2) == 2, ...
-    'mahdist:invalidarg', ...
-    'X1 and X2 should be both numeric matrices.');
-
-[d, n] = size(X1);
-assert(size(X2, 1) == d && size(X2, 2) == n, ...
-    'mahdist:invalidsize', ...
-    'X1 and X2 should be of the same size.');
-
-assert(ndims(A) == 2 && size(A,1) == d && size(A,2) == d, ...
-    'mahdist:invalidarg', ...
-    'A should be a d x d matrix.');
-
-if nargin < 4
-    sqr = false;
-else
-    assert(strcmp(op, 'square'), ...
-        'mahdist:invalidarg', ...
-        'The 4th argument to mahdist can only be ''square'' if specified.');
-    
-    sqr = true;
-end
-
-
-%% main
-
-D = X1 - X2;
-dists = sum(D .* (A * D), 1);
-dists(dists < 0) = 0;
-
-if ~sqr
-    dists = sqrt(dists);
-end
+dists = sqrt(sqmahdist(X1, X2, A));
