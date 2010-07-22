@@ -1,4 +1,4 @@
-function v = vecnorm(X, p, op)
+function v = vecnorm(X, p, dim)
 %VECNORM Computes the norm of vectors
 %
 %   v = vecnorm(X, p);
@@ -13,10 +13,8 @@ function v = vecnorm(X, p, op)
 %       computes the L2-norms of the column vectors in X, which is
 %       equivalent to vecnorm(X, 2);
 %
-%   v = vecnorm(X, p, 'row');
-%       computes the p-norms of row vectors. The returned v will be an 
-%       m x 1 column vector, with v(i) being the p-norm of the i-th row
-%       vector.
+%   v = vecnorm(X, p, dim);
+%       computes the p-norms of row vectors along dimension dim.
 %
 
 %   History
@@ -25,37 +23,31 @@ function v = vecnorm(X, p, op)
 
 %% parse and verify input arguments
 
-assert(isnumeric(X) && ndims(X) == 2, 'vecnorm:invalidarg', ...
-    'X should be a numeric matrix.');
-
 if nargin < 2
     p = 2;
     
 else
-    assert(isscalar(p) && p >= 1, 'vecnorm:invalidarg', ...
-        'p should be a positive scalar with p >= 1.');
+    if ~(isscalar(p) && p >= 1) 
+        error('vecnorm:invalidarg', ...
+            'p should be a positive scalar with p >= 1.');
+    end
 end
 
 if nargin < 3
     dim = 1;
-else
-    assert(strcmp(op, 'row'), 'vecnorm:invalidarg', ...
-        'The 3rd argument can only be ''row'' is specified.');
-    
-    dim = 2;
 end
 
 
 
 %% main
 
-if p == 1
-    
-    v = sum(abs(X), dim);
-    
-elseif p == 2
+if p == 2
     
     v = sqrt(sum(X .* X, dim));
+
+elseif p == 1
+    
+    v = sum(abs(X), dim);
     
 elseif isinf(p)
     

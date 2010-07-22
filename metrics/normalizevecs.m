@@ -25,14 +25,8 @@ function Y = normalizevecs(X, p, dim)
 
 %% parse and verify input arguments
 
-if ~(isfloat(X) && ndims(X) == 2) 
-    error('normalizevecs:invalidarg', ...
-        'X should be a numeric matrix.');
-end
-
 if nargin < 2
-    p = 2;
-    
+    p = 2;    
 else
     if ~(isscalar(p) && p >= 1) 
         error('normalizevecs:invalidarg', ...
@@ -47,20 +41,4 @@ end
 
 %% main
 
-if p == 2
-    
-    Y = bsxfun(@times, X, 1 ./ sqrt(sum(X .* X, dim)) );
-
-elseif p == 1
-    
-    Y = bsxfun(@times, X, 1 ./ sum(abs(X), dim));
-    
-elseif isinf(p)
-    
-    Y = bsxfun(@times, X, 1 ./ max(abs(X), [], dim));
-    
-else
-    
-    Y = bsxfun(@times, X, 1 ./ (sum(abs(X) .^ p, dim) .^ (1/p)) );
-    
-end
+Y = bsxfun(@times, X, 1 ./ vecnorm(X, p, dim));
