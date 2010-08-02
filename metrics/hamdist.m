@@ -7,7 +7,7 @@ function dists = hamdist(X1, X2, w)
 %
 %       Hamming distance between two sequence of 0-1 codes is defined as
 %
-%           d(x, y) = sum_i w_i * 1(x(i) <> y(i))
+%           d(x, y) = sum_i 1(x(i) <> y(i))
 %
 %       which is the number of different code symbols in corresponding
 %       positions.
