@@ -27,16 +27,19 @@ mtimes_sm2v2: matrix/mtimes_sm2v2.cpp
 
 # for metrics
 
-    
+pwLpdist: metrics/pwLpdist.cpp    
 pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp
-pwminkdist_cimp: metrics/private/pwminkdist_cimp.cpp
+
+
+# for stats
+
 measure_mtimes_cimp: stats/private/measure_mtimes_cimp.cpp
 pwjsdiv_ulogu_cimp: stats/private/pwjsdiv_ulogu_cimp.cpp
 
 
 # for optim
 
-qpps optim/qpps.cpp
+qpps: optim/qpps.cpp
 
 
 
