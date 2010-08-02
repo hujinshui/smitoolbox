@@ -57,30 +57,34 @@ end
 %% main
 
 if isempty(X2)   
-    if weighted
-        X1 = bsxfun(@times, X1, sqrt(w));        
-    end
         
     n = size(X1, 2);
-    D = X1' * X1;
+    
+    if ~weighted    
+        D = X1' * X1;
+    else
+        D = X1' * bsxfun(@times, w, X1);
+    end
     
     % take the diagonal elements, which equals sum(X1 .* X1, 1);
-    sx = D(1 + (n+1) * (0:n-1));  
+    sx = D(1 + (n+1) * (0:n-1));
     
     D = bsxfun(@plus, (-2) * D, sx);
-    D = bsxfun(@plus, D, sx');
+    D = bsxfun(@plus, D, sx');        
     
 else
     
-    if weighted
-        sw = sqrt(w);
-        X1 = bsxfun(@times, X1, sw);
-        X2 = bsxfun(@times, X2, sw);
+    if ~weighted    
+        D = (-2) * (X1' * X2);            
+        D = bsxfun(@plus, D, sum(X1 .^ 2, 1).');
+        D = bsxfun(@plus, D, sum(X2 .^ 2, 1));
+    else
+        wX1 = bsxfun(@times, w, X1);
+        wX2 = bsxfun(@times, w, X2);
+        D = (-2) * (X1' * wX2);
+        D = bsxfun(@plus, D, sum(X1 .* wX1, 1).');
+        D = bsxfun(@plus, D, sum(X2 .* wX2, 1));
     end
-    
-    D = (-2) * (X1' * X2);            
-    D = bsxfun(@plus, D, sum(X1 .^ 2, 1).');
-    D = bsxfun(@plus, D, sum(X2 .^ 2, 1));
         
 end
 

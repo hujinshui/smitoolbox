@@ -1,5 +1,5 @@
 function V = pwnrmdot(X1, X2)
-%PWNRMDOT Computes pairwise normalized dot products
+% Compute pairwise normalized dot products
 %
 %   V = pwnrmdot(X1, X2);
 %       computes pairwise dot products between column vectors in X1 and X2.
@@ -23,22 +23,24 @@ function V = pwnrmdot(X1, X2)
 
 %   History
 %       - Created by Dahua Lin, on Jun 2, 2008
+%       - Modified by Dahua Lin, on Aug 2, 2010
+%           - simplify error handling
 %
 
 %% parse and verify input arguments
 
 if nargin < 2
-    assert(ndims(X1) == 2, 'pwnrmdot:invalidarg', ...
-        'X1 should be a matrix.');
-    
     X2 = [];
-    
-elseif ~isempty(X2)    
-    assert(ndims(X1) == 2 && ndims(X2) == 2 && size(X1,1) == size(X2,1), ...
-        'pwnrmdot:invalidarg', ...
-        'X1 and X2 should be both matrices with the same number of rows.');
-    
 end
+
+if ~(ndims(X1) == 2 && isreal(X1))
+    error('pwnrmdot:invalidarg', 'X1 should be a real matrix.');
+end
+
+if ~isempty(X2) && ~(ndims(X2) == 2 && isreal(X2))
+    error('pwnrmdot:invalidarg', 'X2 should be either empty or a real matrix.');
+end
+
 
 %% main
 

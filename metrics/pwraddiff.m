@@ -1,7 +1,8 @@
-function dists = pwradiandiff(X1, X2)
-%PWRADIANDIFF Computes the pairwise radian differences
+function dists = pwraddiff(X1, X2)
+%Compute the pairwise radian differences
 %
-%   dists = pwradiandiff(X1, X2);
+%   dists = pwraddiff(X);
+%   dists = pwraddiff(X1, X2);
 %       computes the pairwise radian differences between column vectors in
 %       X1 and X2.
 %
@@ -20,22 +21,12 @@ function dists = pwradiandiff(X1, X2)
 %       - Created by Dahua Lin, on Jun 3, 2008
 %
 
+
 %% main
 
 if nargin < 2
-    assert(ndims(X1) == 2, 'pwradiandiff:invalidarg', ...
-        'X1 should be a matrix.');
-    
     X2 = [];
-    
-elseif ~isempty(X2)    
-    assert(ndims(X1) == 2 && ndims(X2) == 2 && size(X1,1) == size(X2,1), ...
-        'pwradiandiff:invalidarg', ...
-        'X1 and X2 should be both matrices with the same number of rows.');
-    
 end
 
-%% main
-
-dists = acos(nrmdot(X1, X2));
+dists = acos(pwnrmdot(X1, X2));
 
