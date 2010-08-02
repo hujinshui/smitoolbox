@@ -28,7 +28,7 @@ mtimes_sm2v2: matrix/mtimes_sm2v2.cpp
 # for metrics
 
 pwLpdist: metrics/pwLpdist.cpp    
-pwhamdist_cimp: metrics/private/pwhamdist_cimp.cpp
+pwhamdist: metrics/pwhamdist.cpp
 
 
 # for stats
