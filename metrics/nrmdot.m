@@ -23,9 +23,9 @@ function v = nrmdot(X1, X2)
 
 %% parse and verify input arguments
 
-if ~(isfloat(X1) && isfloat(X2) && ndims(X1) == 2 && ndims(X2) == 2)
+if ~(ndims(X1) == 2 && ndims(X2) == 2)
     error('nrmdot:invalidarg', ...
-        'X1 and X2 should be both numeric matrices.');
+        'X1 and X2 should be both matrices.');
 end
 
 
