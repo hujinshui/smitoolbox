@@ -1,4 +1,4 @@
-function dists = radiandiff(X1, X2)
+function dists = raddiff(X1, X2)
 %RADIANDIFF Computes the radian differences between corresponding vectors
 %
 %   dists = radiandiff(X1, X2);
@@ -20,6 +20,8 @@ function dists = radiandiff(X1, X2)
 %       - Created by Dahua Lin, on Jun 3, 2008
 %       - Modified by Dahua Lin, on Jul 22, 2010
 %           - based on nrmdot
+%       - Modified by Dahua Lin, on Aug 2, 2010
+%           - rename: radiandiff -> raddiff
 %
 
 %% main
@@ -30,7 +32,5 @@ nds(nds > 1) = 1;
 nds(nds < -1) = -1;
 
 dists = acos(nds);
-
-
 
 
