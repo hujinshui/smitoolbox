@@ -25,12 +25,18 @@ function dists = hamdist(X1, X2, w)
 %
 %           d(x, y) = sum_i w_i * 1(x(i) <> y(i))
 %
+%       The size of w should be d x m, where each column of w gives a 
+%       set of weights. The output dists will be a matrix of size 
+%       m x n.
+%
 
 %   History
 %       - Created by Dahua Lin, on Jun 2, 2008
 %       - Modified by Dahua Lin, on Jul 22, 2010
 %           - support weighted hamming distances
 %           - simplify error handling
+%       - Modified by Dahua Lin, on Aug 2, 2010
+%           - allow multiple sets of weights
 %
 
 %% verify input arguments
@@ -40,20 +46,7 @@ if ~(ndims(X1) == 2 && ndims(X2) == 2)
         'X1 and X2 should be both matrices.');
 end
 
-if nargin < 3
-    weighted = false;
-else
-    if ~(isreal(w) && isvector(w))
-        error('hamdist:invalidarg', ...
-            'w should be a real vector.');
-    end
-    
-    if size(w, 1) > 1
-        w = w.';
-    end
-    
-    weighted = true;
-end
+weighted = (nargin >= 3);
 
 
 %% main
@@ -61,6 +54,6 @@ end
 if ~weighted
     dists = sum(X1 ~= X2, 1);
 else
-    dists = w * (X1 ~= X2);
+    dists = w.' * (X1 ~= X2);
 end
 
