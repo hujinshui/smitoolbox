@@ -45,13 +45,16 @@ function [x, info] = newtonfmin(f, x0, options)
 %% verify input 
 
 verify_optim_options('newtonfmin', options, 'MaxIter', 'TolFun', 'TolX', 'Display');
-disp_level = get_display_level('newtonfmin', options);
+disp_level = get_display_level('newtonfmin', options.Display);
 
 %% main
 
 x = x0;
 converged = false;
 it = 0;
+
+beta = 0.8;
+minstep = 0.5 * options.TolFun;
 
 while ~converged && it < options.MaxIter
     
@@ -60,14 +63,14 @@ while ~converged && it < options.MaxIter
     [v0, g, H] = f(x);
     step = - H \ g;
     
-    [x, v, dx] = linesearch(f, x0, v0, step, beta, minstep);
+    [x, v, dx] = linesearch(f, x, v0, step, beta, minstep);
     
     ch = v - v0;
     nrm_dx = norm(dx);
     converged = abs(ch) < options.TolFun && nrm_dx < options.TolX;  
     
     if disp_level >= 3
-        fprintf('Iter %d: objv: %.4g => %.4g [ch = %.4g, norm(dx) = %.4g]', ...
+        fprintf('Iter %d: objv: %.4g => %.4g [ch = %.4g, norm(dx) = %.4g]\n', ...
             it, v0, v, ch, nrm_dx);        
     end
 end
