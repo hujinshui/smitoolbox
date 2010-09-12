@@ -11,7 +11,7 @@ intgroup: calc/intgroup.cpp
 valueseg: calc/valueseg.cpp
 pieces_cimp: calc/private/pieces_cimp.cpp
 labelsum: calc/labelsum.cpp
-
+safedot : calc/safedot.cpp
 
 # for matrix
 
