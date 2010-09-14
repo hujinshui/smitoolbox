@@ -9,65 +9,30 @@
 #include <mex.h>
 
 
-template<typename T>
-inline T safedot(int n, const T *x, const T* y)
+struct VecSpec
 {
-    T s = T(0);
-    for (int i = 0; i < n; ++i)
+    int num_vecs;   // the number of vectors
+    int vlen;   // the vector length
+    int intv;   // element interval
+    int step;   // forward offset for next vector
+    
+    void set_rows(int m, int n, int num)
     {
-        T cx = x[i];
-        T cy = y[i];
-        if (cx != 0 && cy != 0) s += cx * cy;
+        num_vecs = num;
+        vlen = n;
+        intv = m;
+        step = m == 1 ? 0 : 1;
     }
     
-    return s;
-}
-
-template<typename T>
-inline T safedot(int n, const T *x, const T* y, int inc)
-{
-    T s = T(0);
-    for (int i = 0; i < n; ++i)
+    void set_cols(int m, int n, int num)
     {
-        T cx = *x;
-        T cy = *y;
-        if (cx != 0 && cy != 0) s += cx * cy;
-        
-        x += inc;
-        y += inc;
+        num_vecs = num;
+        vlen = m;
+        intv = 1;
+        step = n == 1 ? 0 : m;
     }
-    
-    return s;
-}
+};
 
-template<typename T>
-void safedot_cols(int m, int n, const T *A, const T *B, T *v)
-{
-    const T *a = A;
-    const T *b = B;
-    
-    for (int i = 0; i < n; ++i)
-    {
-        v[i] = safedot(m, a, b);
-        a += m;
-        b += m;
-    }
-}
-
-
-template<typename T>
-void safedot_rows(int m, int n, const T *A, const T *B, T *v)
-{
-    const T *a = A;
-    const T *b = B;
-    
-    for (int i = 0; i < m; ++i)
-    {
-        v[i] = safedot(n, a, b, m);
-        ++a;
-        ++b;
-    }        
-}
 
 
 template<typename T>
@@ -140,45 +105,71 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgIdAndTxt("safedot:invalidarg",
                 "B should be a non-sparse real matrix.");
     
-    int m = (int)mxGetM(mxA);
-    int n = (int)mxGetN(mxA);
-    
-    if (mxGetM(mxB) != m || mxGetN(mxB) != n)
-    {
-        mexErrMsgIdAndTxt("safedot:invalidarg", 
-                "The sizes of A and B are inconsistent.");
-    }
-    
-    // decide along dimension
-    
-    int along_dim = 0;
-    if (nrhs < 3)
-    {
-        if (m > 1) along_dim = 1;
-    }    
-    else
+    int dim = 0;
+    if (nrhs >= 3)
     {
         const mxArray *mxDim = prhs[2];
         if (!is_real_scalar(mxDim))
         {
             mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be an integer scalar.");
         }
+        dim = (int)mxGetScalar(mxDim);
         
-        int dim = (int)mxGetScalar(mxDim);
         if (dim < 1 || dim > 2)
         {
             mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be either 1 or 2.");
         }
-        
-        if (dim == 1)
-        {
-            along_dim = n == 1 ? 0 : dim;
-        }
-        else
-        {
-            along_dim = m == 1 ? 0 : dim;
-        }
     }
+    
+    
+    // determine dimensions
+    
+    int m1 = (int)mxGetM(mxA);
+    int n1 = (int)mxGetN(mxA);
+    
+    int m2 = (int)mxGetM(mxB);
+    int n2 = (int)mxGetN(mxB);
+    
+    VecSpec S1;
+    VecSpec S2;
+    
+    if (dim == 0)
+    {
+        if ((m1 == m2
+    }    
+    
+    if (dim == 1)
+    {
+        if (m1 != m2)
+            mexErrMsgIdAndTxt("safedot:invalidarg", 
+                    "A and B have different lengths along the specified dimension.");    
+        
+        if (!(n1 == n2 || n1 == 1 || n2 == 1))
+            mexErrMsgIdAndTxt("safedot:invalidarg", 
+                    "The number of vectors in A and B are inconsistent.");
+        
+        int num = n1 > n2 ? n1 : n2;
+        
+        S1.set_cols(m1, n1, num);
+        S2.set_cols(m2, n2, num);
+    }
+    else // dim == 2
+    {
+        if (n1 != n2)
+            mexErrMsgIdAndTxt("safedot:invalidarg",
+                    "A and B have different lengths along the specified dimension."); 
+        
+        if (!(m1 == m2 || m1 == 1 || m2 == 1))
+            mexErrMsgIdAndTxt("safedot:invalidarg", 
+                    "The number of vectors in A and B are inconsistent.");
+        
+        int num = m1 > m2 ? m1 : m2;
+        
+        S1.set_rows(m2, n2, num);
+        S2.set_rows(m2, n2, num);
+    }
+    
+    
     
     // do computation
     

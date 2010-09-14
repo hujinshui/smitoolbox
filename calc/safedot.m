@@ -7,10 +7,13 @@
 %           sum_i x(i) * y(i)
 %
 %       Here, when either x(i) or y(i) is zero, then x(i) * y(i) is 
-%       regarded as zero, no matter whether the other one is inf or nan.
+%       regarded as zero, even the other one is inf or nan.
 %
-%       By default, the computation is along the first non-singleton
-%       dimension.
+%       If A and B are both vectors, then it returns the safe dot product
+%       between A and B. If either A or B is a row/column vector, then
+%       it returns the dot product between that vector and the row/column
+%       vectors of the other matrix. If both are non-vector matrices, then
+%       it returns the dot product values between the columns in A and B.
 %
 %   v = safedot(A, B, dim);
 %       computes the "safe" dot product between vectors in A and B along
