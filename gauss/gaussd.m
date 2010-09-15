@@ -3,39 +3,40 @@ classdef gaussd
     %
     %   Each object of this class can contain one or multiple Gaussian
     %   distributions. A Gaussian distribution can be parameterized by
-    %   either canonical parameterization or mean parameteration.
+    %   either mean parameters or canonical parameters
+    %
+    %   Mean parameters are
+    %   - mean:     the mean vector 
+    %   - cov:      the covariance matrix object
     %
     %   Canonical parameterization is given by 
-    %   - c1:   the coefficient vector of first order term
-    %   - c2:   the coefficient matrix of second order term
-    %   - c0:   the constant term
-    %
-    %   Mean parameterization is given by
-    %   - mu:       the mean vector 
-    %   - sigma:    the covariance matrix
+    %   - coef0:   the constant term
+    %   - coef1:   the coefficient vector of first order term
+    %   - coef2:   the coefficient matrix of second order term    
     %  
     %   These two types of parameterization are related to each other
     %   as follows:
-    %   - c2 = inv(sigma)
-    %   - c1 = c2 * mu
-    %   - c0 = mu' * inv(sigma) * mu + lndet(sigma) + d * log(2*pi)
+    %   - coef2 = inv(cov)
+    %   - coef1 = inv(cov) * mu
+    %   - coef0 = mu' * inv(sigma) * mu 
     %   Or, equivalently,
-    %   - sigma = inv(c2)
-    %   - mu = sigma * c1
+    %   - cov = inv(coef2)
+    %   - mean = cov * coef1
     %
     %   For Gaussian distributions with zero mean, one can simply set
-    %   c1 or mu to a scalar 0 despite the actual dimension of the space.
+    %   coef1 or mean to a scalar 0 despite the actual dimension of 
+    %   the space.
     %   
     %   Generally, the evaluation of Mahalanobis distance or probability
-    %   density function, and the posterior updating relies on the
-    %   canonical parameterization, while maximum likelihood estimation
-    %   would lead to mean parameterization.
-    %
-    %   The caller can specify which parameterization to use (or both)
-    %   in constructing the object.
+    %   density function, and the posterior computation relies on the
+    %   canonical parameters, while sampling relies on mean parameters.
     %
     
-    % Created by Dahua Lin, on June 19, 2010
+    %   History
+    %   -------
+    %       - Created by Dahua Lin, on June 19, 2010
+    %       - Modified by Dahua Lin, on Sep 15, 2010
+    %           
     %
     
     
@@ -44,48 +45,21 @@ classdef gaussd
     properties(GetAccess='public', SetAccess='private')        
         dim;    % the dimension of the vector space
         num;    % the number of models contained in the object
+                        
+        mean;   % the mean vector(s)
+        cov;    % the covariance matrix object
         
-        use_cp; % whether canonical parameterization is used
-        use_mp; % whether mean parameterization is used
+        coef0;  % the constant term(s) in canonical parameters: mean' * inv(cov) * mean
+        coef1;  % the coefficient vector(s) of the linear term: inv(cov) * mean
+        coef2;  % the coefficient matrix object of the quadratic term: inv(cov)        
+        ldcov;  % the value of log(det(cov))
         
-        mu;     % the mean vector(s)
-        sigma;  % the covariance matrix(ces)
-        
-        c0;     % the constant term in canonical parameterization
-        c1;     % the coefficient of the 1st order term (inv(sigma) * mu)
-        c2;     % the coefficient of the 2nd order term (inv(sigma)                                
+        has_mp = false; % whether the mean parameters are available
+        has_cp = false; % whether the canonical parameters are available
     end
     
     
-    %% constructor
-    
-    methods
-        
-        function G = gaussd(d, n, mu, sigma, c0, c1, c2)
-            % Construct a Gaussian distribution object
-            %
-            %   G = gaussd(d, n, mu, sigma, c0, c1, c2);
-            %       
-            %   This function is not recommended for direct use. 
-            %   One can invoke static functions to create gaussd
-            %   objects, such as gaussd.from_mp or gaussd.from_cp.
-            %   
-            
-            G.dim = d;
-            G.num = n;
-            
-            G.use_cp = ~(isempty(c0) || isempty(c1) || isempty(c2));
-            G.c0 = c0;
-            G.c1 = c1;
-            G.c2 = c2;
-            
-            G.use_mp = ~(isempty(mu) || isempty(sigma));
-            G.mu = mu;
-            G.sigma = sigma;                        
-        end
-
-    end
-    
+    %% constructor    
     
     methods(Static)
         
@@ -99,14 +73,17 @@ classdef gaussd
             %       Input:
             %       - mu:   the mean vector(s) [d x n matrix]
             %               if the mean vector is zero, if can be simply
-            %               specified as a scalar 0.
+            %               specified as a scalar 0 (in this case, sigma
+            %               can contain only one matrix).
             %       - sigma: the covariance matrix. It should be an
             %                object of a symmetric matrix class.
             %                (udmat, dmat, gsymat, etc).
             %
             %   G = gaussd.from_mp(mu, sigma, 'cp');
-            %       additionally derives the canonical parameterization.
+            %       additionally derives the canonical parameters.
             %                                    
+            
+            % verify input types
             
             if ~(isfloat(mu) && ndims(mu) == 2)
                 error('gaussd:from_mp:invalidarg', ...
@@ -118,9 +95,15 @@ classdef gaussd
                     'sigma should be an object of symmetric matrix.');
             end
             
+            % determine d and n
+            
             if isequal(mu, 0)
                 d = sigma.d;
-                n = sigma.n;
+                if sigma.n ~= 1
+                    error('gaussd:from_mp:invalidarg', ...
+                        'sigma must be a single-matrix object when mu is 0.');
+                end
+                n = 1;
             else
                 [d, n] = size(mu);
                 if sigma.d ~= d
@@ -135,6 +118,8 @@ classdef gaussd
                 end
             end
             
+            % determine whether to use cp
+            
             if nargin >= 3
                 if strcmp(ucp, 'cp')
                     ucp = true;
@@ -146,30 +131,44 @@ classdef gaussd
                 ucp = false;
             end
             
-            if ~ucp
-                G = gaussd(d, n, mu, sigma, [], [], []);
-            else
-                c2_ = inv(sigma);
+            % construct Gaussian object
+            
+            G = gaussd();
+            
+            G.dim = d;
+            G.num = n;
+            G.mean = mu;
+            G.cov = sigma;
+            G.has_mp = true;
+                            
+            % derive canonical parameters (if requested)
+            
+            if ucp
+                c2 = inv(sigma);
+                ldc = lndet(sigma);
                 
                 if isequal(mu, 0)
-                    c1_ = 0;
-                    c0_ = lndet(sigma) + d * log(2*pi);
+                    c1 = 0;
+                    c0 = 0;
                 else
                     if sn == 1
-                        c1_ = c2_ * mu; %#ok<MINV>
+                        c1 = c2 * mu; %#ok<MINV>
                     else
-                        c1_ = cmv(c2_, mu);
+                        c1 = cmv(c2, mu);
                     end
-                    c0_ = sum(c1_ .* mu, 1) + lndet(sigma) + d * log(2*pi);
+                    c0 = dot(c1, mu, 1);
                 end
-                G = gaussd(d, n, mu, sigma, c0_, c1_, c2_);
+                
+                G.coef0 = c0;
+                G.coef1 = c1;
+                G.coef2 = c2;
+                G.ldcov = ldc;
+                G.has_cp = true;                
             end
-        end
+        end        
         
-        
-        function G = from_cp(c1, c2, c0)
-            % Create Gaussian distribution(s) from canonical
-            % parameterization
+        function G = from_cp(c1, c2, c0, ump)
+            % Create Gaussian distribution(s) from canonical parameters
             %
             %   G = gaussd.from_cp(c1, c2);
             %   G = gaussd.from_cp(c1, c2, c0);
@@ -187,9 +186,12 @@ classdef gaussd
             %       - c0:   the constant term. The function will compute
             %               c0 if it is not specified.
             %
-            %   Note that the mean parameterization will also be 
-            %   derived during the construction.
+            %   G = gaussd.from_cp(c1, c2, [], 'mp');
+            %   G = gaussd.from_cp(c1, c2, c0, 'mp');
+            %       additionally derives the mean parameters.
             %
+            
+            % verify input types
             
             if ~(isfloat(c1) && ndims(c1) == 2)
                 error('gaussd:from_cp:invalidarg', ...
@@ -201,11 +203,26 @@ classdef gaussd
                     'c2 should be an object of symmetric matrix.');
             end
             
+            if nargin < 3
+                c0 = [];
+            end
+            
+            if nargin >= 4
+                if strcmp(ump, 'mp')
+                    ump = true;
+                else
+                    error('gaussd:from_cp:invalidarg', ...
+                        'The 4th argument should be ''mp''.');
+                end
+            else
+                ump = false;
+            end
+            
+            % determine d and n
+            
             if isequal(c1, 0)
                 d = c2.d;
-                n = c2.n;
-                sigma_ = inv(c2);
-                mu_ = 0;                
+                n = c2.n;             
             else
                 [d, n] = size(c1);
                 if c2.d ~= d
@@ -218,28 +235,69 @@ classdef gaussd
                     error('gaussd:from_cp:invalidarg', ...
                         'The c2.n does not match size(c1, 2).');
                 end
-                
-                sigma_ = inv(c2);
-                if sn == 1
-                    mu_ = sigma_ * c1; %#ok<MINV>
+            end
+            
+            
+            % determine mu and sigma                       
+            
+            if ump                
+                sigma = inv(c2);
+                if isequal(c1, 0)
+                    mu = 0;
                 else
-                    mu_ = cmv(sigma_, c1);
+                    if sn == 1
+                        mu = sigma * c1; %#ok<MINV>
+                    else
+                        mu = cmv(sigma, c1);
+                    end
+                end                
+            else
+                if isequal(c1, 0)
+                    mu = 0;
+                else
+                    if sn == 1
+                        mu = c2 \ c1;
+                    else
+                        mu = cdv(c2, c1);
+                    end
                 end
             end
-                                                            
-            if nargin >= 3 && ~isempty(c0)
+                        
+            % determine c0 and ldc
+                                                                                    
+            if ~isempty(c0)
                 if ~(isfloat(c0) && isequal(size(c0), [1 n]))
                     error('gaussd:from_cp:invalidarg', ...
                         'c0 should be a numeric vector of size 1 x n.');
                 end
-            else
-                c0 = lndet(sigma_) + d * log(2*pi);
-                if ~isequal(c1, 0)
-                    c0 = sum(c1 .* mu_, 1) + c0;
+            else                
+                if isequal(c1, 0)
+                    c0 = 0;
+                else
+                    c0 = dot(c1, mu, 1);
                 end
             end                      
-                                
-            G = gaussd(d, n, mu_, sigma_, c0, c1, c2);                
+            
+            ldc = -lndet(c2);
+            
+            % construct Gaussian object
+            
+            G = gaussd();
+            
+            G.dim = d;
+            G.num = n;
+            G.coef0 = c0;
+            G.coef1 = c1;
+            G.ceof2 = c2;
+            G.ldcov = ldc;
+            
+            G.has_cp = true;
+            
+            if ump
+                G.mean = mu;
+                G.cov = sigma;
+                G.has_mp = true;
+            end           
         end
     end
         
@@ -248,10 +306,72 @@ classdef gaussd
     
     methods
         
-        function L = logprob(G, X, si)
+        function D = sqmahdist(G, X, si)
+            % Compute the squared Mahalanobis distances from samples to centers
+            %
+            %   D = sqmahdist(G, X);
+            %       computes the squared Mahalanobis distances between the 
+            %       samples in X and the Gaussian centers (with respect
+            %       to the corresponding covariance matrices).
+            %
+            %   D = sqmahdist(G, X);
+            %       computes the squared Mahalanobis distances between the
+            %       samples in X and the centers of the Gaussian 
+            %       distributions selected by indices si.
+            %
+            %   Note that canonical parameters are required for the 
+            %   computation.
+            %
+            
+            if ~G.has_cp
+                error('gaussd:sqmahdist:nocp', 'Canonical parameters are required.');
+            end
+            
+            % take parameters
+            
+            c0 = G.coef0;
+            c1 = G.coef1;
+            c2 = G.coef2;
+            
+            if nargin >= 3
+                c0 = c0(:, si);
+                if ~isequal(c1, 0)
+                    c1 = c1(:, si);
+                end
+                if c2.n ~= 1
+                    c2 = c2.take(si);
+                end
+            end                        
+                
+            % compute 
+            
+            t2 = quad(c2, X, X);
+            
+            if isequal(c1, 0)
+                D = t2;
+            else
+                t1 = c1' * X;
+                
+                n1 = size(c1, 2);
+                n2 = c2.n;
+                if n1 == 1
+                    D = t2 - 2 * t1 + c0;
+                else
+                    if n2 == 1
+                        D = bsxfun(@minus, t2, 2 * t1);
+                    else
+                        D = t2 - 2 * t1;
+                    end
+                    D = bsxfun(@plus, D, t0);
+                end
+            end
+        end
+        
+        
+        function L = logpdf(G, X, si)
             % Compute logarithm of PDF of given samples
             %
-            %   L = logprob(G, X)
+            %   L = logpdf(G, X)
             %       compute logarithm of probability density function
             %       at the samples given by columns of X.
             %
@@ -260,88 +380,89 @@ classdef gaussd
             %       a matrix of size m x n, with L(i, j) being the pdf
             %       value at X(:,j) w.r.t the j-th Gaussian.
             %
-            %   L = logprob(G, X, si);
+            %   L = logpdf(G, X, si);
             %       compute the logarithm of pdf with respect to the 
             %       models selected by the index vector si.
             %
+            %   Note that canonical parameters are required for the 
+            %   computation.
+            %
             
-            if ~G.use_cp
-                error('gaussd:logprob:nocp', ...
-                    'Canonical parameterization is required.');
+            if nargin < 3                
+                D = sqmahdist(G, X);
+                a0 = G.ldcov + G.dim * log(2 * pi);
+            else
+                D = sqmahdist(G, X, si);
+                a0 = G.ldcov(:, si) + G.dim * log(2 * pi);
             end
             
-            c0_ = G.c0;
-            c1_ = G.c1;
-            c2_ = G.c2;
-            n_ = G.num;
-            
-            if n_ == 1   % single model                
-                if isequal(c1_, 0) 
-                    t2 = quad(c2_, X, X);
-                    L = -0.5 * (t2 + c0_);
-                else
-                    t1 = (-2) * c1_' * X;
-                    t2 = quad(c2_, X, X);                    
-                    L = -0.5 * (t1 + t2  + c0_);
-                end                
-                if nargin >= 3 && ~isequal(si, 1)
-                    L = L(si, :);
-                end                
-                
-            elseif c2_.n == 1 % tied covariance
-                if nargin < 3
-                    t1 = (-2) * c1_' * X;
-                    t0 = c0_;
-                else
-                    t1 = (-2) * c1_(:, si)' * X;
-                    t0 = c0_(si);
-                end
-                t2 = quad(c2_, X, X);
-                if size(t1, 1) == 1
-                    L = -0.5 * (t1 + t2 + t0);
-                else
-                    L = -0.5 * bsxfun(@plus, ...
-                        bsxfun(@plus, t1, t2), t0.');
-                end       
-                
-            else  % multiple models with respective covariance
-                if isequal(c1_, 0)
-                    if nargin < 3
-                        t2 = quad(c2_, X, X);
-                        t0 = c0_;
-                    else
-                        t2 = quad(c2_.take(si), X, X);
-                        t0 = c0_(si);
-                    end
-                    L = -0.5 * bsxfun(@plus, t2, t0.');
-                else
-                    if nargin < 3
-                        t1 = (-2) * c1_' * X;
-                        t2 = quad(c2_, X, X);
-                        t0 = c0_;
-                    else
-                        t1 = (-2) * c1_(:, si)' * X;
-                        t2 = quad(c2_.take(si), X, X);
-                        t0 = c0_(si);
-                    end
-                    L = -0.5 * bsxfun(@plus, t1 + t2, t0.');
-                end
+            if isscalar(a0)
+                L = -0.5 * (D + a0);
+            else
+                L = -0.5 * bsxfun(@plus, D, a0);
             end
+        end
+        
+        
+        function L = pdf(G, X, si)
+            % Compute the probability density function
+            %                        
+            %   L = pdf(G, X)
+            %       compute probability density function at the samples 
+            %       given by columns of X.
+            %
+            %       Let m be the number of distributions contained in G,
+            %       and n be the number of samples in X. Then L will be
+            %       a matrix of size m x n, with L(i, j) being the pdf
+            %       value at X(:,j) w.r.t the j-th Gaussian.
+            %
+            %   L = pdf(G, X, si);
+            %       compute the probability density with respect to the 
+            %       models selected by the index vector si.
+            %
+            %   Note that canonical parameters are required for the 
+            %   computation.  
+            %
+            
+            if nargin < 3
+                L = exp(logpdf(G, X));
+            else
+                L = exp(logpdf(G, X, si));
+            end            
+        end
+               
+        
+        function Gp = posterior(G, c1a, c2a, ump)
+            % Get the posterior Gaussian models
+            %
+            %   Gp = posterior(G, c1a, c2a);
+            %       compute the posterior Gaussian model(s) with G
+            %       regarded as the prior.
+            %
+            %       c1a and c2a are quantities summarized from the
+            %       observations, which are to be added to coef1 and
+            %       coef2 respectively.                        
+            %       
+            %   Gp = posterior(G, c1a, c2a, 'mp');
+            %       also derive the mean parameters
+            %
+            
+            c10 = G.coef1;
+            c20 = G.coef2;
+            
+            if size(c10, 2) == size(c1a, 2)
+                c1 = c10 + c1a;
+            else
+                c1 = bsxfun(@plus, c10, c1a);
+            end
+            
+            c2 = c20 + c2a;
+            
+            ////// add ump ///////
             
         end
         
         
-        function Gpos = inject(Gpri, dc1, dc2)
-            % Get posterior Gaussian by incorporating updates to c1 and c2
-            %
-            %   Gpos = Gpri.inject(dc1, dc2);
-            %       it returns a Gaussian distribution whose canonical
-            %       parameters are given by c1 + dc1 and c2 + dc2.
-            %
-            
-            Gpos = gaussd.from_cp(Gpri.c1 + dc1, Gpri.c2 + dc2);
-        end
-                        
     end
     
         
