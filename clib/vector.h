@@ -11,20 +11,18 @@
 #ifndef SMI_CLIB_VECTORS_H
 #define SMI_CLIB_VECTORS_H
 
-#include <mex.h>
-
 namespace smi
 {
     
 template<typename T>
-class ConstVector
+class VectorCView
 {
 public:
-    ConstVector(const T* data, int n) : m_data(const_cast<T*>(data)), m_n(n), m_intv(1)
+    VectorCView(const T* data, int n) : m_data(const_cast<T*>(data)), m_n(n), m_intv(1)
     {
     }
     
-    ConstVector(const T* data, int n, int intv) : m_data(const_cast<T*>(data)), m_n(n), m_intv(intv)
+    VectorCView(const T* data, int n, int intv) : m_data(const_cast<T*>(data)), m_n(n), m_intv(intv)
     {
     }
         
@@ -43,7 +41,7 @@ public:
         return m_data;
     }
     
-    const T& operator[] (int i) const
+    const T& operator() (int i) const
     {
         return m_data[i * m_intv];
     }
@@ -52,17 +50,7 @@ public:
     {
         return m_data + i * m_intv;
     }
-    
-    mxArray* to_matlab_row() const
-    {
-        
-    }
-    
-    mxArray* to_matlab_column() const
-    {
-    }
-    
-    
+       
 protected:
     T *m_data;  // the pointer to data
     int m_n;    // the number of elements
@@ -71,27 +59,15 @@ protected:
     
 
 template<typename T>
-class Vector : public ConstVector<T>
+class VectorView : public VectorCView<T>
 {
 public:
-    Vector(int n) : ConstVector<T>(new T[n], n), m_own(true)
+    VectorView(T *data, int n) : VectorCView<T>(data, n)
     {
     }
     
-    Vector(T *data, int n) : ConstVector<T>(data, n), m_own(false)
+    VectorView(T *data, int n, int intv) : VectorCView<T>(data, n, intv)
     {
-    }
-    
-    Vector(T *data, int n, int intv) : ConstVector<T>(data, n, intv), m_own(false)
-    {
-    }
-
-    ~Vector()
-    {
-        if (m_own)
-        {
-            delete[] m_data;
-        }        
     }
     
     const T* data() const
@@ -104,12 +80,12 @@ public:
         return m_data;
     }
     
-    const T& operator[] (int i) const
+    const T& operator() (int i) const
     {
         return m_data[i * m_intv];
     }
     
-    T& operator[] (int i) 
+    T& operator() (int i) 
     {
         return m_data[i * m_intv];
     }
@@ -123,17 +99,97 @@ public:
     {
         return m_data + i * m_intv;
     }
+};
+
+
+template<typename T>
+class MultiVectorCView
+{
+public:
+    MultiVectorCView(const T *data, int n, int len)
+    : m_data(const_cast<T*>(data)), m_num(n), m_vlen(len), m_vintv(len), m_eintv(1)
+    {
+    }
     
-private:
-    bool m_own;     // whether it owns the memory
+    MultiVectorCView(const T *data, int n, int len, int vintv, int eintv)
+    : m_data(const_cast<T*>(data)), m_num(n), m_vlen(len), m_vintv(vintv), m_eintv(eintv)
+    {
+    }
+    
+    int nvecs() const
+    {
+        return m_num;
+    }
+    
+    int veclen() const
+    {
+        return m_vlen;
+    }
+    
+    int vec_interval() const
+    {
+        return m_vintv;
+    }
+    
+    int elem_interval() const
+    {
+        return m_eintv;
+    }
+    
+    VectorCView<T> operator[] (int i) const
+    {
+        return VectorCView<T>(m_data + i * m_vintv, m_vlen, m_eintv);
+    }
+            
+protected:
+    T *m_data;
+    int m_num;
+    int m_vlen;
+    int m_vintv;
+    int m_eintv;    
+};
+
+
+template<typename T>
+class MultiVectorView : public MultiVectorCView<T>
+{
+public:
+    MultiVectorView(T *data, int n, int len)
+    : MultiVectorCView<T>(data, n, len)
+    {
+    }
+    
+    MultiVectorView(T *data, int n, int len, int vintv, int eintv)
+    : MultiVectorCView<T>(data, n, len, vintv, eintv)
+    {
+    }
+    
+    VectorCView<T> operator[] (int i) const
+    {
+        return VectorCView<T>(m_data + i * m_vintv, m_vlen, m_eintv);
+    }
+    
+    VectorView<T> operator[] (int i) 
+    {
+        return VectorView<T>(m_data + i * m_vintv, m_vlen, m_eintv);
+    }
+};
+
+
+template<typename T>
+MultiVectorCView<T> emulate_multi(const VectorCView<T>& v, int n)
+{
+    return MultiVectorCView<T>(v.data(), n, v.nelems(), 0, v.interval());
 }
 
-
-
-
-
+template<typename T>
+MultiVectorView<T> emulate_multi(VectorView<T>& v, int n) 
+{
+    return MultiVectorView<T>(v.data(), n, v.nelems(), 0, v.interval());
+}
 
 }
+
 
 #endif
 
