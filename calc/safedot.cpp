@@ -8,184 +8,179 @@
 
 #include <mex.h>
 
+#include "../clib/vector.h"
+#include "../clib/matrix.h"
+#include "../clib/marray.h"
+#include "../clib/matlab_types.h"
 
-struct VecSpec
+using namespace smi;
+
+template<typename T>
+inline T safedot(const VectorCView<T>& veca, const VectorCView<T>& vecb)
 {
-    int num_vecs;   // the number of vectors
-    int vlen;   // the vector length
-    int intv;   // element interval
-    int step;   // forward offset for next vector
+    int n = veca.nelems();
     
-    void set_rows(int m, int n, int num)
+    const T *a = veca.data();
+    const T *b = vecb.data();
+    
+    int iv_a = veca.interval();
+    int iv_b = vecb.interval();
+    
+    T s = T(0);
+    for (int i = 0; i < n; ++i)
     {
-        num_vecs = num;
-        vlen = n;
-        intv = m;
-        step = m == 1 ? 0 : 1;
+        T av = *a;
+        T bv = *b;
+        
+        if (av != 0 && bv != 0)
+        {
+            s += av * bv;
+        }
+        
+        a += iv_a;
+        b += iv_b;
     }
     
-    void set_cols(int m, int n, int num)
-    {
-        num_vecs = num;
-        vlen = m;
-        intv = 1;
-        step = n == 1 ? 0 : m;
-    }
-};
-
+    return s;
+}
 
 
 template<typename T>
-mxArray* do_safedot(const mxArray *mxA, const mxArray *mxB, 
-        mxClassID cid, int m, int n, int adim)
+inline mxArray* create_vector(int n, int dim)
 {
-    const T *A = (const T*)mxGetData(mxA);
-    const T *B = (const T*)mxGetData(mxB);
-    
-    mxArray *mxV = 0;
-    
-    if (adim == 0)
-    {
-        int len = n == 1 ? m : n;
-        
-        T v = safedot(len, A, B);
-        mxV = mxCreateNumericMatrix(1, 1, cid, mxREAL);
-        *((T*)mxGetData(mxV)) = v;
-    }
-    else if (adim == 1)
-    {
-        mxV = mxCreateNumericMatrix(1, n, cid, mxREAL);
-        T *v = (T*)mxGetData(mxV);
-        
-        safedot_cols(m, n, A, B, v);
-    }
-    else if (adim == 2)
-    {
-        mxV = mxCreateNumericMatrix(m, 1, cid, mxREAL);
-        T *v = (T*)mxGetData(mxV);
-        
-        safedot_rows(m, n, A, B, v);
-    }
-    
-    return mxV;
+    return dim == 1 ? create_matlab_matrix<T>(1, n) : create_matlab_matrix<T>(n, 1);
 }
 
 
-
-inline bool is_real_matrix(const mxArray *mxA)
+template<typename T>
+mxArray* multi_safedot(const MultiVectorCView<T>& A, const MultiVectorCView<T>& B, int dim)
 {
-    return mxGetNumberOfDimensions(mxA) == 2 && !mxIsSparse(mxA) &&
-            !mxIsComplex(mxA);
+    if (A.veclen() != B.veclen())
+        mexErrMsgIdAndTxt("safedot:invalidarg", "The vector dimensions are inconsistent.");
+    
+    int na = A.nvecs();
+    int nb = B.nvecs();
+    
+    mxArray *mxR = 0;
+    
+    if (na == 1)
+    {
+        if (nb == 1)
+        {
+            T r = safedot(A[0], B[0]);
+            mxR = create_matlab_scalar<T>(r);
+        }
+        else
+        {
+            mxR = create_vector<T>(nb, dim);
+            VectorView<T> R = MArray(mxR).to_vector<T>();
+            
+            VectorCView<T> a = A[0];
+            
+            for (int i = 0; i < nb; ++i)            
+                R(i) = safedot(a, B[i]);            
+        }
+    }
+    else
+    {
+        if (nb == 1)
+        {
+            mxR = create_vector<T>(na, dim);
+            VectorView<T> R = MArray(mxR).to_vector<T>();
+            
+            VectorCView<T> b = B[0];
+            
+            for (int i = 0; i < na; ++i)
+                R(i) = safedot(A[i], b);            
+        }
+        else if (na == nb)
+        {
+            mxR = create_vector<T>(na, dim);
+            VectorView<T> R = MArray(mxR).to_vector<T>();
+            
+            for (int i = 0; i < na; ++i)
+                R(i) = safedot(A[i], B[i]);
+        }
+        else
+        {
+            mexErrMsgIdAndTxt("safedot:invalidarg", 
+                    "The sizes of A and B are inconsistent.");
+        }        
+    }
+    
+    return mxR;
 }
 
-inline bool is_real_scalar(const mxArray *mxV)
+template<typename T>
+mxArray* run(const MArray& mA, const MArray& mB, int dim)
 {
-    return mxGetNumberOfElements(mxV) == 1 && !mxIsComplex(mxV) && mxIsDouble(mxV);
+    MatrixCView<T> A = mA.to_matrix<T>();        
+    MatrixCView<T> B = mB.to_matrix<T>();
+    
+    if (dim == 1)
+    {
+        return multi_safedot<T>(A.columns(), B.columns(), dim);
+    }
+    else
+    {
+        return multi_safedot<T>(A.rows(), B.rows(), dim);
+    }
 }
+
 
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    // verify input
+    // take input
     
     if (nrhs < 2 || nrhs > 3)
-    {
         mexErrMsgIdAndTxt("safedot:invalidarg", 
-                "The number of input arguments to safedot is invalid.");
-    }
+                "The number of inputs should be either 2 or 3.");
     
-    const mxArray *mxA = prhs[0];
-    const mxArray *mxB = prhs[1];
+    MArray mA(prhs[0]);
+    MArray mB(prhs[1]);
     
-    if (!is_real_matrix(mxA))
-        mexErrMsgIdAndTxt("safedot:invalidarg", 
-                "A should be a non-sparse real matrix.");
+    if (!mA.is_real_nonsparse_matrix())
+        mexErrMsgIdAndTxt("safedot:invalidarg", "A should be a real non-sparse matrix.");
     
-    if (!is_real_matrix(mxB))
-        mexErrMsgIdAndTxt("safedot:invalidarg",
-                "B should be a non-sparse real matrix.");
+    if (!mB.is_real_nonsparse_matrix())
+        mexErrMsgIdAndTxt("safedot:invalidarg", "B should be a real non-sparse matrix.");
     
     int dim = 0;
     if (nrhs >= 3)
     {
-        const mxArray *mxDim = prhs[2];
-        if (!is_real_scalar(mxDim))
-        {
-            mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be an integer scalar.");
-        }
-        dim = (int)mxGetScalar(mxDim);
+        MArray mDim(prhs[2]);
+        if (!mDim.is_real_double_scalar())
+            mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be a double scalar.");
         
-        if (dim < 1 || dim > 2)
-        {
-            mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be either 1 or 2.");
-        }
+        dim = (int)mDim.get_double_scalar();
+        if (!(dim == 1 || dim == 2))
+            mexErrMsgIdAndTxt("safedot:invalidarg", "dim should be either 1 or 2.");                
     }
     
-    
-    // determine dimensions
-    
-    int m1 = (int)mxGetM(mxA);
-    int n1 = (int)mxGetN(mxA);
-    
-    int m2 = (int)mxGetM(mxB);
-    int n2 = (int)mxGetN(mxB);
-    
-    VecSpec S1;
-    VecSpec S2;
+    // determine dim
     
     if (dim == 0)
     {
-        if ((m1 == m2
-    }    
-    
-    if (dim == 1)
-    {
-        if (m1 != m2)
-            mexErrMsgIdAndTxt("safedot:invalidarg", 
-                    "A and B have different lengths along the specified dimension.");    
-        
-        if (!(n1 == n2 || n1 == 1 || n2 == 1))
-            mexErrMsgIdAndTxt("safedot:invalidarg", 
-                    "The number of vectors in A and B are inconsistent.");
-        
-        int num = n1 > n2 ? n1 : n2;
-        
-        S1.set_cols(m1, n1, num);
-        S2.set_cols(m2, n2, num);
-    }
-    else // dim == 2
-    {
-        if (n1 != n2)
-            mexErrMsgIdAndTxt("safedot:invalidarg",
-                    "A and B have different lengths along the specified dimension."); 
-        
-        if (!(m1 == m2 || m1 == 1 || m2 == 1))
-            mexErrMsgIdAndTxt("safedot:invalidarg", 
-                    "The number of vectors in A and B are inconsistent.");
-        
-        int num = m1 > m2 ? m1 : m2;
-        
-        S1.set_rows(m2, n2, num);
-        S2.set_rows(m2, n2, num);
+        dim = (mA.nrows() == 1 || mB.nrows() == 1) ? 2 : 1;           
     }
     
+    // main
     
-    
-    // do computation
-    
-    if (mxIsDouble(mxA) && mxIsDouble(mxB))
+    if (mA.is_double() && mB.is_double())
     {
-        plhs[0] = do_safedot<double>(mxA, mxB, mxDOUBLE_CLASS, m, n, along_dim);
+        plhs[0] = run<double>(mA, mB, dim);                
     }
-    else if (mxIsSingle(mxA) && mxIsSingle(mxB))
+    else if (mA.is_single() && mB.is_single())
     {
-        plhs[0] = do_safedot<double>(mxA, mxB, mxSINGLE_CLASS, m, n, along_dim);
+        plhs[0] = run<float>(mA, mB, dim);
     }
     else
     {
         mexErrMsgIdAndTxt("safedot:invalidarg", 
                 "A and B should be both double or both single.");
-    }
+    }    
+    
 }
 
 
