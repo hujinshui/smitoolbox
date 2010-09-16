@@ -442,6 +442,22 @@ classdef gsymat
             end
         end                                       
         
+        
+        %% Cholesky decomposition
+        
+        function Y = choltrans(A, X)
+            % Apply chol(A) as transform to X
+            %
+            %   Y = A.choltrans(X);
+            %     
+            
+            if A.n ~= 1
+                error('gsymat:invalidarg', 'A must be an single-matrix object.');
+            end
+            
+            Y = chol(A.M, 'lower') * X;
+        end        
+        
     end
     
     

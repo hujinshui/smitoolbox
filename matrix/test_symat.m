@@ -38,6 +38,8 @@ test_character(classname, ds, ns);
 
 test_quad(classname, ds, ns);
 
+test_choltrans(classname, ds);
+
 
 %% core testing functions
 
@@ -345,7 +347,20 @@ end
 
 
 
+function test_choltrans(classname, ds)
 
+disp('Test choltrans ...');
+
+for d = ds
+    
+    fprintf('\tfor d = %d\n', d);
+    
+    A = randpdmat(classname, d, 1);
+    L0 = chol(fullform(A), 'lower');
+    L = A.choltrans(eye(d));
+    
+    checkdev('choltrans', L, L0, 1e-12);
+end
 
         
 %% Auxiliary functions
