@@ -434,16 +434,20 @@ classdef gaussd
                 L = exp(logpdf(G, X, si));
             end            
         end                              
-                        
-    end    
-    
-    
-    methods(Access='private')
         
-        function [c1, c2] = get_updated_coef12(G, i, c1a, c2a)
+        function pG = inject(G, c1a, c2a, i)
+            % Compute the posterior with injected observations
+            %
+            %   pG = inject(G, c1a, c2a);
+            %   pG = inject(G, c1a, c2a, i);
+            %       computes the posterior Gaussian distribution with 
+            %       the observations injected with c1a and c2a, which
+            %       are quantities to be added to coef1 and coef2
+            %       respectively.
+            %
             
             if ~G.has_cp
-                error('gaussd:get_coef12:nocp', 'Canonical parameters are required.');
+                error('gaussd:inject:nocp', 'Canonical parameters are required.');
             end
             
             c10 = G.coef1;
@@ -468,7 +472,9 @@ classdef gaussd
                 end
             end
             
-            c2 = c20 + c2a;            
+            c2 = c20 + c2a;     
+            
+            pG = pregaussd(c1, c2);
         end
         
     end
