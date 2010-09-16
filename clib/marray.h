@@ -198,6 +198,30 @@ public:
         return (T*)mxGetData(mxA);
     }    
     
+    template<typename T>
+    VectorCView<T> to_vector() const
+    {
+        return VectorCView<T>(get_data<T>(), nelems());
+    }
+    
+    template<typename T>
+    VectorView<T> to_vector() 
+    {
+        return VectorView<T>(get_data<T>(), nelems());
+    }
+    
+    template<typename T>
+    MatrixCView<T> to_matrix() const
+    {
+        return MatrixCView<T>(get_data<T>(), nrows(), ncols());
+    }
+    
+    template<typename T>
+    MatrixView<T> to_matrix() 
+    {
+        return MatrixView<T>(get_data<T>(), nrows(), ncols());
+    }
+    
 private:
     const mxArray *mxA;
     

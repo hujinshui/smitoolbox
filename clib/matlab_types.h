@@ -16,41 +16,41 @@
 namespace smi
 {
     
-template<typename T> struct mttrait<T>;
+template<typename T> struct mttrait;
 
 template<> struct mttrait<int>
 {
-    const mxClassID class_id = mxINT32_CLASS;
-    const bool is_float = false;
-    const bool is_int = true;    
+    static const mxClassID class_id = mxINT32_CLASS;
+    static const bool is_float = false;
+    static const bool is_int = true;    
 };
 
 template<> struct mttrait<unsigned int>
 {
-    const mxClassID class_id = mxUINT32_CLASS;
-    const bool is_float = false;
-    const bool is_int = true;
+    static const mxClassID class_id = mxUINT32_CLASS;
+    static const bool is_float = false;
+    static const bool is_int = true;
 };
 
 template<> struct mttrait<float>
 {
-    const mxClassID class_id = mxSINGLE_CLASS;
-    const bool is_float = true;
-    const bool is_int = false;
+    static const mxClassID class_id = mxSINGLE_CLASS;
+    static const bool is_float = true;
+    static const bool is_int = false;
 };
 
 template<> struct mttrait<double>
 {
-    const mxClassID class_id = mxDOUBLE_CLASS;
-    const bool is_float = true;
-    const bool is_int = false;
+    static const mxClassID class_id = mxDOUBLE_CLASS;
+    static const bool is_float = true;
+    static const bool is_int = false;
 };
 
 template<> struct mttrait<bool>
 {
-    const mxClassID class_id = mxLOGICAL_CLASS;
-    const bool is_float = false;
-    const bool is_int = false;
+    static const mxClassID class_id = mxLOGICAL_CLASS;
+    static const bool is_float = false;
+    static const bool is_int = false;
 };
 
 
@@ -66,7 +66,13 @@ mxArray* create_matlab_matrix<bool>(int m, int n)
     return mxCreateLogicalMatrix(m, n);
 }
 
-
+template<typename T>
+mxArray* create_matlab_scalar(T v)
+{
+    mxArray* M = create_matlab_matrix<T>(1, 1);
+    *((T*)mxGetData(M)) = v;
+    return M;
+}
 
 
 }
