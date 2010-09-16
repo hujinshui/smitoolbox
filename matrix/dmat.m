@@ -389,7 +389,23 @@ classdef dmat
             %
             
             Q = A.dv' * (X .* Y);       
-        end                                       
+        end    
+        
+        
+        %% Cholesky decomposition
+        
+        function Y = choltrans(A, X)
+            % Apply chol(A) as transform to X
+            %
+            %   Y = A.choltrans(X);
+            %     
+            
+            if A.n ~= 1
+                error('dmat:invalidarg', 'A must be an single-matrix object.');
+            end
+            
+            Y = bsxfun(@times, sqrt(A.dv), X);
+        end        
         
     end
     

@@ -430,7 +430,25 @@ classdef symat2
                 error('symat2:invalidarg', ...
                     'X and Y should be matrices with two rows.');
             end
-        end                                      
+        end         
+        
+        
+        %% Cholesky decomposition
+        
+        function Y = choltrans(A, X)
+            % Apply chol(A) as transform to X
+            %
+            %   Y = A.choltrans(X);
+            %     
+            
+            if A.n ~= 1
+                error('symat2:invalidarg', 'A must be an single-matrix object.');
+            end
+            
+            Lv = chol2x2(A.v);
+            L = [Lv(1) 0; Lv(2) Lv(3)];            
+            Y = L * X;
+        end        
         
     end
     
