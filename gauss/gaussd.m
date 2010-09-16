@@ -288,7 +288,7 @@ classdef gaussd
             G.num = n;
             G.coef0 = c0;
             G.coef1 = c1;
-            G.ceof2 = c2;
+            G.coef2 = c2;
             G.ldcov = ldc;
             
             G.has_cp = true;
@@ -362,7 +362,7 @@ classdef gaussd
                     else
                         D = t2 - 2 * t1;
                     end
-                    D = bsxfun(@plus, D, t0);
+                    D = bsxfun(@plus, D, c0.');
                 end
             end
         end
@@ -388,18 +388,22 @@ classdef gaussd
             %   computation.
             %
             
-            if nargin < 3                
+            if nargin < 3             
                 D = sqmahdist(G, X);
                 a0 = G.ldcov + G.dim * log(2 * pi);
             else
                 D = sqmahdist(G, X, si);
-                a0 = G.ldcov(:, si) + G.dim * log(2 * pi);
+                if G.coef2.n == 1
+                    a0 = G.ldcov + G.dim * log(2 * pi);
+                else
+                    a0 = G.ldcov(:, si) + G.dim * log(2 * pi);
+                end
             end
             
             if isscalar(a0)
                 L = -0.5 * (D + a0);
             else
-                L = -0.5 * bsxfun(@plus, D, a0);
+                L = -0.5 * bsxfun(@plus, D, a0.');
             end
         end
         
@@ -458,13 +462,44 @@ classdef gaussd
             
             c2 = c20 + c2a;
             
-            ////// add ump ///////
-            
+            if nargin <= 3
+                Gp = gaussd.from_cp(c1, c2);
+            else
+                if ~(ischar(ump) && strcmp(ump, 'mp'))
+                    error('gaussd:posterior:invalidarg', ...
+                        'the 4th argument can only be ''mp''.');
+                end
+                Gp = gaussd.from_cp(c1, c2, [], 'mp');
+            end                        
         end
         
         
-    end
-    
+        function mu = pos_mean(G, c1a, c2a)
+            % Compute the mean of the posterior Gaussian
+            %
+            %   mu = pos_mean(G, c1a, c2a);
+            %       computes the mean of posterior Gaussian model
+            %       with G regarded as the prior.
+            %
+            %       c1a and c2a are quantities summarized from the 
+            %       observations, which are to be added to coef1 and
+            %       coef2 respectively.
+            %
+            %   Note that G must contain only one distribution. 
+            %
+            
+            if G.num ~= 1
+                error('gaussd:pos_mean:invalidarg', ...
+                    'The object must contain exactly one distribution.');
+            end
+            
+            c1 = G.coef1 + c1a;
+            c2 = G.coef2 + c2a;
+            
+            mu = c2 \ c1;
+        end
+                        
+    end    
         
 end
 

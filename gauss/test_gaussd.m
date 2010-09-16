@@ -30,6 +30,10 @@ end
 
 function test_on_config(symatclassname, d, m, is_zeromean, is_shared)
 
+if is_zeromean && m > 1
+    return;
+end
+
 fprintf('Test gaussd for [%s] with dim = %d, num = %d, zmean = %d, sharedcov = %d\n', ...
     symatclassname, d, m, is_zeromean, is_shared);
 
@@ -49,32 +53,44 @@ end
     
 sigma = feval([symatclassname '.randpdm'], d, m2);
 
-G0 = gaussd.from_mp(mu, sigma);
-G = gaussd.from_mp(mu, sigma, 'cp');
-g_cp = gaussd.from_cp(G.c1, G.c2);
-g_cp2 = gaussd.from_cp(G.c1, G.c2, G.c0);
+g_mp0 = gaussd.from_mp(mu, sigma);
+g_mp1 = gaussd.from_mp(mu, sigma, 'cp');
+
+c1 = g_mp1.coef1;
+c2 = g_mp1.coef2;
+c0 = g_mp1.coef0;
+
+g_cp0 = gaussd.from_cp(c1, c2, c0);
+g_cp1 = gaussd.from_cp(c1, c2, c0, 'mp');
+
+g_cp0_a = gaussd.from_cp(c1, c2);
+g_cp1_a = gaussd.from_cp(c1, c2, [], 'mp');
 
 % basic verification
 
-assert(G0.dim == d && G0.num == m && G0.use_mp && ~G0.use_cp);
-assert(isequal(G0.mu, G.mu, mu));
-assert(isequal(fullform(G0.sigma), fullform(G.sigma), fullform(sigma)));
+basic_verify(g_mp0, d, m, true, false);
+basic_verify(g_mp1, d, m, true, true);
+basic_verify(g_cp0, d, m, false, true);
+basic_verify(g_cp1, d, m, true, true);
+basic_verify(g_cp0_a, d, m, false, true);
+basic_verify(g_cp1_a, d, m, true, true);
 
-assert(g_cp.dim == d && g_cp.num == m && g_cp.use_mp && g_cp.use_cp);
-assert(g_cp2.dim == d && g_cp2.num == m && g_cp2.use_mp && g_cp2.use_cp);
-assert(isequal(G.c1, g_cp.c1, g_cp2.c1));
-assert(isequal(G.c2, g_cp.c2, g_cp2.c2));
-assert(isequal(G.c0, g_cp2.c0));
-devcheck('c0 consistency', G.c0, g_cp.c0, 1e-12);
-assert(isequal(g_cp.mu, g_cp2.mu));
-assert(isequal(fullform(g_cp.sigma), fullform(g_cp2.sigma)));
+verify_mp(g_mp0, mu, sigma);
+verify_mp(g_mp1, mu, sigma);
+verify_cp(g_cp0, c1, c2, c0);
+verify_cp(g_cp1, c1, c2, c0);
+verify_cp(g_cp0_a, c1, c2);
+verify_cp(g_cp1_a, c1, c2);
 
-devcheck('mu consistency', G.mu, g_cp.mu, 1e-12);
-devcheck('sigma consistency', fullform(G.sigma), fullform(g_cp.sigma), 1e-12);
+devcheck('c0 consistency', g_cp0_a.coef0, c0, 1e-12);
+devcheck('c0 consistency', g_cp1_a.coef0, c0, 1e-12);
+
+devcheck('mu consistency', g_cp1.mean, mu, 1e-12);
+devcheck('sigma consistency', fullform(g_cp1.cov), fullform(sigma), 1e-12);
 
 % Test evaluation
+test_eval(g_cp1);
 
-test_eval(G);
 
 %% Evaluation testing
 
@@ -83,12 +99,12 @@ function test_eval(g)
 d = g.dim;
 m = g.num;
 
-mu = g.mu;
+mu = g.mean;
 if isequal(mu, 0)
     mu = zeros(d, m);
 end
-ld = lndet(g.sigma);
-T2 = fullform(g.c2);
+ld = lndet(g.cov);
+T2 = fullform(g.coef2);
 if ndims(T2) == 2 && m > 1
     T2 = repmat(T2, [1, 1, m]);
 end
@@ -98,10 +114,10 @@ X0 = randn(d, n0);
 
 Dsq0 = comp_sq_mahdist(mu, T2, X0);
 LP0 = bsxfun(@plus, -0.5 * Dsq0, 0.5 * (- ld.' - d * log(2*pi)));
-LP1 = logprob(g, X0);
+LP1 = logpdf(g, X0);
 LP2 = zeros(m, n0);
 for i = 1 : m
-    LP2(i, :) = logprob(g, X0, i);
+    LP2(i, :) = logpdf(g, X0, i);
 end
 
 assert(isequal(size(LP1), [m n0]));
@@ -118,6 +134,25 @@ end
 
 
 %% Auxiliary function
+
+function basic_verify(g, d, m, has_mp, has_cp)
+
+assert(g.dim == d && g.num == m && g.has_mp == has_mp && g.has_cp == has_cp);
+
+function verify_mp(g, mu, sigma)
+
+assert(isequal(g.mean, mu) && isequal(fullform(g.cov), fullform(sigma)));
+
+function verify_cp(g, c1, c2, c0)
+
+assert(isequal(g.coef1, c1) && isequal(fullform(g.coef2), fullform(c2)));
+
+if nargin >= 4
+    assert(isequal(g.coef0, c0));
+end
+
+
+
 
 function devcheck(name, x1, x2, thres)
 
@@ -137,7 +172,7 @@ D = zeros(m, n);
 for i = 1 : m    
     A = icov(:,:,i);
     v = mu(:,i);
-    D(i, :) = pwmahdist(v, X, A, 'square');
+    D(i, :) = pwsqmahdist(v, X, A);
 end
 
 function v = prob_integrate_1d(g, i, mu, icov)
@@ -147,7 +182,7 @@ s = sqrt(1 / icov);
 
 n = 2000;
 x = linspace(mu - 10 * s, mu + 10 * s, n);
-p = exp(g.logprob(x, i));
+p = g.pdf(x, i);
 
 v = trapz(x, p);
 
@@ -167,7 +202,7 @@ s2 = sqrt(D(2,2));
 X = bsxfun(@times, X1(:)' * s1, v1) + bsxfun(@times, X2(:)' * s2, v2);
 X = bsxfun(@plus, X, mu);
 
-p = exp(g.logprob(X, i));
+p = g.pdf(X, i);
 
 v = sum(p) * (s1 * s2) * 0.01;
 
