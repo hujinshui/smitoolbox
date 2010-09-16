@@ -94,62 +94,62 @@ public:
 public:
     const T* data() const
     {
-        return m_data;
+        return this->m_data;
     }
     
     T* data()
     {
-        return m_data;
+        return this->m_data;
     }
     
     const T& operator() (int i, int j) const
     {
-        return m_data[i + j * m_nrows];
+        return this->m_data[i + j * this->m_nrows];
     }
     
     T& operator() (int i, int j)
     {
-        return m_data[i + j * m_nrows];
+        return this->m_data[i + j * this->m_nrows];
     }
     
     const T* ptr(int i, int j) const
     {
-        return m_data + (i + j * m_nrows);
+        return this->m_data + (i + j * this->m_nrows);
     }
     
     T* ptr(int i, int j)
     {
-        return m_data + (i + j * m_nrows);
+        return this->m_data + (i + j * this->m_nrows);
     }
     
     VectorCView<T> flat() const
     {
-        return VectorCView<T>(m_data, nelems());
+        return VectorCView<T>(this->m_data, this->nelems());
     }
     
     VectorView<T> flat() 
     {
-        return VectorView<T>(m_data, nelems());
+        return VectorView<T>(this->m_data, this->nelems());
     }
         
     MultiVectorCView<T> columns() const
     {
-        return MultiVectorCView<T>(m_data, m_ncols, m_nrows, m_nrows, 1);
+        return MultiVectorCView<T>(this->m_data, this->m_ncols, this->m_nrows, this->m_nrows, 1);
     }
     
     MultiVectorView<T> columns()
     {
-        return MultiVectorView<T>(m_data, m_ncols, m_nrows, m_nrows, 1);
+        return MultiVectorView<T>(this->m_data, this->m_ncols, this->m_nrows, this->m_nrows, 1);
     }
         
     MultiVectorCView<T> rows() const
     {
-        return MultiVectorCView<T>(m_data, m_nrows, m_ncols, 1, m_nrows);
+        return MultiVectorCView<T>(this->m_data, this->m_nrows, this->m_ncols, 1, this->m_nrows);
     }
     
     MultiVectorView<T> rows() 
     {
-        return MultiVectorView<T>(m_data, m_nrows, m_ncols, 1, m_nrows);
+        return MultiVectorView<T>(this->m_data, this->m_nrows, this->m_ncols, 1, this->m_nrows);
     }
 };
     

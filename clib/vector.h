@@ -72,32 +72,32 @@ public:
     
     const T* data() const
     {
-        return m_data;
+        return this->m_data;
     }
     
     T* data()
     {
-        return m_data;
+        return this->m_data;
     }
     
     const T& operator() (int i) const
     {
-        return m_data[i * m_intv];
+        return this->m_data[i * this->m_intv];
     }
     
     T& operator() (int i) 
     {
-        return m_data[i * m_intv];
+        return this->m_data[i * this->m_intv];
     }
     
     const T* ptr(int i) const
     {
-        return m_data + i * m_intv;
+        return this->m_data + i * this->m_intv;
     }
     
     T* ptr(int i)
     {
-        return m_data + i * m_intv;
+        return this->m_data + i * this->m_intv;
     }
 };
 
@@ -166,12 +166,12 @@ public:
     
     VectorCView<T> operator[] (int i) const
     {
-        return VectorCView<T>(m_data + i * m_vintv, m_vlen, m_eintv);
+        return VectorCView<T>(this->m_data + i * this->m_vintv, this->m_vlen, this->m_eintv);
     }
     
     VectorView<T> operator[] (int i) 
     {
-        return VectorView<T>(m_data + i * m_vintv, m_vlen, m_eintv);
+        return VectorView<T>(this->m_data + i * this->m_vintv, this->m_vlen, this->m_eintv);
     }
 };
 
