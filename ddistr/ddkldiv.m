@@ -41,11 +41,6 @@ end
 
 %% main
 
-v1 = safedot(P, log(P));
-
-if n2 > n1
-    v2 = safedot(P(:, ones(1, n2)), log(Q));
-elseif n1 > n2
-    v2 = safedot(P(:, ones(1, n2
-    
+v = safedot(P, log(P)) - safedot(P, log(Q));
+   
 
