@@ -43,7 +43,7 @@ end
 
 %% main
 
-dv = sum(W, 2);
+dv = sum(W, 1);
 
 if issparse(dv)
     dv = full(dv);
@@ -56,8 +56,8 @@ end
 if issparse(W)
     L = spdiag(dv) - W;
 else
-    di = 1 : (0:n-1) * (n+1);
+    di = 1 + (0:n-1) * (n+1);
     L = -W;
-    L(di) = L(di) + a;
+    L(di) = L(di) + dv;
 end
 

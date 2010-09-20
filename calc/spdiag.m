@@ -38,10 +38,6 @@ elseif nargin == 2
     n = v1;
     v = v2;
     
-    if ~(isscalar(n) && n == fix(n) && n >= 1)
-        error('spdiag:invalidarg', 'n should be a positive integer scalar.');
-    end
-    
     if ~isscalar(v)
         error('spdiag:invalidarg', 'v should be a scalar.');
     end

@@ -38,10 +38,11 @@ x = x0 + randn(size(x0)) * noise_mag;
 % construct MRF
 
 W = mrf1d(n, mker);
+M = L2mrf(W);
 
 % do smooth
 
-xs = laplacesm(W, x, 1);
+xs = M.smooth(x, 1);
 
 % visualize
 
