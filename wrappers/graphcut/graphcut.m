@@ -17,7 +17,7 @@ function [labels, maxflow] = graphcut(n, edges, tweights, nweights)
 %   Output: 
 %       - labels:   the labels of each node given by the solution.
 %                   It is a logical array of size 1 x n. 
-%                   1: assigned to source part, 0: assigned to sink part.
+%                   0: assigned to source part, 1: assigned to sink part.
 %       - maxflow:  the value of maximum flow (minimum cut).
 %
 %   Remarks:
@@ -35,30 +35,34 @@ function [labels, maxflow] = graphcut(n, edges, tweights, nweights)
 
 error(nargchk(4, 4, nargin));
 
-assert(isnumeric(n) && isscalar(n) && n == fix(n) && n > 0, ...
-    'graphcut:invalidarg', 'n should be a positive integer scalar.');
+if ~(isnumeric(n) && isscalar(n) && n == fix(n) && n > 0)
+    error('graphcut:invalidarg', 'n should be a positive integer scalar.');
+end
 
 n = double(n);
 
-assert(isnumeric(edges) && ndims(edges) == 2 && size(edges, 1) == 2, ...
-    'graphcut:invalidarg', 'edges should be a 2 x m matrix.');
+if ~(isnumeric(edges) && ndims(edges) == 2 && size(edges, 1) == 2)
+    error('graphcut:invalidarg', 'edges should be a 2 x m matrix.');
+end
 m = size(edges, 2);
 
 if ~isa(edges, 'int32')
     edges = int32(edges);
 end
 
-assert(isnumeric(tweights) && isequal(size(tweights), [1, n]), ...
-    'graphcut:invalidarg', 'tweights should be a numeric vector of size 1 x n.');
+if ~(isnumeric(tweights) && isequal(size(tweights), [1, n]))
+    error('graphcut:invalidarg', 'tweights should be a numeric vector of size 1 x n.');
+end
 
 if ~isa(tweights, 'double')
     tweights = double(tweights);
 end
 
-assert(isnumeric(nweights) && isequal(size(nweights), [1, m]), ...
-    'graphcut:invalidarg', 'nweights should be a numeric vector of size 1 x m.');
+if ~(isnumeric(nweights) && isequal(size(nweights), [1, m]))
+    error('graphcut:invalidarg', 'nweights should be a numeric vector of size 1 x m.');
+end
 
-if ~isa(nweights, 'int32')
+if ~isa(nweights, 'double')
     nweights = double(nweights);
 end
 
