@@ -86,7 +86,7 @@ void extract_results(int n, WGraph *pG, bool *results)
 {
     for (int i = 0; i < n; ++i)
     {
-        results[i] = (pG->what_segment(i) == WGraph::SOURCE);
+        results[i] = (pG->what_segment(i) == WGraph::SINK);
     }
 }
 
@@ -107,12 +107,14 @@ void extract_results(int n, WGraph *pG, bool *results)
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
-    
+        
     const mxArray *mxN = prhs[0];
     const mxArray *mxEdges = prhs[1];
     const mxArray *mxTweights = prhs[2];
     const mxArray *mxNweights = prhs[3];
     
+    // verify input arguments
+        
     int n = (int)mxGetScalar(mxN);
     int m = mxGetN(mxEdges);
     
