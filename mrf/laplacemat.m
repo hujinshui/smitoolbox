@@ -36,7 +36,7 @@ else
             'a should be a real scalar or a real vector of length n.');
     end
     
-    if size(a, 2) > 1   % turn a into a column vector
+    if size(a, 1) > 1   % turn a into a row vector
         a = a.';
     end
 end
