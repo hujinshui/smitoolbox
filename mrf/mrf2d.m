@@ -1,4 +1,4 @@
-function W = mrf2d(siz, kernel, roi)
+function W = mrf2d(siz, kernel)
 % Construct a second-order MRF between nodes with 2D index set
 %
 %   W = mrf2d([m, n], kernel);
@@ -17,15 +17,13 @@ function W = mrf2d(siz, kernel, roi)
 %       In the output, W is a sparse matrix of size N x N, where 
 %       N = m x n is the number of nodes.
 %
-%   W = mrf2d([m, n], kernel, roi);
-%       returns the affinity matrix of MRF model between the nodes
-%       marked by roi. The nodes are re-indexed following the order
-%       of find(roi).
-%
 
-% Created by Dahua Lin, on Apr 16, 2010
-% Modified by Dahua Lin, on Apr 17, 2010
-%   - add ROI support
+%   History
+%   -------
+%       - Created by Dahua Lin, on Apr 16, 2010
+%       - Modified by Dahua Lin, on Sep 21, 2010
+%           - use new implementation
+%
 
 %% verify input arguments
 
@@ -34,8 +32,9 @@ if ~(isnumeric(siz) && numel(siz) == 2 && all(siz == fix(siz) & siz >= 1))
         'The first argument [m, n] should be a pair of positive integer scalars.');
 end
 
-m = siz(1);
-n = siz(2);
+h = siz(1);
+w = siz(2);
+N = h * w;
 
 if ~(isfloat(kernel) && isreal(kernel) && ndims(kernel) == 2)
     error('mrf2d:invalidarg', 'kernel should be a real matrix.');
@@ -45,122 +44,78 @@ if kernel(1) ~= 0
     error('mrf2d:invalidarg', 'kernel(1, 1) must be zero.');
 end
 
-h = size(kernel, 1) - 1;
-w = size(kernel, 2) - 1;
-
-if m <= h || n <= w
-    error('mrf2d:invalidarg', 'm and n should be greater than the kernel size.');
-end
-
-if nargin < 4
-    roi = [];
-    N = m * n;  % total number of nodes
-else
-    if ~(islogical(roi) && isequal(size(roi), [m n]))
-        error('mrf2d:invalidarg', 'roi should be a logical matrix of size m x n.');
-    end
-    N = nnz(roi);
-    imap = zeros(m, n);
-    imap(roi) = 1 : N;
-end
-
-
 %% main
 
-if h == 0 && w == 0  % no inter-node links
+[kh, kw] = size(kernel);
+
+dX = repmat(0:kw-1, kh, 1);
+dY = repmat((0:kh-1)', 1, kw);
+
+nk = numel(kernel);
+
+I = cell(1, nk);
+J = cell(1, nk);
+V = cell(1, nk);
+
+for k = 1 : nk
     
-    W = sparse([], [], [], N, N);
+    kv = kernel(k);
+    if kv == 0
+        continue;
+    end
+  
+    dx = dX(k);
+    dy = dY(k);
+    
+    x0 = repmat(1:w-dx, h-dy, 1);
+    if dx ~= 0 
+        x1 = repmat(1+dx:w, h-dy, 1);
+    end
         
-else
-    
-    Is = cell(h+1, w+1);
-    Js = cell(h+1, w+1);
-    Vs = cell(h+1, w+1);
-    
-    for k = 0 : h
-        for l = 0 : w
-            kv = kernel(k+1, l+1);
-            
-            if k == 0 && l == 0
-                continue;
-                
-            elseif k == 0
-                [I1, J1, V1] = make_links(m, n, l, 0, kv);
-                I = [I1; J1];
-                J = [J1; I1];
-                V = [V1; V1];
-                    
-            elseif l == 0
-                [I1, J1, V1] = make_links(m, n, 0, k, kv);
-                I = [I1; J1];
-                J = [J1; I1];
-                V = [V1; V1];
-                
-            else
-                [I1, J1, V1] = make_links(m, n, l, k, kv);
-                [I2, J2, V2] = make_links(m, n, l, -k, kv);
-                I = [I1; J1; I2; J2];
-                J = [J1; I1; J2; I2];
-                V = [V1; V1; V2; V2];            
-            
-            end
-            
-            Is{k+1, l+1} = I;
-            Js{k+1, l+1} = J;
-            Vs{k+1, l+1} = V;
-        end
+    y0 = repmat((1:h-dy).', 1, w-dx);
+    if dy ~= 0
+        y1 = repmat((1+dy:h).', 1, w-dx);
     end
     
-    I = vertcat(Is{:});
-    J = vertcat(Js{:});
-    V = vertcat(Vs{:});
-    
-    if isempty(roi)
-        W = sparse(I, J, V, N, N);
+    if dx == 0 
+        [i0, j0] = make_links(w, h, x0, x0, y0, y1);
+        [i1, j1] = make_links(w, h, x0, x0, y1, y0);
+        
+        I{k} = [i0; i1];
+        J{k} = [j0; j1];
+        
+    elseif dy == 0
+        [i0, j0] = make_links(w, h, x0, x1, y0, y0);
+        [i1, j1] = make_links(w, h, x1, x0, y0, y0);
+        
+        I{k} = [i0; i1];
+        J{k} = [j0; j1];
+        
     else
-        si = roi(I) & roi(J);
-        I = imap(I(si));
-        J = imap(J(si));
-        V = V(si);
-        W = sparse(I, J, V, N, N);
-    end
+        [i0, j0] = make_links(w, h, x0, x1, y0, y1);
+        [i1, j1] = make_links(w, h, x0, x1, y1, y0);
+        [i2, j2] = make_links(w, h, x1, x0, y0, y1);
+        [i3, j3] = make_links(w, h, x1, x0, y1, y0);
         
+        I{k} = [i0; i1; i2; i3];
+        J{k} = [j0; j1; j2; j3];
+    end
+
+    V{k} = constmat(numel(I{k}), 1, kv);
 end
     
+I = vertcat(I{:});
+J = vertcat(J{:});
+V = vertcat(V{:});
 
-%% sub functions
-
-function [I, J, V] = make_links(m, n, dx, dy, v)
-
-[x0, x1] = shift_rows(n, dx);
-[y0, y1] = shift_rows(m, dy);
-
-[X0, Y0] = meshgrid(x0, y0);
-[X1, Y1] = meshgrid(x1, y1);
-
-I = Y0(:) + (X0(:) - 1) * m;
-J = Y1(:) + (X1(:) - 1) * m;
-V = v(ones(size(I)));
+W = sparse(I, J, V, N, N);  
 
 
+%% subfunctions
 
-function [x0, x1] = shift_rows(n, d)
+function [i, j] = make_links(w, h, xi, xj, yi, yj) %#ok<INUSL>
 
-if d == 0
-    x0 = 1 : n;
-    x1 = x0;
-elseif d > 0
-    x0 = 1 : n - d;
-    x1 = 1 + d : n;
-else
-    x0 = 1 - d : n;
-    x1 = 1 : n + d;
-end
-
-    
-
-
-
-
+i = yi(:) + h * (xi(:) - 1);
+j = yj(:) + h * (xj(:) - 1);
 
 
