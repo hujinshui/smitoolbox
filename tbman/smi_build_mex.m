@@ -12,10 +12,7 @@ function smi_build_mex(varargin)
 
 % read in the build list
 
-text = textread('mex_list.txt', '%s', ...
-    'delimiter', '\n', 'commentstyle', 'shell');
-text = cellfun(@strtrim, text, 'UniformOutput', false);
-text = text(~cellfun(@isempty, text));
+text = read_list('smi_mex_list.txt');
 
 % parse the list
 
@@ -62,6 +59,38 @@ end
 
 
 %% parse function
+
+function text = read_list(filename)
+
+text = cell(10, 1);
+
+fid = fopen(filename);
+if fid < 0
+    error('smi_build_mex:ioerror', 'Failed to open %s', filename);
+end
+
+i = 0;
+while 1
+    line = fgetl(fid);
+    if ~ischar(line)
+        break;
+    end
+    
+    line = strtrim(line);
+    
+    if ~isempty(line) && line(1) ~= '#'    
+        i = i + 1;
+        if i > numel(text)
+            text{numel(text) * 2} = [];
+        end
+        text{i} = line;
+    end
+end
+
+text = text(1:i);
+fclose(fid);
+
+
 
 function ps = parse_entry(line)
 
