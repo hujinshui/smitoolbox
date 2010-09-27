@@ -44,6 +44,6 @@ qpps: optim/qpps.cpp
 
 # Others
     
-graphcut_cimp:  graph/graphcut/graphcut_cimp.cpp
+mincut_bk_mex:  graph/mincut/private/mincut_bk_mex.cpp
 
 
