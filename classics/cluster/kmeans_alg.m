@@ -21,11 +21,11 @@ classdef kmeans_alg
     
     
     properties
-        max_iter = 300;
+        dist_func = @km_euc;
         
-        cost_func = @pwsqL2dist;
-        dist_func = @pwL2dist;
-        mean_func = @vecmean;        
+        max_iter = 300;     % the maximum number of iterations
+        tol_c = 0;          % the maximum allowable changes of labels at convergence
+        display = 'off';    % the level of information displaying                
     end
     
     
