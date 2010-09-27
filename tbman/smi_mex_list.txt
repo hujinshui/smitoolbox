@@ -30,6 +30,11 @@ mtimes_sm2v2: base/matrix/mtimes_sm2v2.cpp
 pwLpdist: base/metrics/pwLpdist.cpp    
 pwhamdist: base/metrics/pwhamdist.cpp
 
+# for sample
+
+rpick_merge_new: base/sample/private/rpick_merge_new.cpp
+
+
 
 # for stats
 
