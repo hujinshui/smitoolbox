@@ -47,8 +47,13 @@ if op == 'c' || op == 'd'
         
 elseif op == 'm'
         
+    w = Y;
     if m > 1
-        R = median(X, 2);
+        if isempty(w)
+            R = median(X, 2);
+        else
+            R = wmedian(X, w);
+        end
     else
         R = X;
     end
@@ -57,5 +62,4 @@ elseif op == 't'
         
     R = X;    
 end
-
 

@@ -3,6 +3,8 @@ function [L, M, info] = kmeans_ex(X, M0, varargin)
 %
 %   [L, M] = kmeans_ex(X, K, ...);
 %   [L, M] = kmeans_ex(X, M0, ...);
+%   [L, M] = kmeans_ex({X, w}, K, ...);
+%   [L, M] = kmeans_ex({X, w}, M0, ...);
 %       
 %       This function implements the K-means algorithm, which is an
 %       extension of the standard implementation.
@@ -10,6 +12,7 @@ function [L, M, info] = kmeans_ex(X, M0, varargin)
 %       Input: 
 %       - X:    The matrix of input samples. Each column in X corresponds
 %               to one sample.
+%       - w:    The weights of samples (when the samples are weighted)
 %       - K:    The number of clusters. 
 %       - M0:   The initial centers.
 %   
@@ -150,11 +153,27 @@ function [L, M, info] = kmeans_ex(X, M0, varargin)
 
 %% parse and verify input
 
+if isnumeric(X)     
+    wx = [];
+elseif iscell(X) && numel(X) == 2
+    wx = X{2};
+    X = X{1};
+end
+
 if ~(isfloat(X) && ndims(X) == 2)
     error('kmeans_ex:invalidarg', 'X should be a numeric matrix.');
 end
-
 [d, n] = size(X);
+
+if ~isempty(wx)
+    if ~(isfloat(wx) && isequal(size(wx), [1 n]) && isreal(wx))
+        error('kmeans_ex:invalidarg', 'w should be a real vector of size 1 x n.');
+    end
+    if issparse(wx)
+        wx = full(wx);
+    end
+end
+
 if isscalar(M0)
     K = M0;
     M0 = [];
@@ -222,7 +241,7 @@ on_nil_op = opts.on_nil_op;
 dispLevel = opts.dispLevel;
 if dispLevel >= 2
     print_iter_header();    
-    print_iter(it, ss.costs, am, n, dcc);
+    print_iter(it, ss.costs, wx, am, n, dcc);
 end
 
 
@@ -233,7 +252,7 @@ while ~converged && it < opts.max_iter
     % update affected mean
     
     M_pre = M;
-    [M, any_nil, to_rps] = update_mean(X, M, dfunc, am, G, on_nil_op);
+    [M, any_nil, to_rps] = update_mean(X, wx, M, dfunc, am, G, on_nil_op);
                 
     if any_nil && on_nil_op > 0   % repick nil centers
         rpi = find(to_rps);
@@ -250,7 +269,7 @@ while ~converged && it < opts.max_iter
         [L, ss, dcc] = reassign_acc(X, M, M_pre, L, G, dfunc, ss, am);
     else
         [L, ss, dcc] = reassign_std(X, M, L, dfunc, ss, am);
-    end
+    end    
     G = intgroup([1, K], L);
     tdcc = tdcc + dcc;
     
@@ -269,14 +288,14 @@ while ~converged && it < opts.max_iter
                 
     % display iteration info
     if dispLevel >= 2    
-        print_iter(it, ss.costs, am, ch, dcc);
+        print_iter(it, ss.costs, wx, am, ch, dcc);
     end
 end
 
 
 % display final info
 if dispLevel >= 1
-    print_final(it, ss, converged, tdcc);
+    print_final(it, ss, wx, converged, tdcc);
 end
 
 if ~converged && opts.uc_warn
@@ -290,14 +309,18 @@ if nargout >= 3
     info.last_ch = ch;
     info.converged = converged;
     
-    info.totalcost = sum(ss.costs);
+    if isempty(wx)
+        info.totalcost = sum(ss.costs);
+    else
+        info.totalcost = dot(ss.costs, wx);
+    end
 end
 
 
 %% core sub-functions
 
 
-function [M, any_nil, to_rps] = update_mean(X, M, dfunc, am, G, on_nil_op)
+function [M, any_nil, to_rps] = update_mean(X, wx, M, dfunc, am, G, on_nil_op)
 % update mean(s) according to new assignment
 % and identify nil mean(s)
 
@@ -310,8 +333,12 @@ end
 
 for k = am    
     gk = G{k};
-    if ~isempty(gk)
-        M(:, k) = dfunc(X(:, gk), [], 'm');
+    if ~isempty(gk)        
+        if isempty(wx)        
+            M(:, k) = dfunc(X(:, gk), [], 'm');
+        else
+            M(:, k) = dfunc(X(:, gk), wx(gk), 'm');
+        end
     else
         any_nil = 1;
         if on_nil_op > 0
@@ -459,16 +486,26 @@ fprintf(' Iter    # af.m.  # ch.ass.     # t.cost   # d.comp \n');
 fprintf('-----------------------------------------------------\n');
 
 
-function print_iter(it, costs, am, ch, dcc)
+function print_iter(it, costs, wx, am, ch, dcc)
 
-tcv = sum(costs);
+if isempty(wx)
+    tcv = sum(costs);
+else
+    tcv = dot(costs, wx);
+end
 fprintf('%5d    %7d   %7d  %12.6g  %9d\n', it, numel(am), ch, tcv, dcc);
 
 
-function print_final(it, ss, converged, tdcc)
+function print_final(it, ss, wx, converged, tdcc)
 
+if isempty(wx)
+    tcv = sum(ss.costs);
+else
+    tcv = dot(ss.costs, wx);
+end
 fprintf('K-means final: total_cost = %.6g, converged = %d [total # iters = %d, # d.comp = %d]\n', ...
-    sum(ss.costs), converged, it, tdcc);
+    tcv, converged, it, tdcc);
+
 
 
 
