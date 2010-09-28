@@ -1,7 +1,7 @@
-function R = km_euc(X, Y, op)
-% K-means related computation (for Euclidean distance)
+function R = kmd_sqL2(X, Y, op)
+% K-means related computation (for squared Euclidean distance)
 %
-%   R = km_euc(X, Y, 'd');
+%   R = kmd_sqL2(X, Y, 'd');
 %       compute the Euclidean distances between columns in X and columns 
 %       in Y pairwisely. 
 %
@@ -9,7 +9,7 @@ function R = km_euc(X, Y, op)
 %       then R is a matrix of size m x n, with R(i, j) being the Euclidean
 %       distance between X(:,i) and Y(:,j).
 %
-%   R = km_euc(X, Y, 'c');
+%   R = kmd_sqL2(X, Y, 'c');
 %       compute the matching costs between columns in X and those in Y.
 %
 %       Suppose X is a matrix of size d x m and Y is of size d x n,
@@ -17,12 +17,10 @@ function R = km_euc(X, Y, op)
 %       assigning Y(:,j) to the cluster with center X(:,i). Here, it is
 %       the squared Euclidean distance.
 %
-%   R = km_euc(X, [], 'm');
-%   R = km_euc(X, w, 'm');
-%`      computes the (weighted) mean of X. When w is an empty array, it
-%       computes the un-weighted mean.
+%   R = kmd_sqL2(X, [], 'm');
+%`      computes the mean of X. 
 %
-%   R = km_euc(D, [], 't');
+%   R = kmd_sqL2(D, [], 't');
 %       transforms distance to costs. (Here, it computes squares of D).
 %
 %   Remarks
@@ -56,14 +54,9 @@ if op == 'c' || op == 'd'
     end
     
 elseif op == 'm'
-    
-    w = Y;    
+        
     if m > 1
-        if isempty(w)
-            R = sum(X, 2) * (1 / size(X, 2));
-        else
-            R = X * (w' / sum(w));
-        end
+        R = sum(X, 2) * (1 / size(X, 2));
     else
         R = X;
     end
