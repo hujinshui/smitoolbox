@@ -54,9 +54,15 @@ if op == 'c' || op == 'd'
     end
     
 elseif op == 'm'
-        
+    
+    w = Y;
+    
     if m > 1
-        R = sum(X, 2) * (1 / size(X, 2));
+        if isempty(w)
+            R = sum(X, 2) * (1 / size(X, 2));
+        else
+            R = X * (w' / sum(w));
+        end
     else
         R = X;
     end

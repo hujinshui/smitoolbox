@@ -12,6 +12,7 @@ valueseg: base/calc/valueseg.cpp
 pieces_cimp: base/calc/private/pieces_cimp.cpp
 labelsum: base/calc/labelsum.cpp
 safedot : base/calc/safedot.cpp
+wmedian_cimp: base/calc/private/wmedian_cimp.cpp
 
 # for matrix
 
