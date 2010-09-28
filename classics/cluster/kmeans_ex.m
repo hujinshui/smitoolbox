@@ -257,7 +257,13 @@ while ~converged && it < opts.max_iter
     if any_nil && on_nil_op > 0   % repick nil centers
         rpi = find(to_rps);
                
-        M(:, rpi) = opts.rpickFunc(X, numel(rpi), ss.costs, costfunc, opts.rstream);
+        if isempty(wx)
+            rpw = ss.costs;
+        else
+            rpw = ss.costs .* wx;
+        end
+        
+        M(:, rpi) = opts.rpickFunc(X, numel(rpi), rpw, costfunc, opts.rstream);
     end
     
     % update assignment and status
