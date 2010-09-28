@@ -1,17 +1,17 @@
-function S = kmeans_ex_set(S0, varargin)
-% Set options for kmeans_ex function.
+function S = kmedoid_std_set(S0, varargin)
+% Set options for kmedoid_std function.
 %
-%   S = kmeans_ex_set;
+%   S = kmedoid_std;
 %       returns the default option struct.
 %
-%   S = kmeans_ex_set(S0, 'name1', value1, 'name2', value2, ...);
+%   S = kmedoid_std_set(S0, 'name1', value1, 'name2', value2, ...);
 %       Verifies input options and constructs an option struct for 
 %       kmeans_ex_set.
 %
 %       Here, S0 is the original option struct to be updated. 
 %       It can be empty, when constructing based on default options.
 %
-%       Please refer to the help of kmeans_ex for details.
+%       Please refer to the help of kmedoid_std for details.
 %
 
 %   History
@@ -25,8 +25,7 @@ function S = kmeans_ex_set(S0, varargin)
 
 if nargin < 1 || isempty(S0)    
     S = struct( ...
-        'tag', 'kme_ex_checked', ...
-        'scheme', 'std', ...
+        'tag', 'kmd_std_checked', ...
         'max_iter', 100, ...
         'tol_c', 0, ...
         'display', 'off', ...
@@ -34,15 +33,11 @@ if nargin < 1 || isempty(S0)
         'uc_warn', false, ...
         'init', 'km++', ...
         'initFunc', @kmpick_pp, ...
-        'on_nil', 'repick++', ...
-        'on_nil_op', 1, ...
-        'rpickFunc', @kmpick_pp, ...
-        'dist_func', @kmd_sqL2, ...
         'rstream', []);    
 else    
     if ~(isstruct(S0) && numel(S0) == 1 && isfield(S0, 'tag') && ...
-            strcmp(S0, 'kme_ex_checked'))
-        error('kmeans_ex_set:invalidarg', 'S0 is invalid.');
+            strcmp(S0, 'kmd_std_checked'))
+        error('kmedoid_std_set:invalidarg', 'S0 is invalid.');
     end    
     S = S0;
 end
@@ -58,12 +53,11 @@ ovals = varargin(2:2:end);
 
 n = length(onames);
 if ~(iscellstr(onames) && n == length(ovals))
-    error('kmeans_ex_set:invalidarg', 'The name/value pair list is invalid.');
+    error('kmedoid_std_set:invalidarg', 'The name/value pair list is invalid.');
 end
 
 update_display = false;
 update_init = false;
-update_on_nil = false;
 
 for i = 1 : n
    
@@ -102,32 +96,7 @@ for i = 1 : n
             end
             v = lower(v);
             update_init = ~strcmp(v, S.init);
-            
-        case 'on_nil'
-            if ~(ischar(v) && any(strcmpi(v, {'repick', 'repick++', 'mcpick', 'error', 'keep'})))
-                opterr('The value of on_nil option is invalid.');
-            end
-            v = lower(v);
-            update_on_nil = ~strcmp(v, S.on_nil);
-            
-        case 'dist_func'
-            if ischar(v)                
-                if ~any(strcmpi(v, {'sqL2', 'L1'}))
-                    opterr('Unknown dist_func name %s', v);
-                end
-                v = lower(v);
-                if strcmpi(v, 'sqL2')
-                    v = @kmd_sqL2;
-                elseif strcmpi(v, 'L1')
-                    v = @kmd_L1;
-                end
-                
-            else
-                if ~isa(v, 'function_handle')
-                    opterr('The value of dist_func is invalid.');
-                end
-            end
-            
+                        
         case 'rstream'
             if ~(isempty(v) || isa(v, 'RandStream'))
                 opterr('rstream should be either empty or a RandStream object.');
@@ -168,31 +137,11 @@ if update_init
     end
 end
 
-if update_on_nil
-    switch S.on_nil
-        case 'repick++'
-            S.rpickFunc = @kmpick_pp;
-            S.on_nil_op = 1;
-        case 'repick'
-            S.rpickFunc = @kmpick_rand;
-            S.on_nil_op = 1;
-        case 'mcpick'
-            S.rpickFunc = @kmpick_mc;
-            S.on_nil_op = 1;
-        case 'error'
-            S.rpickFunc = [];
-            S.on_nil_op = -1;
-        case 'keep'
-            S.rpickFunc = [];
-            S.on_nil_op = 0;
-    end
-end
-
 
 %% sub function
 
 function opterr(msg, varargin)
 
-error('kmeans_ex_set:invalidopt', msg, varargin{:});
+error('kmedoid_std_set:invalidopt', msg, varargin{:});
 
 
