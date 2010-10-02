@@ -50,7 +50,8 @@ qpps: optim/qpps.cpp
 
 # for graph
 
-gr_neighbors_cimp: graph/common/private/gr_neighbors_cimp.cpp    
+gr_neighbors_cimp: graph/common/private/gr_neighbors_cimp.cpp 
+gr_traverse_cimp: graph/common/private/gr_traverse_cimp.cpp graph/clib/mgraph_classic.cpp 
 mincut_bk_mex:  graph/mincut/private/mincut_bk_mex.cpp
 
 
