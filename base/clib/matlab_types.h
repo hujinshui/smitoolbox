@@ -12,6 +12,7 @@
 #define SMI_CLIB_MATLAB_TYPES
 
 #include <mex.h>
+#include <string.h>
 
 namespace smi
 {
@@ -66,6 +67,17 @@ mxArray* create_matlab_matrix<bool>(int m, int n)
     return mxCreateLogicalMatrix(m, n);
 }
 
+
+template<typename T>
+mxArray* src_to_matlab_matrix(int m, int n, const T *src)
+{
+    mxArray *mx = create_matlab_matrix<T>(m, n);
+    T *dst = (T*)mxGetData(mx);    
+    ::memcpy(dst, src, m * n * sizeof(T));
+    return mx;
+}
+
+
 template<typename T>
 mxArray* create_matlab_scalar(T v)
 {
@@ -73,6 +85,9 @@ mxArray* create_matlab_scalar(T v)
     *((T*)mxGetData(M)) = v;
     return M;
 }
+
+  
+
 
 
 }
