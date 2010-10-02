@@ -14,8 +14,16 @@ function G = mgraph(varargin)
 %   G = mgraph(W);
 %       constructs an MGraph struct using edge weight matrix. 
 %
+%   G = mgraph(n, edges);
+%       constructs an MGraph struct using edges. Here, edges can be
+%       either an m x 2 array in form of [I J], or an m x 3 array
+%       in form of [I J W].
+%
+%   G = mgraph(n, I, J);
 %   G = mgraph(n, I, J, W);
-%       constructs an MGraph struct using edge information
+%       constructs an MGraph struct using edge information.
+%       If W is omitted, it constructs a boolean-value graph, all
+%       edge weights are logical(1).
 %
 %   G = mgraph(G);
 %       verifies whether G is a validity-checked mgraph struct
@@ -35,10 +43,7 @@ if nargin == 1
             error('mgraph:invalidarg', 'W should be a square matrix.');
         end
         [I, J, W] = find(W);
-        
-        if islogical(W) || isinteger(W)
-            W = int32(W);
-        end        
+                
         G = struct('n', n, 'I', int32(I)-1, 'J', int32(J)-1, 'W', W, ...
             'mgr_checked', true);
         
@@ -50,10 +55,25 @@ if nargin == 1
         end
     end
 
-elseif nargin == 4
+elseif nargin == 2
     
     G.n = check_n(varargin{1});
-    [G.I, G.J, G.W] = check_IJW(varargin{2}, varargin{3}, varargin{4});    
+    [G.I, G.J, G.W] = check_edges(varargin{2});
+    G.mgr_checked = true;
+    
+elseif nargin == 3 || nargin == 4
+        
+    G.n = check_n(varargin{1});
+    if nargin == 3
+        I = varargin{2};
+        J = varargin{3};
+        W = [];
+    else
+        I = varargin{2};
+        J = varargin{3};
+        W = varargin{4};
+    end    
+    [G.I, G.J, G.W] = check_IJW(I, J, W);    
     G.mgr_checked = true;
 
 else
@@ -72,6 +92,34 @@ end
 n = double(n);
 
 
+function [I, J, W] = check_edges(edges)
+
+if ~(isnumeric(edges) && ndims(edges) == 2)
+    error('mgraph:invalidarg', 'edges should be an matrix.');
+end
+
+[m, nc] = size(edges);
+if nc == 2
+    I = edges(:,1);
+    J = edges(:,2);
+    W = true(m, 1);
+elseif nc == 3
+    I = edges(:,1);
+    J = edges(:,2);
+    W = edges(:,3);
+else
+    error('mgraph:invalidarg', 'edges should contain 2 or 3 columns.');
+end
+
+if ~isa(edges, 'int32')
+    I = int32(I);
+    J = int32(J);
+end
+
+I = I - 1;
+J = J - 1;
+
+
 function [I, J, W] = check_IJW(I, J, W)
 
 if ~(isvector(I) && isnumeric(I))
@@ -82,12 +130,18 @@ if ~(isvector(J) && isnumeric(J))
     error('mgraph:invalidarg', 'J should be a numeric vector.');
 end
 
-if ~(isvector(W) && (isnumeric(W) || islogical(W)))
-    error('mgraph:invalidarg', 'G.W should be a numeric or logical vector.');
-end
-
-if ~isequal(size(I), size(J), size(W))
-    error('mgraph:invalidarg', 'The sizes of I, J, and W are not consistent.');
+if isempty(W)
+    W = true(size(I));
+    if ~isequal(size(I), size(J))
+        error('mgraph:invalidarg', 'The sizes of I and J are not consistent.');
+    end
+else
+    if ~(isvector(W) && (isnumeric(W) || islogical(W)))
+        error('mgraph:invalidarg', 'G.W should be a numeric or logical vector.');
+    end
+    if ~isequal(size(I), size(J), size(W))
+        error('mgraph:invalidarg', 'The sizes of I, J, and W are not consistent.');
+    end
 end
 
 if ~isa(I, 'int32')
@@ -96,10 +150,6 @@ end
 
 if ~isa(J, 'int32')
     J = int32(J);
-end
-
-if islogical(W) || isinteger(W)
-    W = int32(W);
 end
     
 I = I - 1;
