@@ -55,7 +55,6 @@ mxArray* do_extract_nbs(const mxArray *mxG, char op)
     if (op == 'o' || op == 'O')
     {
         GNeighborHood nbh(G, gnb_out());
-        nbh.mdump();
         return nbnodes_to_matlab_cells(nbh);        
     }
     else if (op == 'i' || op == 'I')

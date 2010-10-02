@@ -1,4 +1,4 @@
-function nbs = gr_neighbors(G, op)
+function [nbs, ws] = gr_neighbors(G, op)
 % Extract the neighbors of each node in a graph
 %
 %   nbs = gr_neighbors(G);
@@ -11,6 +11,10 @@ function nbs = gr_neighbors(G, op)
 %       
 %   nbs = gr_neighbors(G. 'i');
 %       extract the incoming neighbors of all nodes.
+%
+%   [nbs, ws] = gr_neighbors( ... );
+%       additionally returns the corresponding edge weights in form
+%       of cell array.
 %
 
 %   History
@@ -32,7 +36,11 @@ end
 
 %% main
 
-nbs = gr_neighbors_cimp(G, op);
+if nargout <= 1
+    nbs = gr_neighbors_cimp(G, op);
+else
+    [nbs, ws] = gr_neighbors_cimp(G, op);
+end
 
 n = numel(nbs);
 for i = 1 : n
