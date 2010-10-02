@@ -26,9 +26,8 @@ namespace smi
  *        (should be properly initialized/set before)
  *
  * @return the number of traversed nodes
- */ 
-template<typename T>    
-int breadth_first_traverse(const GNeighborHood<T>& G, int v0, int *r, bool *visited);
+ */   
+int breadth_first_traverse(const GNeighborHood& G, int v0, int *r, bool *visited);
 
 /**
  * Performs depth-first traverse from a specified node
@@ -41,11 +40,10 @@ int breadth_first_traverse(const GNeighborHood<T>& G, int v0, int *r, bool *visi
  *
  * @return the number of traversed nodes
  */
-template<typename T>
-int depth_first_traverse(const GNeighborHood<T>& G, int v0, int *r, bool *visited);
-
+int depth_first_traverse(const GNeighborHood& G, int v0, int *r, bool *visited);
     
 }
+
 
 #endif
 

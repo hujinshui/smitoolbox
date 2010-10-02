@@ -431,6 +431,17 @@ private:
 }; // end class WGNeighborHood
 
 
+inline mxArray *gindices_mrow(int n, int *v)
+{
+    mxArray *mxI = mxCreateNumericMatrix(1, n, mxINT32_CLASS, mxREAL);
+    int *I = (int*)mxGetData(mxI);
+    for (int i = 0; i < n; ++i)
+    {
+        I[i] = v[i] + 1;
+    }
+    return mxI;
+}
+
 }
 
 #endif
