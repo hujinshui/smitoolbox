@@ -281,7 +281,7 @@ private:
     void _init(int n, int m, const int *I, const int *J)
     {
         // construct the neighborhood structure
-        
+                
         m_nnodes = n;
         m_nedges = m;
         m_max_nnbs = 0;
@@ -303,6 +303,8 @@ private:
         
         for (int k = 0; k < m; ++k)
         {
+            if (I[k] < 0 || I[k] >= n)
+                mexErrMsgIdAndTxt("MGRAPH:badindex", "Index exceeds #nodes.");
             ++ m_nnbs[I[k]];
         }
         
@@ -317,18 +319,23 @@ private:
         int *c = new int[n];
         
         int p = 0;
-        for (int i = 0; i < n; ++i, p += m_nnbs[i])
+        for (int i = 0; i < n; ++i)
         {
-            m_offsets[i] = c[i] = p;            
+            m_offsets[i] = c[i] = p; 
+            p += m_nnbs[i];
         }
         
         // fill in neighbors
         
         for (int k = 0; k < m; ++k)
         {
-            int j = c[I[k]]++;            
-            m_J[j] = J[k]; 
-            m_E[j] = k;
+            if (J[k] < 0 || J[k] >= n)
+                mexErrMsgIdAndTxt("MGRAPH:badindex", "Index exceeds #nodes.");   
+            
+            int i = I[k];
+            int ofs = c[i]++;
+            m_J[ofs] = J[k]; 
+            m_E[ofs] = k;
         }        
         
         delete[] c;      
