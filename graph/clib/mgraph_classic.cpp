@@ -1,6 +1,7 @@
 // The implementation of mgraph_classic
 
 #include "mgraph_classic.h"
+#include <string.h>
 
 int smi::breadth_first_traverse(const smi::GNeighborHood& G, int v0, int *r, bool *visited)
 {  
@@ -115,6 +116,39 @@ int smi::depth_first_traverse(const smi::GNeighborHood& G, int v0, int *r, bool 
     return l;
 }
 
+
+int smi::extract_connected_components(const smi::GNeighborHood& G, smi::GTraverseOrder gto, int *r, int *csiz)
+{
+    int n = G.nnodes();
+    
+    bool *visited = new int[n];
+    ::memset(visited, 0, n * sizeof(bool));
+    
+    bool use_bf = (gto != smi::GTO_DF);
+    
+    int nc = 0;
+    int *p = r;
+    
+    for (int i = 0; i < n; ++i)
+    {
+        if (!visited[i])
+        {
+            if (use_bf)
+            {
+                csiz[nc] = breadth_first_traverse(G, i, p, visited);
+            }
+            else
+            {
+                csiz[nc] = depth_first_traverse(G, i, p, visited);
+            }      
+            p += csiz[nc++];
+        }                
+    }
+        
+    delete[] visited;
+    
+    return nc;
+}
 
 
 

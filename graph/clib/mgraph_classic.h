@@ -41,7 +41,26 @@ int breadth_first_traverse(const GNeighborHood& G, int v0, int *r, bool *visited
  * @return the number of traversed nodes
  */
 int depth_first_traverse(const GNeighborHood& G, int v0, int *r, bool *visited);
-    
+ 
+
+enum GTraverseOrder
+{
+    GTO_BF,
+    GTO_DF
+};
+
+/**
+ * Extracts connected components (for undirected/symmetric graph)
+ *
+ * @param G the neighborhood of the graph
+ * @param gto the traverse order
+ * @param r the pre-allocated buffer to store concatenated node indices of all components
+ * @param csiz the sizes of all connected components (pre-allocated) 
+ *
+ * @return the number of connected components
+ */
+int extract_connected_components(const GNeighborHood& G, GTraverseOrder gto, int *r, int *csiz);
+
 }
 
 
