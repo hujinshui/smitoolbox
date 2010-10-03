@@ -56,20 +56,25 @@ template<> struct mttrait<bool>
 
 
 template<typename T>
-mxArray* create_matlab_matrix(int m, int n)
+inline mxArray* create_matlab_matrix(int m, int n)
 {
     return mxCreateNumericMatrix(m, n, mttrait<T>::class_id, mxREAL);
 }
 
+inline mxArray* create_empty_matrix()
+{
+    return mxCreateDoubleMatrix(0, 0, mxREAL);
+}
+
 template<>
-mxArray* create_matlab_matrix<bool>(int m, int n)
+inline mxArray* create_matlab_matrix<bool>(int m, int n)
 {
     return mxCreateLogicalMatrix(m, n);
 }
 
 
 template<typename T>
-mxArray* src_to_matlab_matrix(int m, int n, const T *src)
+inline mxArray* src_to_matlab_matrix(int m, int n, const T *src)
 {
     mxArray *mx = create_matlab_matrix<T>(m, n);
     T *dst = (T*)mxGetData(mx);    
@@ -79,7 +84,7 @@ mxArray* src_to_matlab_matrix(int m, int n, const T *src)
 
 
 template<typename T>
-mxArray* create_matlab_scalar(T v)
+inline mxArray* create_matlab_scalar(T v)
 {
     mxArray* M = create_matlab_matrix<T>(1, 1);
     *((T*)mxGetData(M)) = v;

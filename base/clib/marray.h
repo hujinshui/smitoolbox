@@ -13,6 +13,10 @@
 
 #include <mex.h>
 
+#include "vector.h"
+#include "matrix.h"
+#include "matlab_types.h"
+
 namespace smi
 {
  
@@ -43,6 +47,11 @@ public:
     int ndims() const
     {
         return (int)mxGetNumberOfDimensions(mxA);
+    }
+    
+    mxClassID class_id() const
+    {
+        return mxGetClassID(mxA);
     }
     
 public:    
@@ -196,7 +205,7 @@ public:
     T* get_data() 
     {
         return (T*)mxGetData(mxA);
-    }    
+    }
     
     template<typename T>
     VectorCView<T> to_vector() const
@@ -222,6 +231,22 @@ public:
         return MatrixView<T>(get_data<T>(), nrows(), ncols());
     }
     
+public:
+    MArray get_field(int i, const char *fieldname) const
+    {
+        return MArray(mxGetField(mxA, i, fieldname));
+    }
+    
+    MArray get_field(const char *fieldname) const
+    {
+        return MArray(mxGetField(mxA, 0, fieldname));
+    }
+    
+    MArray get_cell(int i) const
+    {
+        return MArray(mxGetCell(mxA, i));
+    }     
+        
 private:
     const mxArray *mxA;
     

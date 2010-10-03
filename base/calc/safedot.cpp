@@ -6,12 +6,8 @@
  *
  ********************************************************************/
 
-#include <mex.h>
 
-#include "../clib/vector.h"
-#include "../clib/matrix.h"
 #include "../clib/marray.h"
-#include "../clib/matlab_types.h"
 
 using namespace smi;
 

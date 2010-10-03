@@ -37,7 +37,8 @@ bopts = {'-O'};
 
 rootdir = fileparts(fileparts(mfilename('fullpath')));
 
-if ~strcmp(pwd, rootdir)
+original_dir = pwd;
+if ~strcmp(original_dir, rootdir)
     cd(rootdir);
 end
 
@@ -56,6 +57,9 @@ for i = 1 : n
     fprintf('\n');
 end
 
+if ~strcmp(original_dir, rootdir)
+    cd(original_dir);
+end
 
 
 %% parse function
