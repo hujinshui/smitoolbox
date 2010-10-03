@@ -8,7 +8,6 @@
  *
  ********************************************************************/
 
-#include "../../../base/clib/matlab_types.h"
 #include "../../clib/mgraph.h"
 
 using namespace smi;
@@ -48,9 +47,9 @@ mxArray* nbweights_to_matlab_cells(const WAdjList<T>& nbh)
 }
 
 
-mxArray* do_extract_nbs(const mxArray *mxG, char op)
+mxArray* do_extract_nbs(const MArray& mG, char op)
 {
-    RefGraph G = to_refgraph(mxG);
+    RefGraph G = to_refgraph(mG);
     
     if (op == 'o' || op == 'O')
     {
@@ -71,9 +70,9 @@ mxArray* do_extract_nbs(const mxArray *mxG, char op)
 
 
 template<typename T>
-void do_extract_wnbs(const mxArray *mxG, char op, mxArray*& mxNbs, mxArray*& mxWs)
+void do_extract_wnbs(const MArray& mG, char op, mxArray*& mxNbs, mxArray*& mxWs)
 {
-    RefWGraph<T> G = to_refwgraph<T>(mxG);
+    RefWGraph<T> G = to_refwgraph<T>(mG);
     
     if (op == 'o' || op == 'O')
     {
@@ -105,29 +104,29 @@ void do_extract_wnbs(const mxArray *mxG, char op, mxArray*& mxNbs, mxArray*& mxW
 //
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    const mxArray *mxG = prhs[0];
-    const mxArray *mxOp = prhs[1];
+    MArray mG(prhs[0]);
+    MArray mOp(prhs[1]);
     
-    char op = (char)(*((const mxChar*)mxGetData(mxOp)));
+    char op = (char)(mOp.get_scalar<mxChar>());
     
     if (nlhs <= 1)
     {
-        plhs[0] = do_extract_nbs(mxG, op);
+        plhs[0] = do_extract_nbs(mG, op);
     }
     else
     {
-        mxClassID wcid = get_graph_weight_class(mxG);
+        mxClassID wcid = get_graph_weight_class(mG);
         
         switch (wcid)
         {
             case mxDOUBLE_CLASS:
-                do_extract_wnbs<double>(mxG, op, plhs[0], plhs[1]);
+                do_extract_wnbs<double>(mG, op, plhs[0], plhs[1]);
                 break;
             case mxINT32_CLASS:
-                do_extract_wnbs<int>(mxG, op, plhs[0], plhs[1]);
+                do_extract_wnbs<int>(mG, op, plhs[0], plhs[1]);
                 break;
             case mxSINGLE_CLASS:
-                do_extract_wnbs<float>(mxG, op, plhs[0], plhs[1]);
+                do_extract_wnbs<float>(mG, op, plhs[0], plhs[1]);
                 break;
         }        
     }            

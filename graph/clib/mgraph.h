@@ -11,47 +11,44 @@
 #ifndef SMI_MGRAPH_H
 #define SMI_MGRAPH_H
 
-#include <mex.h>
+#include "../../base/clib/marray.h"
 #include "graphs.h"
 
 namespace smi
 {
     
-inline mxClassID get_graph_weight_class(const mxArray *mxG)
+inline mxClassID get_graph_weight_class(const MArray& mG)
 {
-    const mxArray *mxW = mxGetField(mxG, 0, "W");
-    return mxGetClassID(mxW);
+    return mG.get_field("W").class_id();   
 }
     
     
-inline RefGraph to_refgraph(const mxArray *mxG)
+inline RefGraph to_refgraph(const MArray& mG)
 {
-    const mxArray *mxN = mxGetField(mxG, 0, "n");
-    const mxArray *mxI = mxGetField(mxG, 0, "I");
-    const mxArray *mxJ = mxGetField(mxG, 0, "J");        
+    int n = (int)mG.get_field("n").get_double_scalar();
+    MArray mI = mG.get_field("I");
+    MArray mJ = mG.get_field("J");        
+    int m = mI.nelems();
     
-    int n = (int)mxGetScalar(mxN);
-    int m = mxGetNumberOfElements(mxI);
-    const int *I = (const int*)mxGetData(mxI);
-    const int *J = (const int*)mxGetData(mxJ);
+    const int *I = mI.get_data<int>();
+    const int *J = mJ.get_data<int>();
     
     return RefGraph(n, m, I, J);    
 }
 
 
 template<typename TWeight>
-inline RefWGraph<TWeight> to_refwgraph(const mxArray *mxG)
+inline RefWGraph<TWeight> to_refwgraph(const MArray &mG)
 {
-    const mxArray *mxN = mxGetField(mxG, 0, "n");
-    const mxArray *mxI = mxGetField(mxG, 0, "I");
-    const mxArray *mxJ = mxGetField(mxG, 0, "J"); 
-    const mxArray *mxW = mxGetField(mxG, 0, "W");
+    int n = (int)mG.get_field("n").get_double_scalar();
+    MArray mI = mG.get_field("I");
+    MArray mJ = mG.get_field("J"); 
+    MArray mW = mG.get_field("W");
+    int m = mI.nelems();
     
-    int n = (int)mxGetScalar(mxN);
-    int m = mxGetNumberOfElements(mxI);
-    const int *I = (const int*)mxGetData(mxI);
-    const int *J = (const int*)mxGetData(mxJ);
-    const TWeight *W = (const TWeight*)mxGetData(mxW);
+    const int *I = mI.get_data<int>();
+    const int *J = mJ.get_data<int>();
+    const TWeight *W = mW.get_data<TWeight>();
     
     return RefWGraph<TWeight>(n, m, I, J, W);
 }
@@ -59,7 +56,7 @@ inline RefWGraph<TWeight> to_refwgraph(const mxArray *mxG)
 
 inline mxArray *gindices_mrow(int n, int *v)
 {
-    mxArray *mxI = mxCreateNumericMatrix(1, n, mxINT32_CLASS, mxREAL);
+    mxArray *mxI = create_matlab_matrix<int>(1, n);
     int *I = (int*)mxGetData(mxI);
     for (int i = 0; i < n; ++i)
     {
