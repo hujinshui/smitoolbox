@@ -2,7 +2,7 @@
 
 #include "mgraph_search.h"
 
-int smi::gnode_trace_back(const int *prec, int v, int *path)
+int smi::gpath_trace_back(const int *prec, int v, int *path)
 {    
     path[0] = v;
     int n = 1;
@@ -87,8 +87,8 @@ void smi::BreadthFirstSearch::initialize(int ns, int *starts)
     }
 }
 
-bool smi::BreadthFirstSearch::search(int vstop)
-{
+bool smi::BreadthFirstSearch::search(int vstop, const bool *amap)
+{            
     if (vstop >= 0 && m_traversal.is_visited(vstop)) 
         return true;
     
@@ -106,7 +106,7 @@ bool smi::BreadthFirstSearch::search(int vstop)
             for (int j = 0; j < n; ++j)
             {                
                 int t = nbs[j];
-                if (!m_traversal.is_visited(t))
+                if ((amap == 0 || amap[t]) && !m_traversal.is_visited(t))
                 {
                     _impl->enqueue(s, t);
                 }                    
@@ -234,7 +234,7 @@ void smi::DepthFirstSearch::initialize(int ns, int *starts)
 }
 
 
-void smi::DepthFirstSearch::search(int vstop)
+void smi::DepthFirstSearch::search(int vstop, const bool *amap)
 {    
     if (vstop >= 0 && m_traversal.is_visited(vstop))            
         return true;
@@ -246,7 +246,7 @@ void smi::DepthFirstSearch::search(int vstop)
         if (e.remain())
         {
             int v = e.next();
-            if (!m_traversal.visited[v])
+            if ((amap == 0 || amap[v])!m_traversal.visited[v])
             {
                 _impl->push(e.v, v);
             }

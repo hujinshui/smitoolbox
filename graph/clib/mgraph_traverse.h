@@ -1,15 +1,15 @@
 /********************************************************************
  *  
- *  mgraph_search.h
+ *  mgraph_traverse.h
  *
- *  The header files for graph search algorithms
+ *  The header files for graph traversal algorithms
  *
- *  Created by Dahua Lin, on Oct 1, 2009
+ *  Created by Dahua Lin, on Oct 2, 2010
  *
  ********************************************************************/
 
-#ifndef SMI_MGRAPH_CLASSIC_H
-#define SMI_MGRAPH_CLASSIC_H
+#ifndef SMI_MGRAPH_TRAVERSE_H
+#define SMI_MGRAPH_TRAVERSE_H
 
 #include "mgraph.h"
 #include <string.h>
@@ -26,7 +26,7 @@ namespace smi
  *
  * @return the number of nodes on the path
  */    
-int gnode_trace_back(const int *prec, int v, int *path);
+int gpath_trace_back(const int *prec, int v, int *path);
     
     
 /**
@@ -36,7 +36,7 @@ int gnode_trace_back(const int *prec, int v, int *path);
 class GTraversal
 {
 public:
-    explicit GTraversal(const GNeighborHood& G, bool use_parents)
+    explicit GTraversal(const GNeighborHood& G)
     : m_G(G), m_nv(0)
     {        
         int n = G.nnodes();
@@ -55,9 +55,14 @@ public:
     
 public:
     
-    const GNeighborHood& NeighborHood() const
+    const GNeighborHood& neighborhood() const
     {
         return m_G;
+    }
+    
+    int num_nodes() const
+    {
+        return m_G.nnodes();
     }
     
     int num_visited() const
@@ -126,16 +131,16 @@ private:
     
 
 /**
- * The base class for graph search
+ * The base class for graph traversal
  */
-class GraphSearchBase
+class GTraverserBase
 {
 public:
-    GraphSearchBase(const GNeighborHood& G) : m_traversal(G)
+    GTraverserBase(const GNeighborHood& G) : m_traversal(G)
     {
     }
     
-    virtual ~GraphSearchBase()
+    virtual ~GTraverserBase()
     {
     }
     
@@ -147,19 +152,22 @@ public:
     /**
      * initialize the internal data structure 
      * 
-     * @param ns the number of starting nodes
-     * @param starts the array of starting nodes
+     * @param ns the number of seed nodes
+     * @param seeds the array of seed node indices
      */
-    virtual void initialize(int ns, int *starts) = 0;    
+    virtual void initialize(int ns, int *seeds) = 0;    
             
     /**
      * Performs search along the graph to a stop node
      *
-     * @param vstop stops the search when vstop is visited (default=-1)
+     * @param vstop stops the search when vstop is visited 
+     *        (set vstop to -1 for traversing the entire graph)
+     * @param amap the indicators of accessibility 
+     *        (set amap to NULL when all nodes are accessible)
      *
      * @return whether vstop has been visited
      */
-    virtual bool search(int vstop) = 0;
+    virtual bool search(int vstop, const bool *amap) = 0;
     
      
     /**
@@ -191,9 +199,9 @@ public:
     /**
      * Performs the traversal over the entire connected component
      */
-    void traverse()
+    void traverse(const bool *amap = 0)
     {
-        search(-1);
+        search(-1, amap);
     }
     
 protected:
@@ -218,7 +226,7 @@ public:
                 
     virtual void initialize(int ns, int *starts);
               
-    virtual bool search(int vstop);
+    virtual bool search(int vstop, const bool *amap);
             
 private:
     
@@ -244,7 +252,7 @@ public:
                 
     virtual void initialize(int ns, int *starts);    
     
-    virtual bool search(int vstop);
+    virtual bool search(int vstop, const bool *amap);
             
 private:
     
