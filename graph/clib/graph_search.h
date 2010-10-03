@@ -12,11 +12,9 @@
 #define SMI_GRAPH_SEARCH_H
 
 #include "graphs.h"
-#include "../../../base/clib/array.h"
+#include "../../base/clib/array.h"
+#include "../../base/clib/data_structs.h"
 
-#define _SECURE_SCL 0
-#include <vector>
-#include <deque>
 
 namespace smi
 {
@@ -50,7 +48,7 @@ public:
     {
         if (!is_closed(v))
         {
-            enqueue(v);
+            close_node(v);
         }        
     }
     
@@ -65,7 +63,7 @@ public:
         if (!m_Q.empty())
         {
             int s = m_Q.front();
-            m_Q.pop_front();
+            m_Q.dequeue();
             
             int c = m_adjlist.neighbor_num(s);
             if (c > 0)
@@ -76,7 +74,7 @@ public:
                     int t = ts[i];
                     if (!is_closed(t))
                     {
-                        enqueue(t);
+                        close_node(t);
                     }   
                 }
             }
@@ -110,23 +108,16 @@ public:
     
 private:
     
-    void enqueue(int v)
+    void close_node(int v)
     {
-        m_Q.push_back(v);
+        m_Q.enqueue(v);
         m_closed[v] = true;        
-        
-        mexPrintf("Q: ");
-        for (std::deque<int>::const_iterator it = m_Q.begin(); it != m_Q.end(); ++it)
-        {
-            mexPrintf("%d ", *it);            
-        }
-        mexPrintf("\n");
     }
     
                 
 private:
     const AdjList& m_adjlist;
-    std::deque<int> m_Q;
+    Queue<int> m_Q;
     
     Array<bool> m_closed;
     

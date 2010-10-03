@@ -14,24 +14,24 @@
 
 using namespace smi; 
     
-void do_bfs(const AdjList& adjList, mxArray*& mxVs)
+void do_bfs(const AdjList& adjList, int ns, const int *seeds, mxArray*& mxVs)
 {
-    int *vs = new int[adjList.nnodes()];
-    
     BFSIterator bfs_it(adjList);
     
-    int v;
-    int c = 0;
+    for (int i = 0; i < ns; ++i) 
+        bfs_it.add_seed(seeds[i]);
+    
+    SeqList<int> vs(adjList.nnodes());
+    
+    int v = -1;
     while ((v = bfs_it.next()) >= 0)
     {
-        vs[c++] = v;
+        vs.add(v);
     }
     
-    mxVs = gindices_mrow(c, vs);
-    delete[] vs;
+    mxVs = gindices_mrow(vs.size(), vs.data());    
 }
-    
-    
+        
     
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
@@ -45,14 +45,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     RefGraph G = to_refgraph(mG);
     AdjList adjList(G);
     
-    int n = mSeeds.nelems();
+    int ns = mSeeds.nelems();
     const int *seeds = mSeeds.get_data<int>();
     
     // main
     
     if (nlhs <= 1)
     {
-        do_bfs(adjList, plhs[0]);
+        do_bfs(adjList, ns, seeds, plhs[0]);
     }    
 }
     
