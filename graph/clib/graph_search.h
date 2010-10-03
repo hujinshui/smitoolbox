@@ -49,7 +49,12 @@ public:
         if (!is_closed(v))
         {
             close_node(v);
-        }        
+            return true;
+        } 
+        else
+        {
+            return false;
+        }
     }
     
     
