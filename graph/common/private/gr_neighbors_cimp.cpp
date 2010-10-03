@@ -13,8 +13,8 @@
 
 using namespace smi;
 
-template class MWGraph<double>;
-template class WGNeighborHood<double>;
+template class RefWGraph<double>;
+template class WAdjList<double>;
 
 inline void raise_operr()
 {
@@ -22,7 +22,7 @@ inline void raise_operr()
 }
 
 
-mxArray* nbnodes_to_matlab_cells(const GNeighborHood& nbh)
+mxArray* nbnodes_to_matlab_cells(const AdjList& nbh)
 {
     int n = nbh.nnodes();
     mxArray *mxC = mxCreateCellMatrix(n, 1);
@@ -35,7 +35,7 @@ mxArray* nbnodes_to_matlab_cells(const GNeighborHood& nbh)
 }
 
 template<typename T>
-mxArray* nbweights_to_matlab_cells(const WGNeighborHood<T>& nbh)
+mxArray* nbweights_to_matlab_cells(const WAdjList<T>& nbh)
 {
     int n = nbh.nnodes();
     mxArray *mxC = mxCreateCellMatrix(n, 1);
@@ -50,16 +50,16 @@ mxArray* nbweights_to_matlab_cells(const WGNeighborHood<T>& nbh)
 
 mxArray* do_extract_nbs(const mxArray *mxG, char op)
 {
-    MGraph G(mxG);
+    RefGraph G = to_refgraph(mxG);
     
     if (op == 'o' || op == 'O')
     {
-        GNeighborHood nbh(G, gnb_out());
+        AdjList nbh(G);
         return nbnodes_to_matlab_cells(nbh);        
     }
     else if (op == 'i' || op == 'I')
     {
-        GNeighborHood nbh(G, gnb_in());
+        AdjList nbh(transpose(G));
         return nbnodes_to_matlab_cells(nbh);
     }
     else
@@ -73,17 +73,17 @@ mxArray* do_extract_nbs(const mxArray *mxG, char op)
 template<typename T>
 void do_extract_wnbs(const mxArray *mxG, char op, mxArray*& mxNbs, mxArray*& mxWs)
 {
-    MWGraph<T> G(mxG);
+    RefWGraph<T> G = to_refwgraph<T>(mxG);
     
     if (op == 'o' || op == 'O')
     {
-        WGNeighborHood<T> nbh(G, gnb_out());
+        WAdjList<T> nbh(G);
         mxNbs = nbnodes_to_matlab_cells(nbh);     
         mxWs = nbweights_to_matlab_cells(nbh);
     }
     else if (op == 'i' || op == 'I')
     {
-        WGNeighborHood<T> nbh(G, gnb_in());
+        WAdjList<T> nbh(transpose(G));
         mxNbs = nbnodes_to_matlab_cells(nbh);
         mxWs = nbweights_to_matlab_cells(nbh);
     }
@@ -116,7 +116,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else
     {
-        mxClassID wcid = MGraph::get_weight_class(mxG);
+        mxClassID wcid = get_graph_weight_class(mxG);
         
         switch (wcid)
         {
