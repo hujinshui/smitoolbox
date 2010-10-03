@@ -54,7 +54,7 @@ inline RefWGraph<TWeight> to_refwgraph(const MArray &mG)
 }
         
 
-inline mxArray *gindices_mrow(int n, int *v)
+inline mxArray *gindices_mrow(int n, const int *v)
 {
     mxArray *mxI = create_matlab_matrix<int>(1, n);
     int *I = (int*)mxGetData(mxI);
