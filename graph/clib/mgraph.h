@@ -30,7 +30,7 @@ inline RefGraph to_refgraph(const mxArray *mxG)
     const mxArray *mxI = mxGetField(mxG, 0, "I");
     const mxArray *mxJ = mxGetField(mxG, 0, "J");        
     
-    int n = (int)mxGetScalar(mxG);
+    int n = (int)mxGetScalar(mxN);
     int m = mxGetNumberOfElements(mxI);
     const int *I = (const int*)mxGetData(mxI);
     const int *J = (const int*)mxGetData(mxJ);
@@ -47,7 +47,7 @@ inline RefWGraph<TWeight> to_refwgraph(const mxArray *mxG)
     const mxArray *mxJ = mxGetField(mxG, 0, "J"); 
     const mxArray *mxW = mxGetField(mxG, 0, "W");
     
-    int n = (int)mxGetScalar(mxG);
+    int n = (int)mxGetScalar(mxN);
     int m = mxGetNumberOfElements(mxI);
     const int *I = (const int*)mxGetData(mxI);
     const int *J = (const int*)mxGetData(mxJ);
