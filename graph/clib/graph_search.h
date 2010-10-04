@@ -663,6 +663,12 @@ private:
 }; // end class DFSIteratorEx
 
 
+/*****************************************
+ *
+ *  Some algorithms based on BFS or DFS
+ *
+ *****************************************/
+
 
 /**
  * tests whether a directed graph is acylic
@@ -689,6 +695,49 @@ bool test_acyclic(int n, DFSIteratorEx& dfs_it)
         }
     }
     return true;
+}
+
+
+/**
+ * Get connected components of an undirected (or symmetric) graph
+ *
+ * @param adjlist the adjacency list of the graph (input)
+ * @param csizs the array of sizes (# nodes) of components (output)
+ * @param nodes the concatenated array of nodes in each component (output)
+ *
+ * @return the number of components
+ *
+ * @remarks it uses BFS to traverse each component
+ */
+int get_connected_components(const AdjList& adjlist, int *csizs, int *nodes)
+{
+    int n = adjlist.nnodes();
+    
+    BFSIterator bfs_it(adjlist);
+    
+    SeqList<int> vseq(refmem(n, nodes));
+    
+    int c = 0;
+    int p = 0;
+    
+    for (int i = 0; i < n; ++i)
+    {
+        if (!bfs_it.is_discovered(i))
+        {
+            bfs_it.add_seed(i);
+            
+            int v;
+            while ((v = bfs_it.next()) >= 0)
+            {
+                vseq.add(v);                        
+            }
+        
+            csizs[c++] = vseq.size() - p;
+            p = vseq.size();
+        }
+    }
+    
+    return c;
 }
 
 
