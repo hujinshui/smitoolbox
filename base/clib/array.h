@@ -9,8 +9,8 @@
  ********************************************************************/
 
 
-#ifndef SMI_ARRAY_H
-#define SMI_ARRAY_H
+#ifndef SMI_CLIB_ARRAY_H
+#define SMI_CLIB_ARRAY_H
 
 #include <string.h>
 

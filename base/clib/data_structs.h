@@ -9,6 +9,10 @@
  ********************************************************************/
 
 
+#ifndef SMI_CLIB_DATA_STRUCTS_H
+#define SMI_CLIB_DATA_STRUCTS_H
+
+
 namespace smi
 {
     
@@ -234,6 +238,8 @@ private:
     
 }
 
+
+#endif
 
 
 
