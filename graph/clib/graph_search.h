@@ -526,7 +526,7 @@ public:
                 t = e.next_neighbor();
                                 
                 if (is_discovered(t))
-                {
+                {                    
                     return is_finished(t) ? DFS_CROSS_EDGE : DFS_BACK_EDGE;
                 }
                 else
@@ -598,6 +598,25 @@ public:
         return m_finish_order;
     }
     
+    
+public:
+                        
+    /**
+     * walk until a loop is encountered (back edge)
+     *
+     * @return return the node already in the stack that is pointed to 
+     *         by the last back edge, or -1 if no loop
+     */
+    int find_loop() 
+    {
+        DFSEdgeType ety;
+        int v = -1;
+        while ((ety = next_edge(v)) && ety != DFS_BACK_EDGE); 
+        
+        return v;
+    }
+    
+    
 private:
     void discover_node(int p, int v)
     {
@@ -645,6 +664,32 @@ private:
 
 
 
+/**
+ * tests whether a directed graph is acylic
+ *
+ * @param n the number of nodes
+ * @param dfs_it A DFS iterator (at initial status) on the graph 
+ * 
+ * @return true if the graph is acyclic, false otherwise
+ *
+ * @remarks if the graph is acyclic, the reversed order of the 
+ *  finish_order of dfs_it is a topological order of the graph
+ *
+ */
+bool test_acyclic(int n, DFSIteratorEx& dfs_it)
+{           
+    for (int i = 0; i < n; ++i)
+    {
+        if (!dfs_it.is_discovered(i))
+        {
+            dfs_it.set_seed(i);
+            
+            if (dfs_it.find_loop() >= 0)
+                return false;
+        }
+    }
+    return true;
+}
 
 
 }
