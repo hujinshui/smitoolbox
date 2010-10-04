@@ -1,14 +1,19 @@
-function vs = gr_bfs(G, seeds)
+function [vs, preds, dists] = gr_bfs(G, seeds)
 % Performs BFS traversal
 %
 %   vs = gr_bfs(G, seeds);
+%   [vs, preds] = gr_bfs(G, seeds);
+%   [vs, preds, dists] = gr_bfs(G, seeds);
+%
 %       performs breadth-first-search traversal along the graph G.
 %       G can be an affinity matrix or a mgraph struct.
 %
 %       seeds is an array comprised of the indices of seed nodes.
 %
 %       Outputs:
-%       - vs:   the sequence of nodes in visiting order 
+%       - vs:       the sequence of nodes in visiting order 
+%       - preds:    the predecessors of each nodes
+%       - dists:    the distances (# edges) from the seeds
 %
 
 % Created by Dahua Lin, on Oct 3, 2010
@@ -28,5 +33,13 @@ end
 
 %% main
 
-vs = gr_bfs_cimp(G, seeds-1);
+nout = nargout;
+
+if nout <= 1
+    vs = gr_bfs_cimp(G, seeds-1);
+elseif nout == 2
+    [vs, preds] = gr_bfs_cimp(G, seeds-1);
+elseif nout == 3
+    [vs, preds, dists] = gr_bfs_cimp(G, seeds-1);
+end
 

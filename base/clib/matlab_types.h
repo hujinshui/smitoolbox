@@ -91,8 +91,30 @@ inline mxArray* create_matlab_scalar(T v)
     return M;
 }
 
-  
 
+template<typename TIter>
+inline mxArray* iter_to_matlab_row(const TIter& it)
+{
+    typedef typename TIter::value_type T;
+    int n = it.count();
+    
+    mxArray *mx = create_matlab_matrix<T>(1, n);
+    T *dst = (T*)mxGetData(mx);
+    for (int i = 0; i < n; ++i) dst[i] = it(i);    
+    return mx;
+}
+
+template<typename TIter>
+inline mxArray* iter_to_matlab_column(const TIter& it)
+{
+    typedef typename TIter::value_type T;
+    int n = it.count();
+    
+    mxArray *mx = create_matlab_matrix<T>(n, 1);
+    T *dst = (T*)mxGetData(mx);
+    for (int i = 0; i < n; ++i) dst[i] = it(i);    
+    return mx;
+}
 
 
 }
