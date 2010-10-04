@@ -127,7 +127,153 @@ private:
     Array<bool> m_closed;
     
 }; // end class BFSIterator
+   
+
+
+/**
+ * The extended iterator of graph nodes using BFS order
+ *
+ * This iterator also keep tracks of predecessors and distances
+ * from the seeds
+ *
+ * @remarks It is a forward-input iterator
+ */     
+class BFSIteratorEx
+{
+public:
+        
+    BFSIteratorEx(const AdjList& adjlist) 
+    : m_adjlist(adjlist), m_Q(adjlist.nnodes())
+    , m_closed(adjlist.nnodes())
+    , m_preds(adjlist.nnodes())
+    , m_dists(adjlist.nnodes())
+    {
+        m_closed.set_zeros();        
+    }   
     
+    
+    /**
+     * add a new node as seed, and tag v as closed
+     *
+     * @param v the index of the node to be added as seed
+     * @return whether v is added (true if v is open before adding) 
+     *
+     * @remarks      
+     *  - this function adds v only when v remains open       
+     */
+    bool add_seed(int v)
+    {
+        if (!is_closed(v))
+        {
+            close_seed(v);
+            return true;
+        } 
+        else
+        {
+            return false;
+        }
+    }
+    
+    
+    /**
+     * Get the next node and move the iterator forward
+     *
+     * @return the index of next node, or -1 when no next node
+     */
+    int next()
+    {
+        if (!m_Q.empty())
+        {
+            int s = m_Q.front();
+            m_Q.dequeue();
+            
+            int c = m_adjlist.neighbor_num(s);
+            if (c > 0)
+            {
+                const int *ts = m_adjlist.neighbor_nodes(s);
+                for (int i = 0; i < c; ++i)
+                {
+                    int t = ts[i];
+                    if (!is_closed(t))
+                    {
+                        close_node(s, t);
+                    }   
+                }
+            }
+            
+            return s;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    
+    
+public:
+    
+    bool is_closed(int v) const
+    {
+        return m_closed[v];
+    }
+    
+    int predecessor_of(int v) const
+    {
+        return m_preds[v];
+    }
+    
+    int distance_of(int v) const
+    {
+        return m_dists[v];
+    }    
+    
+    
+    bool is_queue_empty() const
+    {
+        return m_Q.empty();
+    }
+        
+    int queue_length() const
+    {
+        return (int)m_Q.size();
+    }
+    
+    
+private:
+    
+    void close_seed(int v)
+    {
+        m_Q.enqueue(v);
+        m_closed[v] = true;
+        
+        m_preds[v] = -1;
+        m_dists[v] = 0;
+    }
+    
+    void close_node(int pred, int v)
+    {
+        m_Q.enqueue(v);
+        m_closed[v] = true; 
+        
+        m_preds[v] = pred;
+        m_dists[v] = m_dists[pred] + 1;        
+    }
+    
+                
+private:
+    const AdjList& m_adjlist;
+    Queue<int> m_Q;
+    
+    Array<bool> m_closed;
+    
+    Array<int> m_preds;
+    Array<int> m_dists;
+    
+}; // end class BFSIteratorEx
+
+
+
+
 
 
 }
