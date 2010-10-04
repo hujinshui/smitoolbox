@@ -147,12 +147,12 @@ public:
     
     const T& top() const
     {
-        return m_data[m_n];
+        return m_data[m_n-1];
     }
     
     T& top() 
     {
-        return m_data[m_n];
+        return m_data[m_n-1];
     }
     
 private:

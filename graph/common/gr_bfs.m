@@ -8,7 +8,8 @@ function [vs, preds, dists] = gr_bfs(G, seeds)
 %       performs breadth-first-search traversal along the graph G.
 %       G can be an affinity matrix or a mgraph struct.
 %
-%       seeds is an array comprised of the indices of seed nodes.
+%       seeds is an array comprised of the indices of seed nodes, which
+%       are all discovered initially.
 %
 %       Outputs:
 %       - vs:       the sequence of nodes in visiting order 
