@@ -19,7 +19,9 @@
 
 // to dump heap actions, further define the macro MATLAB_DUMP_HEAP_ACTION
 
+#include "data_structs.h"
 #include "bintree.h"
+
 
 namespace smi
 {
@@ -42,15 +44,18 @@ struct max_heap
 /**
  * The class to represent a binary heap
  */    
-template<typename TKey, typename HeapOrder=min_heap>    
+template<typename TKey, typename HeapOrder=min_heap, class BTree=CompleteBinaryTree<int> >    
 class BinaryHeap
 {
 public:
     typedef TKey key_type;
     typedef HeapOrder heap_order;
+    typedef BTree btree_type;
+    typedef typename BTree::node_indicator trnode;
     
 public:
-    BinaryHeap(int cap) : m_btree(cap), m_keys(cap)    
+    BinaryHeap(int cap) 
+    : m_btree(cap), m_keys(cap), m_nodemap(cap), m_inheap(cap)    
     {        
     }
     
@@ -70,6 +75,11 @@ public:
     {
         return m_btree.empty();
     }
+    
+    bool in_heap(int i) const
+    {
+        return i < m_keys.size() && m_inheap[i];
+    }
         
     key_type get_key(int i) const
     {
@@ -83,10 +93,10 @@ public:
     
     int root_index() const
     {
-        return m_btree.root_index();
+        return m_btree.root_value();
     }
     
-    const AssoBinaryTree& btree() const
+    const btree_type& btree() const
     {
         return m_btree;
     }
@@ -95,17 +105,19 @@ public:
             
     void make_heap(int n, const key_type *src)
     {                        
-        // copy key values
-        for (int i = 0; i < n; ++i) m_keys[i] = src[i];
-        
-        // reset the tree
-        m_btree.make_tree(n);
-                
+        // copy key values and initialize the tree
+        for (int i = 0; i < n; ++i) 
+        {
+            append_node(m_keys[i] = src[i]);            
+        }
+                                
         // heapify the tree
         if (n > 0)
         {
             int dir;
-            for (int p = m_btree.last_nonleaf(); p > 0; --p)
+            trnode rend = m_btree.rev_end();
+            
+            for (trnode p = m_btree.last_nonleaf(); p != rend; --p)
             {
                 if ((dir = inferior_to_children(p)) >= 0)
                 {
@@ -118,20 +130,18 @@ public:
     
     void clear()
     {
-        m_btree.clear();        
+        m_btree.clear(); 
+        m_keys.clear();
     }
     
             
     void add_key(key_type v)
     {
-        // add to key array
-        m_keys[size()] = v;
-        
-        // push a new node to the tree
-        m_btree.push_node();
+        // append the key as last node
+        append_node(v);
         
         // heapify the new node
-        int p = m_btree.last_node();
+        trnode p = m_btree.last_node();
         if (superior_to_parent(p))
         {
             upheap(p);
@@ -147,21 +157,23 @@ public:
             m_keys[i] = v;       
             
             // heapify the updated node
-            update_node(m_btree.node_of_index(i));
+            update_node(m_nodemap[i]);
         }                
     }
     
     void delete_root()
     {
         if (!m_btree.empty())
-        {
-            int n = m_btree.size();
+        {            
+            int n = m_btree.size();            
             if (n > 1)
-            {
+            {                                
                 // swap root with last node, and update
-                swap_node(m_btree.root(), m_btree.last_node());
+                trnode pl = m_btree.last_node();
+                swap_node(m_btree.root(), pl);
                 
                 // delete the last node
+                m_inheap[m_btree[pl]] = false;
                 m_btree.pop_node();
                 
                 // update the root node
@@ -170,6 +182,7 @@ public:
             else
             {
                 // delete the last node, which is also the root node
+                m_inheap[m_btree.root_value()] = false; 
                 m_btree.pop_node();
             }                        
         }
@@ -190,7 +203,8 @@ public:
 
     void dump_heap_to_matlab() const
     {   
-        for (int p = m_btree.root(); p <= m_btree.last_node(); ++p)
+        trnode endp = m_btree.end();
+        for (trnode p = m_btree.root(); p != endp; ++p)
         {
             dump_node_to_matlab(p);            
             mexPrintf(" ");
@@ -198,7 +212,7 @@ public:
         mexPrintf("\n");
     }    
 
-    void dump_node_to_matlab(int p) const
+    void dump_node_to_matlab(trnode p) const
     {          
         double v = double(key_at_node(p));            
         mexPrintf("%g", v);
@@ -206,10 +220,19 @@ public:
     
     void dump_imap_to_matlab() const
     {
-        for (int i = 0; i < size(); ++i)
+        for (int i = 0; i < m_keys.size(); ++i)
         {
-            int p = m_btree.node_of_index(i);
-            mexPrintf("(%d -> %g) ", p, double(key_at_node(p)));
+            trnode p = m_nodemap[i];
+            
+            if (in_heap(i))
+            {
+                mexPrintf("(%d: %d -> %g) ", 
+                        i, p.index(), double(key_at_node(p)));
+            }
+            else
+            {
+                mexPrintf("(%d: ~)", i); 
+            }            
         }
         mexPrintf("\n");
     }
@@ -217,14 +240,27 @@ public:
 #endif
     
        
-private:        
+private:
     
-    key_type key_at_node(int p) const
+    key_type key_at_node(trnode p) const
     {
-        return get_key(m_btree.index_at_node(p));
-    }    
+        return m_keys[m_btree[p]];
+    }
     
-    void update_node(int p)
+                      
+    void append_node(key_type kv)
+    {
+        int new_index = m_keys.size();
+        
+        m_btree.push_node(new_index);
+        m_nodemap[new_index] = m_btree.last_node();
+        m_inheap[new_index] = true;
+                
+        m_keys.add(kv);        
+    }
+    
+    
+    void update_node(trnode p)
     {                
         int dir;
         if (superior_to_parent(p))
@@ -237,10 +273,10 @@ private:
         }
     }
     
-    bool superior_to_parent(int p) const
+    bool superior_to_parent(trnode p) const
     {
-        int par = m_btree.parent(p);
-        if (par)
+        trnode par = p.parent();
+        if (m_btree.has_node(par))
         {
             return heap_order::compare( key_at_node(p), key_at_node(par) );
         }
@@ -250,12 +286,11 @@ private:
         }                
     }
     
-    int inferior_to_children(int p) const // return direction of the proper child
+    int inferior_to_children(trnode p) const // return direction of the proper child
     {
-        int maxp = m_btree.last_node();
-        int lc = m_btree.left_child(p);                     
+        trnode lc = p.left_child();                     
         
-        if (lc <= maxp)
+        if (m_btree.has_node(lc))
         {
             key_type k = key_at_node(p);
             int dir = -1;
@@ -267,8 +302,8 @@ private:
                 dir = 0;
             }
             
-            int rc = lc + 1;
-            if (rc <= maxp)
+            trnode rc = lc.succ();
+            if (m_btree.has_node(rc))
             {
                 key_type krc = key_at_node(rc);
                 if (heap_order::compare(krc, k))
@@ -287,25 +322,25 @@ private:
     }
     
     
-    void upheap(int p) 
+    void upheap(trnode p) 
     {
         do 
         {
-            p = swap_node(p, m_btree.parent(p));
+            p = swap_node(p, p.parent());
         } 
         while( superior_to_parent(p) );
     }
     
-    void downheap(int p, int dir)
+    void downheap(trnode p, int dir)
     {                        
         do
         {         
-            p = swap_node(p, m_btree.child(p, dir));    
+            p = swap_node(p, p.child(dir));    
         }
         while( (dir = inferior_to_children(p)) >= 0 );
     }
      
-    int swap_node(int ps, int pt)
+    trnode swap_node(trnode ps, trnode pt)
     {
         
 #ifdef MATLAB_DUMP_HEAP_ACTION
@@ -317,14 +352,25 @@ private:
         mexPrintf("\n");
         
 #endif
+        int si = m_btree[ps];
+        int ti = m_btree[pt];
         
-        m_btree.swap_node(ps, pt);        
+        m_btree[ps] = ti;
+        m_btree[pt] = si;
+        
+        m_nodemap[si] = pt;
+        m_nodemap[ti] = ps;        
+               
         return pt;
     }
             
 private:
-    AssoBinaryTree m_btree;
-    Array<key_type> m_keys;        
+    btree_type m_btree;  // binary tree of index: from node --> index
+    
+    SeqList<key_type> m_keys;   // map from index --> key
+    Array<trnode> m_nodemap;   // map from index --> node 
+    
+    Array<bool> m_inheap;   // whether an index is in-heap
     
 }; // end class BinaryHeap
     
