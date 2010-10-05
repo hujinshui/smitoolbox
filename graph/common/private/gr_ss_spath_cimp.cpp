@@ -70,7 +70,15 @@ void do_solve(const MArray& mG, int s, char code,
     RefWGraph<T> G = to_refwgraph<T>(mG);
     WAdjList<T> adjList = WAdjList<T>(G);
 
-    if (code == 'a')
+    if (code == 'd')
+    {
+        Dijkstra_SPathIterator<T> sp_it(adjList);
+        sp_it.initialize(s);
+        sp_it.solve_all();
+                
+        extract_output<Dijkstra_SPathIterator<T>, T>(sp_it, mxVs, mxDists, mxPreds);        
+    }
+    else if (code == 'a')
     {
         DAG_SPathIterator<T> sp_it(adjList);
         if (sp_it.initialize(s))
@@ -83,7 +91,7 @@ void do_solve(const MArray& mG, int s, char code,
             mexErrMsgIdAndTxt("gr_dag_spath:rterror", 
                     "The input graph is not an acyclic graph (the part accessible from s).");
         } 
-    }
+    }    
        
 }
 

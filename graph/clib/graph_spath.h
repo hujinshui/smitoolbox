@@ -12,6 +12,7 @@
 #define SMI_GRAPH_SPATH_H
 
 #include "graph_search.h"
+#include "../../base/clib/heaps.h"
 
 namespace smi
 {
@@ -253,6 +254,155 @@ private:
     
 
 
+template<typename TWeight, template<typename T, typename O> class THeap=BinaryHeap>
+class Dijkstra_SPathIterator : public SingleSource_SPathIterator<TWeight>
+{
+public:
+    Dijkstra_SPathIterator(const WAdjList<TWeight>& adjlist)
+    : SingleSource_SPathIterator<TWeight>(adjlist.nnodes())
+    , m_adjlist(adjlist), m_H(adjlist.nnodes()), m_done(false)
+    , m_hseq(adjlist.nnodes()), m_hmap(adjlist.nnodes())
+    {
+    }
+    
+public:
+    bool done() const
+    {
+        return m_H.empty();
+    }
+    
+    /**
+     * Initialize the object for search from source s
+     *
+     * @return true
+     *
+     * @remark the instance can be re-initialized for a different source.
+     */
+    bool initialize(int s)
+    {
+        // reset 
+        
+        m_H.clear();
+        m_hseq.clear();
+        m_done = false;        
+        
+        // init
+        
+        this->set_source(s);        
+        this->discover_node(-1, s, 0);
+        enheap(s);
+        
+        return true;
+    }
+           
+    void print_heap(const char *title)
+    {
+        const AssoBinaryTree& bt = m_H.btree();
+        
+        mexPrintf(title);
+        for (int p = bt.root(); p <= bt.last_node(); ++p)
+        {
+            mexPrintf("%d ", bt.index_at_node(p));
+        }
+        mexPrintf("\n");
+    }
+    
+    
+    
+    /**
+     * Move the iterator forward (run next step)
+     *
+     * @return the node that is closed in this step, or -1 if already done     
+     */
+    int next()
+    {
+        if (!done())
+        {
+            // extract the node with min-dist from unclosed ones
+            int i;                        
+            
+            m_H.extract_root(i);
+            int u = m_hseq[i];
+                                    
+            // close the node
+            this->close_node(u);
+            mexPrintf("close %d\n", u);
+            
+            print_heap("post-close: ");
+            
+            // scan neighbors
+            
+            int nnb = m_adjlist.neighbor_num(u);
+            const int *nbs = m_adjlist.neighbor_nodes(u);
+            const TWeight *ws = m_adjlist.neighbor_weights(u);
+        
+            for (int j = 0; j < nnb; ++j)
+            {
+                int v = nbs[j];
+                                        
+                if (!this->is_closed(v)) // process v if it is not closed
+                {                                     
+                    bool enheaped = this->is_discovered(v);
+                    
+                    if (this->relax(u, v, ws[j]))
+                    {
+                        if (enheaped)
+                        {
+                            m_H.set_key(m_hmap[v], this->distance_of(v));
+                        }
+                        else
+                        {
+                            enheap(v);
+                        }
+                    }
+                }
+            }            
+            
+            return u;            
+        }
+        else
+        {
+            return false;
+        }
+    }
+    
+    
+    /**
+     * Solve the shortest path to all accessible nodes     
+     */
+    void solve_all()
+    {
+        while (next() >= 0);
+    }
+    
+    
+private:
+    
+    void enheap(int v)
+    {
+        mexPrintf("enheap %d\n", v);
+        
+        m_hmap[v] = m_hseq.size();
+        m_hseq.add(v);
+        
+        m_H.add_key(this->distance_of(v));
+        
+        print_heap("post-extr: ");
+    }    
+    
+private:
+    Dijkstra_SPathIterator(const Dijkstra_SPathIterator<TWeight, THeap>& );
+    Dijkstra_SPathIterator<TWeight, THeap>& operator = (Dijkstra_SPathIterator<TWeight, THeap>& );
+    
+private:
+    const WAdjList<TWeight>& m_adjlist;     // the adjacency list of the graph
+    THeap<TWeight, min_heap> m_H;           // min dist heap
+    bool m_done;
+    
+    SeqList<int> m_hseq;   // the sequence of nodes in the heap
+    Array<int> m_hmap;     // from node index --> enheap order
+    
+}; // end class Dijkstra_SPathIterator
 
 
 

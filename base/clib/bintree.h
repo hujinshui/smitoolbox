@@ -152,6 +152,12 @@ public:
         m_imap[i2] = p1;
     }        
     
+    
+    void clear()
+    {
+        m_n = 0;
+    }
+    
 private:
     int m_capa;
     int m_n;
