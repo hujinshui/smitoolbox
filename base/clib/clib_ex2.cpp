@@ -16,7 +16,10 @@ using namespace smi;
 
 typedef double key_type;
 
+
+template class CompleteBinaryTree<int>;
 template class BinaryHeap<key_type>;
+
 typedef BinaryHeap<key_type> BHeap;
 
 
@@ -57,7 +60,7 @@ void run_on(const ConstArray<key_type>& src)
     print_array("source:\n", src);
     mexPrintf("\n");
     
-    THeap heap1(n);
+    THeap heap1(2 * n);
         
     mexPrintf("Make heap:\n");
     heap1.make_heap(n, src.data());
@@ -70,9 +73,9 @@ void run_on(const ConstArray<key_type>& src)
     print_array("result:\n", buffer);
     mexPrintf("\n");
     
-    THeap heap2(n);
+    THeap& heap2 = heap1;
     
-    mexPrintf("Make heap by sequential insertion:\n");
+    mexPrintf("Refill heap by sequential insertion:\n");
     for (int i = 0; i < n; ++i)
     {
         mexPrintf("add ");
