@@ -294,20 +294,7 @@ public:
         
         return true;
     }
-           
-    void print_heap(const char *title)
-    {
-        const AssoBinaryTree& bt = m_H.btree();
-        
-        mexPrintf(title);
-        for (int p = bt.root(); p <= bt.last_node(); ++p)
-        {
-            mexPrintf("%d ", bt.index_at_node(p));
-        }
-        mexPrintf("\n");
-    }
-    
-    
+               
     
     /**
      * Move the iterator forward (run next step)
@@ -326,10 +313,7 @@ public:
                                     
             // close the node
             this->close_node(u);
-            mexPrintf("close %d\n", u);
-            
-            print_heap("post-close: ");
-            
+                        
             // scan neighbors
             
             int nnb = m_adjlist.neighbor_num(u);
@@ -362,7 +346,7 @@ public:
         }
         else
         {
-            return false;
+            return -1;
         }
     }
     
@@ -372,22 +356,18 @@ public:
      */
     void solve_all()
     {
-        while (next() >= 0);
+        while(next() >= 0);
     }
     
     
 private:
     
     void enheap(int v)
-    {
-        mexPrintf("enheap %d\n", v);
-        
+    {        
         m_hmap[v] = m_hseq.size();
         m_hseq.add(v);
         
-        m_H.add_key(this->distance_of(v));
-        
-        print_heap("post-extr: ");
+        m_H.add_key(this->distance_of(v));        
     }    
     
 private:
