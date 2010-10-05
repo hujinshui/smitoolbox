@@ -151,7 +151,7 @@ class DAG_SPathIterator : public SingleSource_SPathIterator<TWeight>
 {
 public:
     explicit DAG_SPathIterator(const WAdjList<TWeight>& adjlist)
-    : SingleSource_SPathIterator(adjlist.nnodes())
+    : SingleSource_SPathIterator<TWeight>(adjlist.nnodes())
     , m_adjlist(adjlist), m_tord(adjlist.nnodes())
     {
     }       
@@ -177,7 +177,7 @@ public:
      */
     bool initialize(int s)
     {
-        set_source(s);
+        this->set_source(s);
         
         DFSIteratorEx dfs_it(m_adjlist);
         dfs_it.set_seed(s);
@@ -189,7 +189,7 @@ public:
         int nf = ford.size();
         for (int i = 0; i < nf; ++i)
         {
-            m_tord[i] = ford[nf-i-1];
+            m_tord.add(ford[nf-i-1]);
         }
         
         this->discover_node(-1, s, 0); 

@@ -100,6 +100,11 @@ public:
     }
     
 private:
+    SeqList(const SeqList<T>& );
+    SeqList<T>& operator = (const SeqList<T>& );
+    
+    
+private:
     int m_capa;
     int m_n;
     T *m_data;
@@ -168,6 +173,11 @@ public:
     {
         m_n = 0;
     }
+    
+private:
+    Stack(const Stack<T>& );
+    Stack<T>& operator = (const Stack<T>& );
+    
     
 private:
     int m_capa;
@@ -240,6 +250,10 @@ public:
     {
         m_ifront = m_iback = 0;
     }
+    
+private:
+    Queue(const Queue<T>& );
+    Queue<T>& operator = (const Queue<T>& );
     
 private:
     int m_capa;

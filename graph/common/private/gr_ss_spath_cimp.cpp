@@ -40,7 +40,7 @@ struct sdist_getter : public base_getter<TAlgIter, TWeight>
 {
     sdist_getter(const TAlgIter& it) : base_getter<TAlgIter, TWeight>(it) { }
     
-    TWeight operator() (int i) const { return m_it.distance_of(this->m_seq[i]); }
+    TWeight operator() (int i) const { return this->m_it.distance_of(this->m_seq[i]); }
 };
 
 template<class TAlgIter>
@@ -48,7 +48,7 @@ struct vpred_getter : public base_getter<TAlgIter, int>
 {
     vpred_getter(const TAlgIter& it) : base_getter<TAlgIter, int>(it) { }
     
-    int operator() (int i) const { return m_it.predecessor_of(this->m_seq[i]) + 1; }
+    int operator() (int i) const { return this->m_it.predecessor_of(this->m_seq[i]) + 1; }
 };
 
 
@@ -74,13 +74,9 @@ void do_solve(const MArray& mG, int s, char code,
     {
         DAG_SPathIterator<T> sp_it(adjList);
         if (sp_it.initialize(s))
-        {
-            mexPrintf("top order: ");
-            SeqList<int> tord = sp_it.topological_order();
-            mexPrintf("\n");
-            
-            // sp_it.solve_all();        
-            // extract_output<DAG_SPathIterator<T>, T>(sp_it, mxVs, mxDists, mxPreds);
+        {            
+            sp_it.solve_all();        
+            extract_output<DAG_SPathIterator<T>, T>(sp_it, mxVs, mxDists, mxPreds);
         }
         else
         {
