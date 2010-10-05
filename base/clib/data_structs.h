@@ -92,7 +92,12 @@ public:
     void add(const T& e) 
     {
         m_data[m_n++] = e;
-    }    
+    }   
+    
+    void clear()
+    {
+        m_n = 0;
+    }
     
 private:
     int m_capa;
@@ -157,6 +162,11 @@ public:
     T& top() 
     {
         return m_data[m_n-1];
+    }
+    
+    void clear()
+    {
+        m_n = 0;
     }
     
 private:
@@ -225,6 +235,11 @@ public:
     {
         return m_data[m_ifront];
     }            
+    
+    void clear()
+    {
+        m_ifront = m_iback = 0;
+    }
     
 private:
     int m_capa;
