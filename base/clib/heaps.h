@@ -86,6 +86,11 @@ public:
         return m_btree.root_index();
     }
     
+    const AssoBinaryTree& btree() const
+    {
+        return m_btree;
+    }
+    
 public:
             
     void make_heap(int n, const key_type *src)
@@ -95,9 +100,7 @@ public:
         
         // reset the tree
         m_btree.make_tree(n);
-        
-        dump_heap_to_matlab();
-        
+                
         // heapify the tree
         if (n > 0)
         {
@@ -111,6 +114,13 @@ public:
             }            
         }
     }
+    
+    
+    void clear()
+    {
+        m_btree.clear();        
+    }
+    
             
     void add_key(key_type v)
     {
@@ -174,6 +184,7 @@ public:
         
         return kv;
     }    
+            
         
 #ifdef MATLAB_INSPECT_HEAPS
 
