@@ -28,19 +28,14 @@ public:
     typedef std::vector<T> container_type;
         
     typedef T value_type;
-<<<<<<< local
-    typedef container_type::size_type size_type;
-    typedef container_type::const_reference const_reference;
-    typedef container_type::reference reference;
-    typedef container_type::const_iterator const_iterator;
-    typedef container_type::iterator iterator;
+    typedef typename container_type::size_type size_type;
+    typedef typename container_type::const_reference const_reference;
+    typedef typename container_type::reference reference;
+    typedef typename container_type::const_iterator const_iterator;
+    typedef typename container_type::iterator iterator;
+    typedef typename container_type::const_reverse_iterator const_reverse_iterator;
+    typedef typename container_type::reverse_iterator reverse_iterator;
         
-=======
-    typedef T& reference;
-    typedef const T& const_reference;
-    typedef size_t size_type;
-    
->>>>>>> other
 public:
     
     class node_indicator
@@ -118,30 +113,20 @@ public:
         }
                 
     private:
-        size_type _p;        
-<<<<<<< local
-=======
-    };
->>>>>>> other
-        
+        size_type _p;                
         
     }; // end class node_indicator
                 
     
 public:
-<<<<<<< local
     CompleteBinaryTree() : m_stree(1)
     {        
     }    
     
     CompleteBinaryTree(size_type initcap)
-=======
-    CompleteBinaryTree(size_type cap)
-    : m_capa(cap), m_n(0), m_stree(cap+1)
->>>>>>> other
     {
         m_stree.reserve(initcap + 1);
-        m_stree.push(value_type());
+        m_stree.push_back(value_type());
     }    
     
     size_type capacity() const
@@ -149,22 +134,9 @@ public:
         return m_stree.capacity() - 1;
     }
     
-<<<<<<< local
     size_type size() const
-=======
-    size_type capacity() const
->>>>>>> other
     {
-<<<<<<< local
         return m_stree.size() - 1;
-=======
-        return m_capa;
-    }
-    
-    size_type size() const
-    {
-        return m_n;
->>>>>>> other
     }
     
     bool empty() const
@@ -193,7 +165,7 @@ public:
     
     bool has_node(node_indicator p) const
     {
-        return p.index() > 0 && p.index() <= m_n;
+        return p.index() > 0 && p.index() <= size();
     }
     
     const_reference operator[] (node_indicator p) const
@@ -288,12 +260,7 @@ public:
     
     
 private:
-<<<<<<< local
     container_type m_stree;  
-=======
-    size_type m_capa;
-    size_type m_n;
->>>>>>> other
     
 }; // end class CompleteBinaryTree
 
