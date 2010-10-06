@@ -12,6 +12,8 @@
 #ifndef SMI_CLIB_DATA_STRUCTS_H
 #define SMI_CLIB_DATA_STRUCTS_H
 
+#include <string.h>
+#include <stdexcept>
 
 namespace smi
 {
@@ -32,35 +34,35 @@ RefMemory<T> refmem(int n, T *p)
     return RefMemory<T>(n, p);
 }
 
-    
-template<typename T>
-class SeqList
+
+class BoolArray
 {
 public:
-    explicit SeqList(int n) 
-    : m_capa(n), m_n(0), m_data(new T[n]), m_own(true)
+    typedef int size_type;
+    
+public:
+    explicit BoolArray(size_type n) : m_n(n), m_vals(new bool[n])
     {
     }
     
-    explicit SeqList(RefMemory<T> r)
-    : m_capa(r.n), m_n(0), m_data(r.base), m_own(false)
+    BoolArray(size_type n, bool v) : m_n(n), m_vals(new bool[n])
     {
+        fill_value(v);
     }
     
-    ~SeqList()
+    ~BoolArray()
     {
-        if (m_own)
-            delete[] m_data;
-    }    
-    
-    int capacity() const
-    {
-        return m_capa;
+        delete[] m_vals;
     }
     
-    int size() const
+    size_type size() const
     {
         return m_n;
+    }
+    
+    int nbytes() const
+    {
+        return size() * sizeof(bool);
     }
     
     bool empty() const
@@ -68,201 +70,178 @@ public:
         return m_n == 0;
     }
     
-    
-    const T *data() const
+    bool operator[] (int i) const
     {
-        return m_data;
-    }
-        
-    T *data()
-    {
-        return m_data;
-    }
-        
-    const T& operator[] (int i) const
-    {
-        return m_data[i];
+        return m_vals[i];
     }
     
-    T& operator[] (int i) 
+    bool& operator[] (int i) 
     {
-        return m_data[i];
+        return m_vals[i];
     }
     
-    void add(const T& e) 
-    {
-        m_data[m_n++] = e;
-    }   
+public:
     
-    void clear()
+    void fill_value(bool v)
     {
-        m_n = 0;
+        if (!v) 
+        {
+            ::memset(m_vals, 0, nbytes());
+        }
+        else
+        {
+            int n = size();
+            for (int i = 0; i < n; ++i) m_vals[i] = true;
+        }
+    }
+    
+    void copy_from(const bool *src)
+    {
+        ::memcpy(m_vals, src, nbytes());
+    }
+    
+    bool operator == (const BoolArray& rhs) const
+    {
+        return m_n == rhs.m_n 
+                && ::memcmp(m_vals, rhs.m_vals, nbytes()) == 0;
+    }
+    
+    bool operator != (const BoolArray& rhs) const
+    {
+        return !(operator == (rhs));
+    }
+    
+    bool all_true() const
+    {
+        for (int i = 0; i < m_n; ++i) 
+        {
+            if (!m_vals[i]) return false;
+        }
+        return true;
+    }
+    
+    bool any_true() const
+    {
+        for (int i = 0; i < m_n; ++i)
+        {
+            if (m_vals[i]) return true;
+        }
+        return false;
+    }
+    
+    bool all_false() const
+    {
+        return !any_true();
+    }
+    
+    bool any_false() const
+    {
+        return !all_true();
     }
     
 private:
-    SeqList(const SeqList<T>& );
-    SeqList<T>& operator = (const SeqList<T>& );
-    
+    BoolArray(const BoolArray& );
+    BoolArray& operator = (const BoolArray& );
     
 private:
-    int m_capa;
-    int m_n;
-    T *m_data;
-    bool m_own;
+    bool *m_vals;
+    size_type m_n;
     
-}; // end class SeqList
-    
+}; // end class BoolArray
 
 
+/**
+ * The class serve as a fixed-capacity container base for stack or queue
+ */
 template<typename T>
-class Stack
+class SQBase
 {
 public:
-    explicit Stack(int n) 
-    : m_capa(n), m_n(0), m_data(new T[n]), m_own(true)
+    typedef T value_type;
+    typedef size_t size_type;
+    
+    typedef const T& const_reference;
+    typedef T& reference;
+    
+public:
+    SQBase(int c) : m_data(new T[c]), m_ifront(0), m_iback(-1), m_capa(c)
     {
     }
     
-    explicit Stack(RefMemory<T> r)
-    : m_capa(r.n), m_n(0), m_data(r.base), m_own(false)
+    ~SQBase()
     {
+        delete[] m_data;
     }
     
-    ~Stack()
-    {
-        if (m_own)
-            delete[] m_data;
-    }    
-    
-    int capacity() const
+    size_type capacity() const
     {
         return m_capa;
     }
     
-    int size() const
-    {
-        return m_n;
-    }
-    
     bool empty() const
     {
-        return m_n == 0;
+        return m_iback < m_ifront;
     }
     
-    void push(const T& e) 
+    size_type size() const
     {
-        m_data[m_n++] = e;
+        int s = m_iback - m_ifront + 1;
+        return s > 0 ? size_type(s) : 0;
     }
     
-    void pop()
+    reference front()
     {
-        -- m_n;
+        return m_data[m_ifront];
     }
     
-    const T& top() const
+    const_reference front() const
     {
-        return m_data[m_n-1];
+        return m_data[m_ifront];
     }
     
-    T& top() 
+    reference back()
     {
-        return m_data[m_n-1];
+        return m_data[m_iback];
     }
+    
+    const_reference back() const
+    {
+        return m_data[m_iback];
+    }
+    
+    void pop_front()
+    {
+        ++ m_ifront;
+    }
+    
+    void pop_back()
+    {
+        -- m_iback;
+    }
+    
+    void push_back(const T& e)
+    {        
+        m_data[++m_iback] = e;
+    }                       
     
     void clear()
     {
-        m_n = 0;
+        m_ifront = 0;
+        m_iback = -1;
     }
     
 private:
-    Stack(const Stack<T>& );
-    Stack<T>& operator = (const Stack<T>& );
-    
+    SQBase(const SQBase<T>& );
+    SQBase<T>& operator = (const SQBase<T>& );
     
 private:
-    int m_capa;
-    int m_n;
     T *m_data;
-    bool m_own;
-    
-}; // end class Stack
-
-
-
-  
-
-template<typename T>
-class Queue
-{
-public:
-    explicit Queue(int n)
-    : m_capa(n), m_ifront(0), m_iback(0), m_data(new T[n]), m_own(true)
-    {
-    }
-    
-    explicit Queue(RefMemory<T> r)
-    : m_capa(r.n), m_ifront(0), m_iback(0), m_data(r.base), m_own(false)
-    {
-    }
-    
-    ~Queue()
-    {
-        if (m_own)
-            delete[] m_data;
-    }    
-    
-    int capacity() const
-    {
-        return m_capa;
-    }
-    
-    int size() const
-    {
-        return m_iback - m_ifront;
-    }
-    
-    bool empty() const
-    {
-        return m_ifront == m_iback;
-    }
-    
-    void enqueue(const T& e)
-    {
-        m_data[m_iback++] = e;
-    }
-    
-    void dequeue()
-    {
-        m_ifront++;
-    }
-    
-    const T& front() const
-    {
-        return m_data[m_ifront];
-    }
-    
-    T& front()
-    {
-        return m_data[m_ifront];
-    }            
-    
-    void clear()
-    {
-        m_ifront = m_iback = 0;
-    }
-    
-private:
-    Queue(const Queue<T>& );
-    Queue<T>& operator = (const Queue<T>& );
-    
-private:
-    int m_capa;
     int m_ifront;
     int m_iback;
-    T *m_data;
-    bool m_own;
+    size_type m_capa;
     
-}; // end class Queue
+}; // end class SQBase
+
 
     
 }

@@ -10,8 +10,11 @@
 
 // #define MATLAB_DUMP_QSORT_ACTION
 
+#define _SECURE_SCL 0
+
 #include "marray.h"
-#include "sorting.h"
+#include <vector>
+#include <algorithm>
 
 using namespace smi;
 
@@ -30,26 +33,16 @@ void printd(int n, const double *v, bool ret = false)
 
 void run_on(int n, const double *src)
 {
-    Array<double> val(n);
-    Array<int> idx(n);
+    std::vector<double> v(n);
     
-    quicksort_asc(n, src, val.data(), idx.data());  
+    std::copy(src, src+n, v.begin());
     
-//     mexPrintf("Sorted result:\n");
-//     mexPrintf("values: ");
-//     printd(n, val.data(), true);
-//     mexPrintf("indices: ");
-//     printidx(n, idx.data(), true);
+    std::sort(v.begin(), v.end());
     
-    if (is_sorted_asc(val.data(), n))
+    for (int i = 0; i < n; ++i)
     {
-        mexPrintf("The results is sorted.\n");        
-    }
-    else
-    {
-        mexPrintf("The results is NOT sorted !!!\n");
-    }
-    
+        mexPrintf("%.4g ", v[i]);
+    }    
 }
 
 

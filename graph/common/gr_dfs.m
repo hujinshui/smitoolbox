@@ -42,12 +42,12 @@ end
 nout = nargout;
 
 if nout <= 1
-    vs = gr_dfs_cimp(G, seeds-1);
+    vs = gr_search_cimp(G, seeds-1, 'd');
 elseif nout == 2
-    [vs, preds] = gr_dfs_cimp(G, seeds-1);
+    [vs, preds] = gr_search_cimp(G, seeds-1, 'd');
 elseif nout == 3
-    [vs, preds, ford] = gr_dfs_cimp(G, seeds-1);
+    [vs, preds, ford] = gr_search_cimp(G, seeds-1, 'd');
 elseif nout <= 5
-    [vs, preds, ford, dtime, ftime] = gr_dfs_cimp(G, seeds-1);
+    [vs, preds, ford, dtime, ftime] = gr_search_cimp(G, seeds-1, 'd');
 end
 
