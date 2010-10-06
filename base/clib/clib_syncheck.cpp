@@ -5,11 +5,14 @@
 #include "marray.h"
 
 #include "array.h"
+#include "bintree.h"
 
 using namespace smi;
 
 template class Array<double>;
 template class Array<bool>;
+
+template class CompleteBinaryTree<double>;
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
