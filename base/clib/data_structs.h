@@ -18,21 +18,7 @@
 namespace smi
 {
     
-template<typename T>
-struct RefMemory
-{
-    int n;
-    T *base;
-    
-    RefMemory(int n_, T *p) : n(n_), base(p) { }
-};
-    
 
-template<typename T>
-RefMemory<T> refmem(int n, T *p)
-{
-    return RefMemory<T>(n, p);
-}
 
 
 class BoolArray
