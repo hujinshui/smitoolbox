@@ -15,6 +15,7 @@
 
 namespace smi
 {    
+        
     
 /**
  * The class to represent a complete binary tree
@@ -24,17 +25,20 @@ class CompleteBinaryTree
 {
 public:
     typedef T value_type;
+    typedef T& reference;
+    typedef const T& const_reference;
+    typedef size_t size_type;
     
 public:
     
     class node_indicator
-    {
-    public:
+    {        
+    public:                
         node_indicator() { }
         
-        node_indicator(int p) : _p(p) { }
+        node_indicator(size_type p) : _p(p) { }
         
-        int index() const 
+        size_type index() const 
         { 
             return _p; 
         }        
@@ -66,7 +70,7 @@ public:
         
         node_indicator child(int dir) const
         {
-            return (_p << 1) + dir;
+            return (_p << 1) + (size_type)dir;
         }
         
         node_indicator& operator++() // prefix
@@ -92,23 +96,23 @@ public:
         }
                 
     private:
-        int _p;        
+        size_type _p;        
     };
         
     
     
 public:
-    CompleteBinaryTree(int cap)
+    CompleteBinaryTree(size_type cap)
     : m_capa(cap), m_n(0), m_stree(cap+1)
     {
     }
     
-    int capacity() const
+    size_type capacity() const
     {
         return m_capa;
     }
     
-    int size() const
+    size_type size() const
     {
         return m_n;
     }
@@ -198,8 +202,8 @@ public:
     
     
 private:
-    int m_capa;
-    int m_n;
+    size_type m_capa;
+    size_type m_n;
     
     Array<value_type> m_stree;    
 };
