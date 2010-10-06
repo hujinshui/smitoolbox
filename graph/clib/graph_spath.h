@@ -376,7 +376,7 @@ private:
     
 private:
     const WAdjList<TWeight>& m_adjlist;     // the adjacency list of the graph
-    THeap<TWeight, min_heap> m_H;           // min dist heap
+    THeap<TWeight, less<TWeight> > m_H;           // min dist heap
     bool m_done;
     
     SeqList<int> m_hseq;   // the sequence of nodes in the heap

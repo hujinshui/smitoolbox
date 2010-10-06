@@ -106,7 +106,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgTxt("The src should be a non-sparse double vector.");
     }
     
-    ConstArray<key_type> src(mSrc.nelems(), mSrc.get_data<double>());
+    ConstArray<key_type> src(mSrc.nelems(), mSrc.get_data<key_type>());
     
     run_on<BHeap>(src);
 }
