@@ -12,9 +12,11 @@
 #define SMI_GRAPH_SEARCH_H
 
 #include "graphs.h"
-#include "../../base/clib/array.h"
 #include "../../base/clib/data_structs.h"
 
+#include <stack>
+#include <queue>
+#include <valarray>
 
 namespace smi
 {
@@ -24,12 +26,11 @@ namespace smi
  */     
 class BFSIterator
 {
-public:
-        
+public:            
     BFSIterator(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_Q(adjlist.nnodes()), m_discovered(adjlist.nnodes())
+    : m_adjlist(adjlist), m_Q()
+    , m_discovered(adjlist.nnodes(), false)
     {
-        m_discovered.set_zeros();
     }   
     
     
@@ -66,7 +67,7 @@ public:
         if (!m_Q.empty())
         {
             int s = m_Q.front();
-            m_Q.dequeue();
+            m_Q.pop();
             
             int c = m_adjlist.neighbor_num(s);
             if (c > 0)
@@ -113,16 +114,15 @@ private:
     
     void discover_node(int v)
     {
-        m_Q.enqueue(v);
-        m_discovered[v] = true;        
+        m_Q.push(v);
+        m_discovered[v] = true;                    
     }
     
                 
 private:
     const AdjList& m_adjlist;
-    Queue<int> m_Q;
-    
-    Array<bool> m_discovered;
+    std::queue<int> m_Q;    
+    BoolArray m_discovered;
     
 }; // end class BFSIterator
    
@@ -139,12 +139,11 @@ class BFSIteratorEx
 public:
         
     BFSIteratorEx(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_Q(adjlist.nnodes())
-    , m_discovered(adjlist.nnodes())
+    : m_adjlist(adjlist), m_Q()
+    , m_discovered(adjlist.nnodes(), false)
     , m_preds(adjlist.nnodes())
     , m_dists(adjlist.nnodes())
-    {
-        m_discovered.set_zeros();        
+    {     
     }   
     
     
@@ -181,7 +180,7 @@ public:
         if (!m_Q.empty())
         {
             int s = m_Q.front();
-            m_Q.dequeue();
+            m_Q.pop();
             
             int c = m_adjlist.neighbor_num(s);
             if (c > 0)
@@ -239,7 +238,7 @@ private:
     
     void discover_seed(int v)
     {
-        m_Q.enqueue(v);
+        m_Q.push(v);
         m_discovered[v] = true;
         
         m_preds[v] = -1;
@@ -248,7 +247,7 @@ private:
     
     void discover_node(int pred, int v)
     {
-        m_Q.enqueue(v);
+        m_Q.push(v);
         m_discovered[v] = true; 
         
         m_preds[v] = pred;
@@ -258,12 +257,11 @@ private:
                 
 private:
     const AdjList& m_adjlist;
-    Queue<int> m_Q;
+    std::queue<int> m_Q;
     
-    Array<bool> m_discovered;
-    
-    Array<int> m_preds;
-    Array<int> m_dists;
+    BoolArray m_discovered;    
+    std::valarray<int> m_preds;
+    std::valarray<int> m_dists;
     
 }; // end class BFSIteratorEx
 
@@ -315,11 +313,9 @@ class DFSIterator
 public:
         
     DFSIterator(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_seed(-1), m_stack(adjlist.nnodes())
-    , m_discovered(adjlist.nnodes()), m_finished(adjlist.nnodes())
+    : m_adjlist(adjlist), m_seed(-1), m_stack()
+    , m_discovered(adjlist.nnodes(), false), m_finished(adjlist.nnodes(), false)
     {
-        m_discovered.set_zeros();
-        m_finished.set_zeros();
     }   
     
     
@@ -441,10 +437,10 @@ private:
 private:
     const AdjList& m_adjlist;
     int m_seed;
-    Stack<DFSEntry> m_stack;
+    std::stack<DFSEntry> m_stack;
     
-    Array<bool> m_discovered;
-    Array<bool> m_finished;
+    BoolArray m_discovered;
+    BoolArray m_finished;
     
     
 }; // end class DFSIterator
@@ -463,14 +459,12 @@ class DFSIteratorEx
 public:
         
     DFSIteratorEx(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_seed(-1), m_stack(adjlist.nnodes())
-    , m_discovered(adjlist.nnodes()), m_finished(adjlist.nnodes())
+    : m_adjlist(adjlist), m_seed(-1), m_stack()
+    , m_discovered(adjlist.nnodes(), false), m_finished(adjlist.nnodes(), false)
     , m_time(0)
     , m_discover_time(adjlist.nnodes()), m_finish_time(adjlist.nnodes())
-    , m_finish_order(adjlist.nnodes()), m_preds(adjlist.nnodes())
+    , m_finish_order(), m_preds(adjlist.nnodes())
     {
-        m_discovered.set_zeros();
-        m_finished.set_zeros();
     }   
     
     
@@ -593,7 +587,7 @@ public:
         return m_preds[i];
     }        
     
-    const SeqList<int>& finish_order() const
+    const std::vector<int>& finish_order() const
     {
         return m_finish_order;
     }
@@ -635,7 +629,7 @@ private:
         m_stack.pop();
         
         m_finish_time[v] = next_timestamp();
-        m_finish_order.add(v);
+        m_finish_order.push_back(v);
     }
         
     
@@ -648,17 +642,17 @@ private:
 private:
     const AdjList& m_adjlist;
     int m_seed;
-    Stack<DFSEntry> m_stack;
+    std::stack<DFSEntry> m_stack;
     
-    Array<bool> m_discovered;
-    Array<bool> m_finished;
+    BoolArray m_discovered;
+    BoolArray m_finished;
     
     int m_time;        
-    Array<int> m_discover_time;
-    Array<int> m_finish_time;
-    SeqList<int> m_finish_order;
+    std::valarray<int> m_discover_time;
+    std::valarray<int> m_finish_time;
+    std::vector<int> m_finish_order;
     
-    Array<int> m_preds;
+    std::valarray<int> m_preds;
     
 }; // end class DFSIteratorEx
 
@@ -702,24 +696,22 @@ bool test_acyclic(int n, DFSIteratorEx& dfs_it)
  * Get connected components of an undirected (or symmetric) graph
  *
  * @param adjlist the adjacency list of the graph (input)
- * @param csizs the array of sizes (# nodes) of components (output)
- * @param nodes the concatenated array of nodes in each component (output)
+ * @param it_csizs the output iterator of sizes (# nodes) of components
+ * @param it_nodes the output iterator of nodes in each component
  *
  * @return the number of components
  *
  * @remarks it uses BFS to traverse each component
  */
-int get_connected_components(const AdjList& adjlist, int *csizs, int *nodes)
+template<typename TIterSize, typename TIterNodes>
+int get_connected_components(const AdjList& adjlist, 
+        TIterSize it_csizs, TIterNodes it_nodes)
 {
     int n = adjlist.nnodes();
     
     BFSIterator bfs_it(adjlist);
-    
-    SeqList<int> vseq(refmem(n, nodes));
-    
-    int c = 0;
-    int p = 0;
-    
+        
+    int c = 0;        
     for (int i = 0; i < n; ++i)
     {
         if (!bfs_it.is_discovered(i))
@@ -727,13 +719,15 @@ int get_connected_components(const AdjList& adjlist, int *csizs, int *nodes)
             bfs_it.add_seed(i);
             
             int v;
+            int cs = 0;
             while ((v = bfs_it.next()) >= 0)
             {
-                vseq.add(v);                        
+                *(it_nodes++) = v; 
+                ++ cs;
             }
         
-            csizs[c++] = vseq.size() - p;
-            p = vseq.size();
+            *(it_csizs++) = cs;
+            ++c;
         }
     }
     

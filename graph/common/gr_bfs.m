@@ -37,10 +37,10 @@ end
 nout = nargout;
 
 if nout <= 1
-    vs = gr_bfs_cimp(G, seeds-1);
+    vs = gr_search_cimp(G, seeds-1, 'b');
 elseif nout == 2
-    [vs, preds] = gr_bfs_cimp(G, seeds-1);
+    [vs, preds] = gr_search_cimp(G, seeds-1, 'b');
 elseif nout == 3
-    [vs, preds, dists] = gr_bfs_cimp(G, seeds-1);
+    [vs, preds, dists] = gr_search_cimp(G, seeds-1, 'b');
 end
 

@@ -13,6 +13,7 @@
 
 #include <mex.h>
 #include <string.h>
+#include <iterator>
 
 namespace smi
 {
@@ -93,28 +94,28 @@ inline mxArray* create_matlab_scalar(T v)
 
 
 template<typename TIter>
-inline mxArray* iter_to_matlab_row(const TIter& it)
+inline mxArray* iter_to_matlab_row(TIter it, int n)
 {
-    typedef typename TIter::value_type T;
-    int n = it.count();
+    typedef typename std::iterator_traits<TIter>::value_type T;
     
     mxArray *mx = create_matlab_matrix<T>(1, n);
     T *dst = (T*)mxGetData(mx);
-    for (int i = 0; i < n; ++i) dst[i] = it(i);    
+    for (int i = 0; i < n; ++i) dst[i] = *(it++);    
     return mx;
 }
 
-template<typename TIter>
-inline mxArray* iter_to_matlab_column(const TIter& it)
+template<typename TIter, typename TGen>
+inline mxArray* iter_to_matlab_row(TIter it, int n, TGen g)
 {
-    typedef typename TIter::value_type T;
-    int n = it.count();
-    
-    mxArray *mx = create_matlab_matrix<T>(n, 1);
+    typedef typename std::iterator_traits<TIter>::value_type T;
+        
+    mxArray *mx = create_matlab_matrix<T>(1, n);
     T *dst = (T*)mxGetData(mx);
-    for (int i = 0; i < n; ++i) dst[i] = it(i);    
+    for (int i = 0; i < n; ++i) dst[i] = g(*(it++));    
     return mx;
 }
+
+
 
 
 }
