@@ -19,39 +19,25 @@
 
 // to dump heap actions, further define the macro MATLAB_DUMP_HEAP_ACTION
 
+#include "relation.h"
 #include "data_structs.h"
 #include "bintree.h"
 
 
 namespace smi
 {
-
-struct min_heap
-{
-    template<typename T>
-    static bool compare(T x, T y) { return x < y; }
-};
-
-
-struct max_heap
-{
-    template<typename T>
-    static bool compare(T x, T y) { return x > y; }
-};
-    
     
 
 /**
  * The class to represent a binary heap
  */    
-template<typename TKey, typename HeapOrder=min_heap, class BTree=CompleteBinaryTree<int> >    
+template<typename TKey, typename HeapOrder=less<TKey> >    
 class BinaryHeap
 {
 public:
-    typedef TKey key_type;
-    typedef HeapOrder heap_order;
-    typedef BTree btree_type;
-    typedef typename BTree::node_indicator trnode;
+    typedef TKey key_type;   
+    typedef CompleteBinaryTree<int> btree_type;
+    typedef typename btree_type::node_indicator trnode;
     
 public:
     BinaryHeap(int cap) 
@@ -278,7 +264,7 @@ private:
         trnode par = p.parent();
         if (m_btree.has_node(par))
         {
-            return heap_order::compare( key_at_node(p), key_at_node(par) );
+            return _compare( key_at_node(p), key_at_node(par) );
         }
         else
         {
@@ -296,7 +282,7 @@ private:
             int dir = -1;
             
             key_type klc = key_at_node(lc);            
-            if (heap_order::compare(klc, k))
+            if (_compare(klc, k))
             {
                 k = klc;
                 dir = 0;
@@ -306,7 +292,7 @@ private:
             if (m_btree.has_node(rc))
             {
                 key_type krc = key_at_node(rc);
-                if (heap_order::compare(krc, k))
+                if (_compare(krc, k))
                 {
                     k = krc;
                     dir = 1;
@@ -362,9 +348,10 @@ private:
         m_nodemap[ti] = ps;        
                
         return pt;
-    }
+    }           
             
 private:
+    HeapOrder _compare;  
     btree_type m_btree;  // binary tree of index: from node --> index
     
     SeqList<key_type> m_keys;   // map from index --> key
