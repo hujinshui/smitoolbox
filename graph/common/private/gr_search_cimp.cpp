@@ -14,113 +14,190 @@
 
 using namespace smi; 
 
+#include <functional>
+#include <algorithm>
 
-// Getters 
 
-struct node_getter
-{    
-    int operator() (int v) const 
-    { 
-        return v + 1; 
-    }    
-};
+// Auxiliary functions
 
-template<typename TAlgIter>
-struct PredGetter
+template<typename T>
+inline mxArray* v2mrow(const std::vector<T>& vec)        
 {
-    const TAlgIter& m_it;    
-    PredGetter(const TAlgIter& it) : m_it(it) { }
-        
-    int operator() (int v) const 
-    { 
-        return m_it.predecessor_of(v) + 1; 
-    }     
-};
-
-template<typename TAlgIter>
-PredGetter<TAlgIter> pred_getter(const TAlgIter& it)
-{
-    return PredGetter<TAlgIter>(it);
+    return iter_to_matlab_row(vec.begin(), (int)vec.size());
 }
-
-template<typename TAlgIter>
-struct DistGetter
-{
-    const TAlgIter& m_it;    
-    DistGetter(const TAlgIter& it) : m_it(it) { }
-        
-    int operator() (int v) const 
-    { 
-        return m_it.distance_of(v); 
-    } 
-};
-
-template<typename TAlgIter>
-DistGetter<TAlgIter> dist_getter(const TAlgIter& it)
-{
-    return DistGetter<TAlgIter>(it);
-}
-
-template<typename TAlgIter>
-struct DTimeGetter
-{
-    const TAlgIter& m_it;    
-    DTimeGetter(const TAlgIter& it) : m_it(it) { }
-        
-    int operator() (int v) const 
-    { 
-        return m_it.discover_time_of(v); 
-    } 
-};
-
-template<typename TAlgIter>
-DTimeGetter<TAlgIter> dtime_getter(const TAlgIter& it)
-{
-    return DTimeGetter<TAlgIter>(it);
-}
-
-template<typename TAlgIter>
-struct FTimeGetter
-{
-    const TAlgIter& m_it;    
-    FTimeGetter(const TAlgIter& it) : m_it(it) { }
-        
-    int operator() (int v) const 
-    { 
-        return m_it.finish_time_of(v); 
-    } 
-};
-
-template<typename TAlgIter>
-FTimeGetter<TAlgIter> ftime_getter(const TAlgIter& it)
-{
-    return FTimeGetter<TAlgIter>(it);
-}
-
-
 
 
 
 // Core algorithm
 
-template<typename TAlgIter>    
-void do_bfs(TAlgIter& bfs_it, int ns, const int *seeds, std::vector<int>& vs)
+/***********************************************************
+ *
+ *  BFS 
+ *
+ **********************************************************/
+      
+
+struct bfs_observer2
+{
+    bfs_observer2(int n) : preds(n)
+    {
+    }
+    
+    void on_visit(int p, int v)
+    {
+        preds[v] = p;
+    }
+    
+    void on_discover(int p, int v) { }
+    
+    Array<int> preds;
+};
+
+
+struct bfs_observer3
+{
+    bfs_observer3(int n) : preds(n), dists(n)
+    {
+    }
+    
+    void on_visit(int p, int v)
+    {
+        preds[v] = p;
+        dists[v] = p >= 0 ? dists[p] + 1 : 0;
+    }
+    
+    void on_discover(int p, int v) { }
+    
+    Array<int> preds;
+    Array<int> dists;
+};
+
+
+void do_bfs(BFSIterator& bfs_it, int ns, const int *seeds, std::vector<int>& vs)
 {    
     for (int i = 0; i < ns; ++i) 
         bfs_it.add_seed(seeds[i]);
-        
-    int v = -1;
+            
+    int v;
     while ((v = bfs_it.next()) >= 0)
     {
-        vs.push_back(v);
-    }    
-    
-    int n = vs.size();
+        vs.push_back(v+1);
+    }        
 }
-       
 
-template<typename TAlgIter>    
-void do_dfs(TAlgIter& dfs_it, int ns, const int *seeds, std::vector<int>& vs)
+
+void do_bfs(BFSIterator& bfs_it, int ns, const int *seeds, 
+        std::vector<int>& vs, std::vector<int>& preds)
+{
+    for (int i = 0; i < ns; ++i)
+        bfs_it.add_seed(seeds[i]);
+    
+    bfs_observer2 obs(bfs_it.num_nodes());
+    
+    int v;
+    while ((v = bfs_it.next(obs)) >= 0)
+    {
+        vs.push_back(v+1);        
+        preds.push_back(obs.preds[v]+1);
+    }
+}
+
+
+void do_bfs(BFSIterator& bfs_it, int ns, const int *seeds, 
+        std::vector<int>& vs, std::vector<int>& preds, std::vector<int>& dists)
+{
+    for (int i = 0; i < ns; ++i)
+        bfs_it.add_seed(seeds[i]);
+    
+    bfs_observer3 obs(bfs_it.num_nodes());
+    
+    int v;
+    while ((v = bfs_it.next(obs)) >= 0)
+    {
+        vs.push_back(v+1);        
+        preds.push_back(obs.preds[v]+1);
+        dists.push_back(obs.dists[v]);
+    }
+}
+
+
+
+/***********************************************************
+ *
+ *  DFS 
+ *
+ **********************************************************/
+
+
+struct dfs_observer2
+{
+    dfs_observer2(int n) : preds(n)
+    {
+    }
+    
+    void on_discover(int p, int v)
+    {
+        preds[v] = p;
+    }
+    
+    void on_finish(int v) { }
+    
+    Array<int> preds;
+};
+
+struct dfs_observer3
+{
+    dfs_observer3(int n) : preds(n)
+    {
+        ford.reserve(n);
+    }
+    
+    void on_discover(int p, int v)
+    {
+        preds[v] = p;
+    }
+    
+    void on_finish(int v) 
+    {
+        ford.push_back(v);
+    }
+    
+    Array<int> preds;
+    std::vector<int> ford;
+};
+
+struct dfs_observer5
+{
+    dfs_observer5(int n) : time(0), preds(n), dtimes(n), ftimes(n)
+    {
+        ford.reserve(n);
+    }
+    
+    void on_discover(int p, int v)
+    {
+        preds[v] = p;
+        dtimes[v] = time++;
+    }
+    
+    void on_finish(int v) 
+    {
+        ford.push_back(v);
+        ftimes[v] = time++;
+    }
+    
+    int time;
+    
+    Array<int> preds;
+    std::vector<int> ford;
+    
+    Array<int> dtimes;
+    Array<int> ftimes;
+};
+
+
+
+
+void do_dfs(DFSIterator& dfs_it, int ns, const int *seeds, std::vector<int>& vs)
 {    
     for (int i = 0; i < ns; ++i) 
     {
@@ -131,11 +208,93 @@ void do_dfs(TAlgIter& dfs_it, int ns, const int *seeds, std::vector<int>& vs)
             int v;
             while ((v = dfs_it.next()) >= 0) 
             {
-                vs.push_back(v);
+                vs.push_back(v+1);
             }
         }
     }   
 }
+
+void do_dfs(DFSIterator& dfs_it, int ns, const int *seeds, std::vector<int>& vs,
+        std::vector<int>& preds)
+{        
+    dfs_observer2 obs(dfs_it.num_nodes());
+    
+    for (int i = 0; i < ns; ++i) 
+    {
+        int s = seeds[i];
+        if (!dfs_it.is_discovered(s))
+        {
+            dfs_it.set_seed(s);
+            int v;
+            while ((v = dfs_it.next(obs)) >= 0) 
+            {
+                vs.push_back(v+1);
+                preds.push_back(obs.preds[v]+1);
+            }
+        }
+    }   
+}
+
+void do_dfs(DFSIterator& dfs_it, int ns, const int *seeds, std::vector<int>& vs,
+        std::vector<int>& preds, std::vector<int>& ford)
+{        
+    dfs_observer3 obs(dfs_it.num_nodes());
+    
+    for (int i = 0; i < ns; ++i) 
+    {
+        int s = seeds[i];
+        if (!dfs_it.is_discovered(s))
+        {
+            dfs_it.set_seed(s);
+            int v;
+            while ((v = dfs_it.next(obs)) >= 0) 
+            {
+                vs.push_back(v+1);
+                preds.push_back(obs.preds[v]+1);
+            }
+        }
+    }  
+    
+    ford.swap(obs.ford);
+    std::transform(ford.begin(), ford.end(), ford.begin(), 
+            std::bind2nd(std::plus<int>(), 1));
+}
+
+
+void do_dfs(DFSIterator& dfs_it, int ns, const int *seeds, std::vector<int>& vs,
+        std::vector<int>& preds, std::vector<int>& ford, 
+        std::vector<int>& dtimes, std::vector<int>& ftimes)
+{        
+    dfs_observer5 obs(dfs_it.num_nodes());
+    
+    for (int i = 0; i < ns; ++i) 
+    {
+        int s = seeds[i];
+        if (!dfs_it.is_discovered(s))
+        {
+            dfs_it.set_seed(s);
+            int v;
+            while ((v = dfs_it.next(obs)) >= 0) 
+            {
+                vs.push_back(v+1);
+                preds.push_back(obs.preds[v]+1);                
+            }
+        }
+    }  
+    
+    ford.swap(obs.ford);
+    std::transform(ford.begin(), ford.end(), ford.begin(), 
+            std::bind2nd(std::plus<int>(), 1));
+    
+    for (std::vector<int>::const_iterator it = vs.begin(); it != vs.end(); ++it)
+    {
+        int v = (*it) - 1;
+        
+        dtimes.push_back(obs.dtimes[v]);
+        ftimes.push_back(obs.ftimes[v]);
+    }            
+}
+
 
 
 
@@ -169,52 +328,82 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     if (code == 'b')
     {
+        BFSIterator bfs_it(adjList);
+        
+        std::vector<int> preds;
+        std::vector<int> dists;
+        
         if (nlhs <= 1)
-        {
-            BFSIterator bfs_it(adjList);
+        {            
             do_bfs(bfs_it, ns, seeds, vs);        
-
-            plhs[0] = iter_to_matlab_row(vs.begin(), vs.size(), node_getter());
         }    
-        else
+        else if (nlhs == 2)
         {
-            BFSIteratorEx bfs_it(adjList);
-            do_bfs(bfs_it, ns, seeds, vs);
-
-            plhs[0] = iter_to_matlab_row(vs.begin(), (int)vs.size(), node_getter());
-            plhs[1] = iter_to_matlab_row(vs.begin(), (int)vs.size(), pred_getter(bfs_it));
-            if (nlhs >= 3)
-                plhs[2] = iter_to_matlab_row(vs.begin(), (int)vs.size(), dist_getter(bfs_it));
+            preds.reserve(G.nnodes());            
+            
+            do_bfs(bfs_it, ns, seeds, vs, preds); 
         }
+        else if (nlhs == 3)
+        {            
+            preds.reserve(G.nnodes());            
+            dists.reserve(G.nnodes());
+            
+            do_bfs(bfs_it, ns, seeds, vs, preds, dists);            
+        }
+        
+        plhs[0] = v2mrow(vs);
+        if (nlhs >= 2)
+            plhs[1] = v2mrow(preds);
+        if (nlhs >= 3)
+            plhs[2] = v2mrow(dists);
+        
     }
     else if (code == 'd')
     {
+        DFSIterator dfs_it(adjList);
+        
+        std::vector<int> preds;
+        std::vector<int> ford;
+        std::vector<int> dtimes;
+        std::vector<int> ftimes;     
+                
         if (nlhs <= 1)
-        {
-            DFSIterator dfs_it(adjList);
+        {            
             do_dfs(dfs_it, ns, seeds, vs);
-            plhs[0] = iter_to_matlab_row(vs.begin(), (int)vs.size(), node_getter());
+        }
+        else if (nlhs == 2)
+        {
+            preds.reserve(G.nnodes());
+            
+            do_dfs(dfs_it, ns, seeds, vs, preds);
+        }
+        else if (nlhs == 3)
+        {
+            preds.reserve(G.nnodes());
+            ford.reserve(G.nnodes());
+            
+            do_dfs(dfs_it, ns, seeds, vs, preds, ford);
         }
         else if (nlhs <= 5)
         {
-            DFSIteratorEx dfs_it(adjList);
-            do_dfs(dfs_it, ns, seeds, vs);
-
-            plhs[0] = iter_to_matlab_row(vs.begin(), (int)vs.size(), node_getter());
-            plhs[1] = iter_to_matlab_row(vs.begin(), (int)vs.size(), pred_getter(dfs_it));
-
-            if (nlhs >= 3)
-            {
-                const std::vector<int>& ford = dfs_it.finish_order();
-                plhs[2] = iter_to_matlab_row(ford.begin(), (int)ford.size(), node_getter());
-            }
-
-            if (nlhs >= 4)
-                plhs[3] = iter_to_matlab_row(vs.begin(), (int)vs.size(), dtime_getter(dfs_it));
-
-            if (nlhs >= 5)
-                plhs[4] = iter_to_matlab_row(vs.begin(), (int)vs.size(), ftime_getter(dfs_it)); 
+            preds.reserve(G.nnodes());
+            ford.reserve(G.nnodes());
+            dtimes.reserve(G.nnodes());
+            ftimes.reserve(G.nnodes());
+            
+            do_dfs(dfs_it, ns, seeds, vs, preds, ford, dtimes, ftimes);
         }
+        
+        plhs[0] = v2mrow(vs);
+        if (nlhs >= 2)
+            plhs[1] = v2mrow(preds);
+        if (nlhs >= 3)
+            plhs[2] = v2mrow(ford);
+        if (nlhs >= 4)
+            plhs[3] = v2mrow(dtimes);
+        if (nlhs >= 5)
+            plhs[4] = v2mrow(ftimes);
+        
     }
 }
    
