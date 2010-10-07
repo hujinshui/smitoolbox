@@ -261,13 +261,30 @@ private:
 template<typename TWeight, template<typename T, typename O> class THeap=BinaryHeap>
 class Dijkstra_SPathIterator : public SingleSource_SPathIterator<TWeight>
 {
+public:          
+    struct entry_t
+    {
+        entry_t() { }
+        entry_t(int v, TWeight d) : node(v), dist(d) { }
+        
+        int node;
+        TWeight dist;
+        
+        bool operator < (const entry_t& rhs) const
+        {
+            return this->dist < rhs.dist;
+        }
+    }; 
+    
+    typedef THeap<entry_t, std::less<entry_t> > heap_t;
+    typedef typename heap_t::index_type index_t;      
+    
 public:
     Dijkstra_SPathIterator(const WAdjList<TWeight>& adjlist)
     : SingleSource_SPathIterator<TWeight>(adjlist.nnodes())
-    , m_adjlist(adjlist), m_H(adjlist.nnodes()), m_done(false)
-    , m_hmap(adjlist.nnodes())
+    , m_adjlist(adjlist), m_H(adjlist.nnodes()), m_hmap(adjlist.nnodes())
+    , m_done(false)    
     {
-        m_hseq.reserve(adjlist.nnodes());
     }
     
 public:
@@ -288,7 +305,6 @@ public:
         // reset 
         
         m_H.clear();
-        m_hseq.clear();
         m_done = false;        
         
         // init
@@ -312,9 +328,8 @@ public:
         {
             // extract the node with min-dist from unclosed ones
                         
-            int i = m_H.root_index();            
-            m_H.delete_root();
-            int u = m_hseq[i];
+            int u = m_H.root_key().node;
+            m_H.delete_root();            
                                     
             // close the node
                         
@@ -338,7 +353,7 @@ public:
                     {
                         if (enheaped)
                         {
-                            m_H.set_key(m_hmap[v], this->distance_of(v));
+                            update_dist(v);
                         }
                         else
                         {
@@ -370,10 +385,14 @@ private:
     
     void enheap(int v)
     {                        
-        m_hmap[v] = m_hseq.size();
-        m_hseq.push_back(v);
-        
-        m_H.add_key(this->distance_of(v));           
+        m_hmap[v] = m_H.add_key(entry_t(v, this->distance_of(v)));         
+    }    
+    
+    void update_dist(int v)
+    {
+        index_t i = m_hmap[v];
+        m_H.get_key(i).dist = this->distance_of(v);
+        m_H.notify_update(i);
     }    
     
 private:
@@ -381,12 +400,12 @@ private:
     Dijkstra_SPathIterator<TWeight, THeap>& operator = (Dijkstra_SPathIterator<TWeight, THeap>& );
     
 private:
-    const WAdjList<TWeight>& m_adjlist;         // the adjacency list of the graph
-    THeap<TWeight, std::less<TWeight> > m_H;     // min dist heap
-    bool m_done;
+              
+    const WAdjList<TWeight>& m_adjlist;  // the adjacency list of the graph
+    heap_t m_H;     
+    Array<index_t> m_hmap;  // node -> index for heap 
     
-    std::vector<int> m_hseq;    // the sequence of nodes in the heap
-    Array<int> m_hmap;          // from node index --> enheap order
+    bool m_done;
     
 }; // end class Dijkstra_SPathIterator
 

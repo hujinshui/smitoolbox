@@ -140,6 +140,11 @@ public:
         return m_map[i].key;
     }        
     
+    key_type& get_key(index_type i)
+    {
+        return m_map[i].key;
+    }    
+    
     bool is_inheap(index_type i) const
     {
         return m_map.has_index(i);
@@ -245,21 +250,23 @@ public:
     
     
     void set_key(int i, const key_type& v) 
-    {        
+    {                           
+        m_map[i].key = v;        
+        notify_update(i);                      
+    }
+    
+    
+    void notify_update(int i)
+    {
         #ifdef SMI_BINARY_HEAP_INSPECTION
                 if (m_mon != 0)
-                    m_mon->on_key_setting(*this, i, v);
+                    m_mon->on_key_setting(*this, i, m_map[i].key);
         #endif
-        
-        if (m_map[i].key != v)
-        {                        
-            // update the key value
-            m_map[i].key = v;      
-                                    
-            // heapify the updated node
-            update_node(m_map[i].node);            
-        }                
+                        
+        // heapify the updated node
+        update_node(m_map[i].node);
     }
+    
     
     void delete_root()
     {
