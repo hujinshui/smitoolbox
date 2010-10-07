@@ -15,7 +15,7 @@
 #ifndef SMI_CLIB_HEAPS_H
 #define SMI_CLIB_HEAPS_H
 
-
+#include "civector.h"
 #include "bintree.h"
 #include <functional>
 
@@ -34,7 +34,8 @@ class BinaryHeap
 public:    
     typedef TKey key_type;   
     typedef TOrd key_order;
-    typedef std::vector<int>::size_type index_type;
+        
+    typedef CIVector<int>::index_type index_type;
     
     typedef CompleteBinaryTree<index_type> btree_type;
     typedef typename btree_type::size_type size_type;
@@ -48,6 +49,9 @@ public:
         entry() { }        
         entry(const key_type& k, trnode nd) : key(k), node(nd) { }
     };
+        
+    typedef CIVector<entry> entry_container_type;
+    
     
 #ifdef SMI_BINARY_HEAP_INSPECTION
     
@@ -138,9 +142,9 @@ public:
     
     bool is_inheap(index_type i) const
     {
-        return !m_map[i].node.is_null();
+        return m_map.has_index(i);
     }
-        
+            
     const key_type& root_key() const
     {
         return key_at_node(m_btree.root_node());
@@ -155,6 +159,16 @@ public:
     const btree_type& btree() const
     {
         return m_btree;
+    }
+    
+    const key_type& key_at_node(trnode p) const
+    {        
+        return get_key(m_btree[p]);
+    }
+    
+    trnode get_node_by_index(index_type i) const
+    {
+        return m_map[i].node;
     }
     
 public:
@@ -209,7 +223,7 @@ public:
     }
     
             
-    void add_key(const key_type& v)
+    index_type add_key(const key_type& v)
     {
         #ifdef SMI_BINARY_HEAP_INSPECTION
                 if (m_mon != 0)
@@ -217,7 +231,7 @@ public:
         #endif
         
         // append the key as last node
-        append_node(v);
+        index_type idx = append_node(v);
         
         // heapify the new node
         trnode p = m_btree.last_node();
@@ -225,6 +239,8 @@ public:
         {
             upheap(p);
         }
+        
+        return idx;
     }
     
     
@@ -253,8 +269,8 @@ public:
         #endif
         
         if (!m_btree.empty())
-        {            
-            int iroot = root_index();
+        {                        
+            index_type ridx = root_index();
             
             int n = m_btree.size();            
             if (n > 1)
@@ -275,7 +291,7 @@ public:
                 m_btree.pop_node();
             } 
             
-            m_map[iroot].node = m_btree.null_node();
+            m_map.remove(ridx);
             
             #ifdef SMI_BINARY_HEAP_INSPECTION
                     if (m_mon != 0)
@@ -285,25 +301,21 @@ public:
     }
                            
        
-private:
-    
-    const key_type& key_at_node(trnode p) const
-    {        
-        return get_key(m_btree[p]);
-    }
-        
+private:                
                       
-    void append_node(key_type kv)
+    index_type append_node(key_type kv)
     {
-        index_type new_index = m_map.size();
+        index_type new_index = m_map.next_index();
         
         m_btree.push_node(new_index);
-        m_map.push_back(entry(kv, m_btree.last_node()));
+        m_map.add(entry(kv, m_btree.last_node()));
                     
         #ifdef SMI_BINARY_HEAP_INSPECTION
                 if (m_mon != 0)
                     m_mon->on_node_appended(*this, new_index);
         #endif
+                
+        return new_index;
     }
     
     
@@ -420,8 +432,8 @@ private:
             
 private:
     key_order m_ord;  
-    btree_type m_btree;  // node -> index    
-    std::vector<entry> m_map;  // index -> (key, node)       
+    btree_type m_btree;         // node -> index    
+    entry_container_type m_map;   // index -> (key, node)       
     
 }; // end class BinaryHeap
     
