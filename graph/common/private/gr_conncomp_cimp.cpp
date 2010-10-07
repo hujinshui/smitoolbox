@@ -12,6 +12,9 @@
 #include "../../clib/mgraph.h"
 #include "../../clib/graph_search.h"
 
+#include <vector>
+#include <iterator>
+
 using namespace smi;
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
@@ -25,15 +28,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // find components
     
     int n = G.nnodes();
-    int *csizs = new int[n];
-    int *vs = new int[n];
+    std::vector<int> csizs;
+    std::vector<int> vs;
+    vs.reserve(n);
     
-    int c = get_connected_components(adjlist, csizs, vs);
+    int c = get_connected_components(adjlist, 
+            std::back_inserter(csizs), std::back_inserter(vs));
  
     // make output
     
     mxArray *mxCCs = mxCreateCellMatrix(1, c);
-    const int *p = vs;
+    const int *p = &(vs[0]);
     for (int i = 0; i < c; ++i)
     {
         mxArray *mxC = gindices_mrow(csizs[i], p);
