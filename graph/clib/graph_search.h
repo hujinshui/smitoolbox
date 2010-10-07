@@ -469,6 +469,21 @@ bool test_acyclic(DFSIterator& dfs_it, TInserter inserter)
 }
 
 
+template<typename TInserter>
+bool test_acyclic(const AdjList& adjlist, int s, TInserter inserter)
+{
+    DFSIterator dfs_it(adjlist);
+    
+    dfs_it.set_seed(s);
+    
+    acyclic_testing_dfs_observer<TInserter> obs(inserter);    
+    return dfs_it.detect_loop(obs) < 0;    
+}
+
+
+
+
+
 /**
  * Get connected components of an undirected (or symmetric) graph
  *

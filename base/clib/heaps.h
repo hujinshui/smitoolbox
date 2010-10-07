@@ -145,7 +145,13 @@ public:
     {
         return key_at_node(m_btree.root_node());
     }            
-        
+     
+    
+    const index_type root_index() const
+    {
+        return m_btree[m_btree.root_node()];
+    }
+    
     const btree_type& btree() const
     {
         return m_btree;
@@ -230,12 +236,12 @@ public:
         #endif
         
         if (m_map[i].key != v)
-        {
+        {                        
             // update the key value
-            m_map[i].key = v;       
-            
+            m_map[i].key = v;      
+                                    
             // heapify the updated node
-            update_node(m_map[i].node);
+            update_node(m_map[i].node);            
         }                
     }
     
@@ -248,6 +254,8 @@ public:
         
         if (!m_btree.empty())
         {            
+            int iroot = root_index();
+            
             int n = m_btree.size();            
             if (n > 1)
             {                                
@@ -267,6 +275,8 @@ public:
                 m_btree.pop_node();
             } 
             
+            m_map[iroot].node = m_btree.null_node();
+            
             #ifdef SMI_BINARY_HEAP_INSPECTION
                     if (m_mon != 0)
                         m_mon->on_root_deleted(*this);
@@ -278,7 +288,7 @@ public:
 private:
     
     const key_type& key_at_node(trnode p) const
-    {
+    {        
         return get_key(m_btree[p]);
     }
         
@@ -287,9 +297,9 @@ private:
     {
         index_type new_index = m_map.size();
         
-        m_map.push_back(entry(kv, new_index));
-        m_btree.push_node(new_index);    
-        
+        m_btree.push_node(new_index);
+        m_map.push_back(entry(kv, m_btree.last_node()));
+                    
         #ifdef SMI_BINARY_HEAP_INSPECTION
                 if (m_mon != 0)
                     m_mon->on_node_appended(*this, new_index);
@@ -300,6 +310,7 @@ private:
     void update_node(trnode p)
     {                
         int dir;
+        
         if (superior_to_parent(p))
         {
             upheap(p);
@@ -311,7 +322,7 @@ private:
     }
     
     bool superior_to_parent(trnode p) const
-    {
+    {        
         trnode par = p.parent();
         if (!par.is_null())
         {
@@ -320,11 +331,11 @@ private:
         else
         {
             return false;
-        }                
+        }            
     }
     
     int inferior_to_children(trnode p) const // return direction of the proper child
-    {
+    {        
         trnode lc = p.left_child();                     
         
         if (m_btree.has_node(lc))
@@ -355,7 +366,8 @@ private:
         else
         {
             return -1;
-        }                
+        }          
+        
     }
     
     

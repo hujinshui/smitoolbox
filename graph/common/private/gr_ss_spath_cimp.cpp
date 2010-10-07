@@ -16,15 +16,9 @@ using namespace smi;
 
 template<class TAlgIter, typename T>
 struct base_getter
-{
-    typedef T value_type;
-    
-    const TAlgIter& m_it;
-    const SeqList<int>& m_seq;
-    
-    base_getter(const TAlgIter& it) : m_it(it), m_seq(it.close_sequence()) { }
-    
-    int count() const { return m_it.num_closed(); }
+{    
+    const TAlgIter& m_it;    
+    base_getter(const TAlgIter& it) : m_it(it) { }
 };
 
 template<class TAlgIter>
@@ -32,15 +26,20 @@ struct vnode_getter : public base_getter<TAlgIter, int>
 {
     vnode_getter(const TAlgIter& it) : base_getter<TAlgIter, int>(it) { }
     
-    int operator() (int i) const { return this->m_seq[i] + 1; }
+    int operator() (int v) const 
+    { 
+        return v + 1; 
+    }
 };
 
 template<class TAlgIter, class TWeight>
 struct sdist_getter : public base_getter<TAlgIter, TWeight>
 {
-    sdist_getter(const TAlgIter& it) : base_getter<TAlgIter, TWeight>(it) { }
-    
-    TWeight operator() (int i) const { return this->m_it.distance_of(this->m_seq[i]); }
+    sdist_getter(const TAlgIter& it) : base_getter<TAlgIter, TWeight>(it) { }    
+    TWeight operator() (int v) const 
+    { 
+        return this->m_it.distance_of(v); 
+    }
 };
 
 template<class TAlgIter>
@@ -48,7 +47,10 @@ struct vpred_getter : public base_getter<TAlgIter, int>
 {
     vpred_getter(const TAlgIter& it) : base_getter<TAlgIter, int>(it) { }
     
-    int operator() (int i) const { return this->m_it.predecessor_of(this->m_seq[i]) + 1; }
+    int operator() (int v) const 
+    { 
+        return this->m_it.predecessor_of(v) + 1; 
+    }
 };
 
 
@@ -57,9 +59,17 @@ template<typename TAlgIter, typename TWeight>
 void extract_output(const TAlgIter& alg_it, 
         mxArray*& mxVs, mxArray*& mxDists, mxArray*& mxPreds)
 {
-    mxVs = iter_to_matlab_row(vnode_getter<TAlgIter>(alg_it));
-    mxDists = iter_to_matlab_row(sdist_getter<TAlgIter, TWeight>(alg_it));
-    mxPreds = iter_to_matlab_row(vpred_getter<TAlgIter>(alg_it));
+    const std::vector<int>& vs = alg_it.close_sequence();
+    int n = (int)vs.size();
+    
+    mxVs = iter_to_matlab_row(vs.begin(), n, 
+            vnode_getter<TAlgIter>(alg_it));
+    
+    mxDists = iter_to_matlab_row(vs.begin(), n, 
+            sdist_getter<TAlgIter, TWeight>(alg_it));
+    
+    mxPreds = iter_to_matlab_row(vs.begin(), n, 
+            vpred_getter<TAlgIter>(alg_it));
 }
 
 
