@@ -12,7 +12,7 @@
 #define SMI_GRAPH_SEARCH_H
 
 #include "graphs.h"
-#include "../../base/clib/data_structs.h"
+#include "../../base/clib/array.h"
 
 #include <stack>
 #include <queue>
@@ -25,13 +25,37 @@ namespace smi
  * The iterator of graph nodes using BFS order
  */     
 class BFSIterator
-{
-public:            
-    BFSIterator(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_Q()
-    , m_discovered(adjlist.nnodes(), false)
+{    
+public:
+    struct entry
     {
+        int pred;   // the predecessor of node
+        int node;   // the currently visiting node
+        
+        entry() { }        
+        entry(int p, int v) : pred(p), node(v) { }
+    };
+    
+    
+    struct nil_observer_t
+    {
+        void on_discover(int p, int v) { }
+        void on_visit (int p, int v) { }
+        
+    } nil_observer;
+    
+public:            
+    BFSIterator(const AdjList& G) 
+    : m_adjlist(G), m_Q(), m_discovered(G.nnodes())
+    {
+        m_discovered.set_zeros();
     }   
+    
+    
+    int num_nodes() const
+    {
+        return m_adjlist.nnodes();
+    }
     
     
     /**
@@ -47,7 +71,7 @@ public:
     {
         if (!is_discovered(v))
         {
-            discover_node(v);
+            discover_node(-1, v);
             return true;
         } 
         else
@@ -60,15 +84,22 @@ public:
     /**
      * Get the next node and move the iterator forward
      *
-     * @return the index of next node, or -1 when no next node
+     * @param obs the observer that reacts on the next step
+     *
+     * @returns the index of next visiting node, -1 if no next node.
      */
-    int next()
+    template<typename TObserver>
+    int next(TObserver& obs)
     {
         if (!m_Q.empty())
         {
-            int s = m_Q.front();
+            // visit the next node
+            const entry& e = m_Q.front();            
+            obs.on_visit(e.pred, e.node);                        
+            int s = e.node;
             m_Q.pop();
             
+            // add its unvisited neighbors to queue            
             int c = m_adjlist.neighbor_num(s);
             if (c > 0)
             {
@@ -78,119 +109,7 @@ public:
                     int t = ts[i];
                     if (!is_discovered(t))
                     {
-                        discover_node(t);
-                    }   
-                }
-            }
-            
-            return s;
-        }
-        else
-        {
-            return -1;
-        }
-    }
-    
-    
-public:
-    
-    bool is_discovered(int v) const
-    {
-        return m_discovered[v];
-    }
-    
-    bool is_queue_empty() const
-    {
-        return m_Q.empty();
-    }
-        
-    int queue_length() const
-    {
-        return (int)m_Q.size();
-    }
-    
-    
-private:
-    
-    void discover_node(int v)
-    {
-        m_Q.push(v);
-        m_discovered[v] = true;                    
-    }
-    
-                
-private:
-    const AdjList& m_adjlist;
-    std::queue<int> m_Q;    
-    BoolArray m_discovered;
-    
-}; // end class BFSIterator
-   
-
-
-/**
- * The extended iterator of graph nodes using BFS order
- *
- * This iterator also keep tracks of predecessors and distances
- * from the seeds
- */     
-class BFSIteratorEx
-{
-public:
-        
-    BFSIteratorEx(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_Q()
-    , m_discovered(adjlist.nnodes(), false)
-    , m_preds(adjlist.nnodes())
-    , m_dists(adjlist.nnodes())
-    {     
-    }   
-    
-    
-    /**
-     * add a new node as seed, and tag v as discovered
-     *
-     * @param v the index of the node to be added as seed
-     * @return whether v is added (true if v is undiscovered before adding) 
-     *
-     * @remarks      
-     *  - this function adds v only when v remains undiscovered  
-     */
-    bool add_seed(int v)
-    {
-        if (!is_discovered(v))
-        {
-            discover_seed(v);
-            return true;
-        } 
-        else
-        {
-            return false;
-        }
-    }
-    
-    
-    /**
-     * Get the next node and move the iterator forward
-     *
-     * @return the index of next node, or -1 when no next node
-     */
-    int next()
-    {
-        if (!m_Q.empty())
-        {
-            int s = m_Q.front();
-            m_Q.pop();
-            
-            int c = m_adjlist.neighbor_num(s);
-            if (c > 0)
-            {
-                const int *ts = m_adjlist.neighbor_nodes(s);
-                for (int i = 0; i < c; ++i)
-                {
-                    int t = ts[i];
-                    if (!is_discovered(t))
-                    {
+                        obs.on_discover(s, t);
                         discover_node(s, t);
                     }   
                 }
@@ -205,23 +124,18 @@ public:
     }
     
     
+    int next()
+    {
+        return next(nil_observer);
+    }    
+    
+    
 public:
     
     bool is_discovered(int v) const
     {
         return m_discovered[v];
     }
-    
-    int predecessor_of(int v) const
-    {
-        return m_preds[v];
-    }
-    
-    int distance_of(int v) const
-    {
-        return m_dists[v];
-    }    
-    
     
     bool is_queue_empty() const
     {
@@ -236,34 +150,21 @@ public:
     
 private:
     
-    void discover_seed(int v)
-    {
-        m_Q.push(v);
-        m_discovered[v] = true;
-        
-        m_preds[v] = -1;
-        m_dists[v] = 0;
-    }
-    
     void discover_node(int pred, int v)
     {
-        m_Q.push(v);
-        m_discovered[v] = true; 
-        
-        m_preds[v] = pred;
-        m_dists[v] = m_dists[pred] + 1;        
-    }
+        m_Q.push(entry(pred, v));
+        m_discovered[v] = true;                    
+    }        
     
                 
 private:
     const AdjList& m_adjlist;
-    std::queue<int> m_Q;
+    std::queue<entry> m_Q;    
+    BoolArray m_discovered;
     
-    BoolArray m_discovered;    
-    std::valarray<int> m_preds;
-    std::valarray<int> m_dists;
-    
-}; // end class BFSIteratorEx
+}; // end class BFSIterator
+   
+
 
 
 enum DFSEdgeType
@@ -275,48 +176,76 @@ enum DFSEdgeType
 };
 
 
-struct DFSEntry
-{
-    int s;              // source node index
-    int nnb;            // # neighbors
-    const int *nbs;     // neighbors
-    int i;              // offset of next neighbor
-
-    bool remain() const
-    {
-        return i < nnb;
-    }
-
-    int next_neighbor()
-    {
-        return nbs[i++];
-    }
-    
-    DFSEntry() { }
-
-    DFSEntry(const AdjList& adjlist, int v)
-    {
-        s = v;
-        nnb = adjlist.neighbor_num(v);
-        nbs = adjlist.neighbor_nodes(v);
-        i = 0;        
-    }
-};
-
-
-
 /**
  * The iterator of graph nodes using DFS order
  */     
 class DFSIterator
 {    
 public:
-        
-    DFSIterator(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_seed(-1), m_stack()
-    , m_discovered(adjlist.nnodes(), false), m_finished(adjlist.nnodes(), false)
+    
+    struct edge_info
     {
+        int s;
+        int t;
+        DFSEdgeType etype;         
+        
+        edge_info() { }
+        edge_info(int s_, int t_, DFSEdgeType ety) : s(s_), t(t_), etype(ety) { }        
+    };
+    
+    
+    struct entry
+    {
+        int s;              // source node index
+        int nnb;            // # neighbors
+        const int *nbs;     // neighbors
+        int i;              // offset of next neighbor
+
+        bool remain() const
+        {
+            return i < nnb;
+        }
+
+        int next_neighbor()
+        {
+            return nbs[i++];
+        }
+
+        entry() { }
+
+        entry(const AdjList& adjlist, int v)
+        {
+            s = v;
+            nnb = adjlist.neighbor_num(v);
+            nbs = adjlist.neighbor_nodes(v);
+            i = 0;        
+        }
+    };
+    
+    
+    struct nil_observer_t
+    {
+        void on_discover(int s, int t) { }
+        void on_finish(int v) { }
+        
+    } nil_observer;
+    
+    
+public:
+        
+    DFSIterator(const AdjList& G) 
+    : m_adjlist(G), m_seed(-1), m_stack()
+    , m_discovered(G.nnodes()), m_finished(G.nnodes())
+    {
+        m_discovered.set_zeros();
+        m_finished.set_zeros();
     }   
+    
+    
+    int num_nodes() const
+    {
+        return m_adjlist.nnodes();
+    }
     
     
     /**
@@ -341,67 +270,89 @@ public:
     /**
      * Get the next node and move the iterator forward
      *
+     * @param the observer that reacts to DFS steps
+     *
      * @return the index of next node, or -1 when no next node
      */
+    template<typename TObserver>
+    int next(TObserver& obs)
+    {        
+        edge_info e = next_edge(obs);
+        while (e.etype != DFS_FORWARD_EDGE && e.etype != DFS_NO_EDGE) 
+            e = next_edge(obs);
+                        
+        return e.t;
+    }
+    
+    
     int next()
     {
-        DFSEdgeType ety;
-        int v = -1;
-        while ((ety = next_edge(v)) && ety != DFS_FORWARD_EDGE);                
-        
-        return v;
+        return next(nil_observer);
     }
+    
     
     
     /**
      * Get the next edge and move the iteratro forward
-     *
-     * @param t the target node of next edge (-1 if no next edge)
-     *
-     * @return the type of next edge
+     * 
+     * @return the information struct of next edge
      */
-    DFSEdgeType next_edge(int& t)
+    template<typename TObserver>
+    edge_info next_edge(TObserver& obs)
     {        
         while (!m_stack.empty())
         {
-            DFSEntry& e = m_stack.top();
+            entry& e = m_stack.top();
                         
             if (e.remain())
             {                                
-                t = e.next_neighbor();
+                int t = e.next_neighbor();
                                 
                 if (is_discovered(t))
                 {
-                    return is_finished(t) ? DFS_CROSS_EDGE : DFS_BACK_EDGE;
+                    DFSEdgeType ety = is_finished(t) ? DFS_CROSS_EDGE : DFS_BACK_EDGE;                            
+                    return edge_info(e.s, t, ety);                        
                 }
                 else
                 {
+                    obs.on_discover(e.s, t);
                     discover_node(t);
-                    return DFS_FORWARD_EDGE;
+                    
+                    return edge_info(e.s, t, DFS_FORWARD_EDGE);
                 }
             }
             else
             {
-                finish_top();
+                int vtop = top_node();
+                
+                obs.on_finish(vtop);
+                m_finished[vtop] = true;                
+                m_stack.pop();  
             }
         }
         
         if (m_seed >= 0)  // starting
         {
+            obs.on_discover(-1, m_seed);
             discover_node(m_seed);
-            t = m_seed;
+            
+            int t = m_seed;
             m_seed = -1;
-            return DFS_FORWARD_EDGE;
+            return edge_info(-1, t, DFS_FORWARD_EDGE);
         }
         else  // ending
         {
-            t = -1;
-            return DFS_NO_EDGE;
+            return edge_info(-1, -1, DFS_NO_EDGE);
         }
         
     }
     
     
+    edge_info next_edge()
+    {
+        return next_edge(nil_observer);
+    }    
+            
     
 public:
     bool is_discovered(int v) const
@@ -424,20 +375,13 @@ private:
     void discover_node(int v)
     {
         m_discovered[v] = true;
-        m_stack.push(DFSEntry(m_adjlist, v));
-    }
-    
-    void finish_top()
-    {
-        m_finished[top_node()] = true;                
-        m_stack.pop();        
-    }
-    
+        m_stack.push(entry(m_adjlist, v));
+    }        
                 
 private:
     const AdjList& m_adjlist;
     int m_seed;
-    std::stack<DFSEntry> m_stack;
+    std::stack<entry> m_stack;
     
     BoolArray m_discovered;
     BoolArray m_finished;
@@ -446,215 +390,6 @@ private:
 }; // end class DFSIterator
 
 
-
-/**
- * The extended iterator of graph nodes using DFS order
- *
- * This class also outputs predecessors, the time-stamps
- * of discovery and finishing, as well as a sequence of nodes
- * in finishing order
- */     
-class DFSIteratorEx
-{    
-public:
-        
-    DFSIteratorEx(const AdjList& adjlist) 
-    : m_adjlist(adjlist), m_seed(-1), m_stack()
-    , m_discovered(adjlist.nnodes(), false), m_finished(adjlist.nnodes(), false)
-    , m_time(0)
-    , m_discover_time(adjlist.nnodes()), m_finish_time(adjlist.nnodes())
-    , m_finish_order(), m_preds(adjlist.nnodes())
-    {
-    }   
-    
-    
-    /**
-     * set a node as seed.
-     *
-     * This function acts only when v is undiscovered.  
-     */
-    bool set_seed(int v)
-    {
-        if (!is_discovered(v))
-        {
-            m_seed = v;
-            return true;
-        } 
-        else
-        {
-            return false;
-        }
-    }
-    
-    
-    /**
-     * Get the next node and move the iterator forward
-     *
-     * @return the index of next node, or -1 when no next node
-     */
-    int next()
-    {
-        DFSEdgeType ety;
-        int v = -1;
-        while ((ety = next_edge(v)) && ety != DFS_FORWARD_EDGE);                
-        
-        return v;
-    }
-    
-    
-    /**
-     * Get the next edge and move the iteratro forward
-     *
-     * @param t the target node of next edge (-1 if no next edge)
-     *
-     * @return the type of next edge
-     */
-    DFSEdgeType next_edge(int& t)
-    {        
-        while (!m_stack.empty())
-        {
-            DFSEntry& e = m_stack.top();
-                        
-            if (e.remain())
-            {                                
-                t = e.next_neighbor();
-                                
-                if (is_discovered(t))
-                {                    
-                    return is_finished(t) ? DFS_CROSS_EDGE : DFS_BACK_EDGE;
-                }
-                else
-                {
-                    discover_node(e.s, t);
-                    return DFS_FORWARD_EDGE;
-                }
-            }
-            else
-            {
-                finish_top();
-            }
-        }
-        
-        if (m_seed >= 0)  // starting
-        {
-            discover_node(-1, m_seed);
-            t = m_seed;
-            m_seed = -1;
-            return DFS_FORWARD_EDGE;
-        }
-        else  // ending
-        {
-            t = -1;
-            return DFS_NO_EDGE;
-        }
-        
-    }    
-    
-    
-public:
-    bool is_discovered(int v) const
-    {
-        return m_discovered[v];
-    }
-    
-    bool is_finished(int v) const
-    {
-        return m_finished[v];
-    }
-    
-    int top_node() const
-    {
-        return m_stack.top().s;
-    }
-    
-    int current_time() const
-    {
-        return m_time;
-    }
-    
-    int discover_time_of(int i) const
-    {
-        return m_discover_time[i];
-    }
-    
-    int finish_time_of(int i) const
-    {
-        return m_finish_time[i];
-    }
-    
-    int predecessor_of(int i) const
-    {
-        return m_preds[i];
-    }        
-    
-    const std::vector<int>& finish_order() const
-    {
-        return m_finish_order;
-    }
-    
-    
-public:
-                        
-    /**
-     * walk until a loop is encountered (back edge)
-     *
-     * @return return the node already in the stack that is pointed to 
-     *         by the last back edge, or -1 if no loop
-     */
-    int find_loop() 
-    {
-        DFSEdgeType ety;
-        int v = -1;
-        while ((ety = next_edge(v)) && ety != DFS_BACK_EDGE); 
-        
-        return v;
-    }
-    
-    
-private:
-    void discover_node(int p, int v)
-    {
-        m_discovered[v] = true;
-        m_preds[v] = p;
-        
-        m_discover_time[v] = next_timestamp();
-        
-        m_stack.push(DFSEntry(m_adjlist, v));
-    }
-    
-    void finish_top()
-    {
-        int v = top_node();
-        m_finished[v] = true;
-        m_stack.pop();
-        
-        m_finish_time[v] = next_timestamp();
-        m_finish_order.push_back(v);
-    }
-        
-    
-    int next_timestamp()
-    {
-       return m_time ++; 
-    }
-    
-                
-private:
-    const AdjList& m_adjlist;
-    int m_seed;
-    std::stack<DFSEntry> m_stack;
-    
-    BoolArray m_discovered;
-    BoolArray m_finished;
-    
-    int m_time;        
-    std::valarray<int> m_discover_time;
-    std::valarray<int> m_finish_time;
-    std::vector<int> m_finish_order;
-    
-    std::valarray<int> m_preds;
-    
-}; // end class DFSIteratorEx
 
 
 /*****************************************
@@ -676,18 +411,18 @@ private:
  *  finish_order of dfs_it is a topological order of the graph
  *
  */
-bool test_acyclic(int n, DFSIteratorEx& dfs_it)
+bool test_acyclic(int n, DFSIterator& dfs_it)
 {           
-    for (int i = 0; i < n; ++i)
-    {
-        if (!dfs_it.is_discovered(i))
-        {
-            dfs_it.set_seed(i);
-            
-            if (dfs_it.find_loop() >= 0)
-                return false;
-        }
-    }
+//     for (int i = 0; i < n; ++i)
+//     {
+//         if (!dfs_it.is_discovered(i))
+//         {
+//             dfs_it.set_seed(i);
+//             
+//             if (dfs_it.find_loop() >= 0)
+//                 return false;
+//         }
+//     }
     return true;
 }
 
