@@ -6,6 +6,7 @@
 
 #include "array.h"
 #include "bintree.h"
+#include "heaps.h"
 
 using namespace smi;
 
@@ -13,6 +14,7 @@ template class Array<double>;
 template class Array<bool>;
 
 template class CompleteBinaryTree<double>;
+template class BinaryHeap<double>;
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {

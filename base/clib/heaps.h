@@ -6,6 +6,9 @@
  *
  *  Created by Dahua Lin, on Oct 4, 2010
  *
+ *  Note: to inspect the behavior of a binary heap, one can 
+ *  pre-define the macro SMI_BINARY_HEAP_INSPECTION
+ *
  ********************************************************************/
 
 
@@ -13,15 +16,8 @@
 #define SMI_CLIB_HEAPS_H
 
 
-#ifdef MATLAB_INSPECT_HEAPS
-#include <mex.h>
-#endif
-
-// to dump heap actions, further define the macro MATLAB_DUMP_HEAP_ACTION
-
-#include "relation.h"
-#include "data_structs.h"
 #include "bintree.h"
+#include <functional>
 
 
 namespace smi
@@ -31,28 +27,101 @@ namespace smi
 /**
  * The class to represent a binary heap
  */    
-template<typename TKey, typename HeapOrder=less<TKey> >    
+template<typename TKey, typename TOrd=std::less<TKey> >
 class BinaryHeap
-{
-public:
+{    
+       
+public:    
     typedef TKey key_type;   
-    typedef CompleteBinaryTree<int> btree_type;
+    typedef TOrd key_order;
+    typedef std::vector<int>::size_type index_type;
+    
+    typedef CompleteBinaryTree<index_type> btree_type;
+    typedef typename btree_type::size_type size_type;
     typedef typename btree_type::node_indicator trnode;
     
+    struct entry
+    {
+        key_type key;
+        trnode node;
+        
+        entry() { }        
+        entry(const key_type& k, trnode nd) : key(k), node(nd) { }
+    };
+    
+#ifdef SMI_BINARY_HEAP_INSPECTION
+    
 public:
-    BinaryHeap(int cap) 
-    : m_btree(cap), m_keys(cap), m_nodemap(cap), m_inheap(cap)    
-    {        
+    class IMonitor
+    {
+    public:
+        virtual ~IMonitor() { }
+        
+        virtual void on_node_swaped(const BinaryHeap& H, index_type i, index_type j) = 0;
+        
+        virtual void on_node_appended(const BinaryHeap& H, index_type i) = 0;
+        
+        virtual void on_upheaping(const BinaryHeap& H, index_type i) = 0;
+        
+        virtual void on_downheaping(const BinaryHeap& H, index_type i) = 0;                
+        
+        virtual void on_key_setting(const BinaryHeap& H, index_type i, const key_type& kv) = 0;
+        
+        virtual void on_key_adding(const BinaryHeap& H, const key_type& kv) = 0;
+        
+        virtual void on_heap_making(const BinaryHeap& H) = 0;
+        
+        virtual void on_heap_made(const BinaryHeap& H) = 0;
+        
+        virtual void on_clearing(const BinaryHeap& H) = 0;
+        
+        virtual void on_cleared(const BinaryHeap& H) = 0;
+        
+        virtual void on_root_deleting(const BinaryHeap& H) = 0;
+        
+        virtual void on_root_deleted(const BinaryHeap& H) = 0;
+        
+    }; // end class Monitor
+    
+    
+    void set_monitor(IMonitor *mon)
+    {
+        m_mon = mon;
+    }
+    
+private:
+    IMonitor* m_mon;
+
+#endif
+    
+        
+    
+public:
+    BinaryHeap()
+    {
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                m_mon = 0;
+        #endif
+    }    
+    
+    BinaryHeap(size_type cap) 
+    {
+        m_btree.reserve(cap);
+        m_map.reserve(cap);
+        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                m_mon = 0;
+        #endif
     }
     
 public:
     
-    int capacity() const
+    size_type capacity() const
     {
         return m_btree.capacity();
     }
     
-    int size() const
+    size_type size() const
     {
         return m_btree.size();
     }
@@ -61,27 +130,22 @@ public:
     {
         return m_btree.empty();
     }
-    
-    bool in_heap(int i) const
-    {
-        return i < m_keys.size() && m_inheap[i];
-    }
         
-    key_type get_key(int i) const
+    const key_type& get_key(index_type i) const
     {
-        return m_keys[i];
+        return m_map[i].key;
     }        
-        
-    key_type root_key() const
-    {
-        return get_key(root_index());
-    }            
     
-    int root_index() const
+    bool is_inheap(index_type i) const
     {
-        return m_btree.root_value();
+        return !m_map[i].node.is_null();
     }
-    
+        
+    const key_type& root_key() const
+    {
+        return key_at_node(m_btree.root_node());
+    }            
+        
     const btree_type& btree() const
     {
         return m_btree;
@@ -89,40 +153,63 @@ public:
     
 public:
             
-    void make_heap(int n, const key_type *src)
+    template<typename InputIter>
+    void make_heap(InputIter it_begin, InputIter it_end)
     {                        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_heap_making(*this);
+        #endif
+        
         // copy key values and initialize the tree
-        for (int i = 0; i < n; ++i) 
+        for (InputIter it = it_begin; it != it_end; ++it) 
         {
-            append_node(m_keys[i] = src[i]);            
+            append_node(*it);
         }
                                 
         // heapify the tree
-        if (n > 0)
+        
+        trnode rend = m_btree.pre_root_node();            
+        for (trnode p = m_btree.last_nonleaf() ; p != rend; --p)
         {
             int dir;
-            trnode rend = m_btree.rev_end();
-            
-            for (trnode p = m_btree.last_nonleaf(); p != rend; --p)
+            if ((dir = inferior_to_children(p)) >= 0)
             {
-                if ((dir = inferior_to_children(p)) >= 0)
-                {
-                    downheap(p, dir);
-                }
-            }            
-        }
+                downheap(p, dir);
+            }
+        }   
+        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_heap_made(*this);
+        #endif
     }
     
     
     void clear()
     {
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_heap_clearing(*this);
+        #endif
+        
         m_btree.clear(); 
-        m_keys.clear();
+        m_map.clear();
+        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_heap_cleared(*this);
+        #endif
     }
     
             
-    void add_key(key_type v)
+    void add_key(const key_type& v)
     {
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_key_adding(*this, v);
+        #endif
+        
         // append the key as last node
         append_node(v);
         
@@ -135,20 +222,30 @@ public:
     }
     
     
-    void set_key(int i, key_type v) 
+    void set_key(int i, const key_type& v) 
     {        
-        if (m_keys[i] != v)
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_key_setting(*this, i, v);
+        #endif
+        
+        if (m_map[i].key != v)
         {
             // update the key value
-            m_keys[i] = v;       
+            m_map[i].key = v;       
             
             // heapify the updated node
-            update_node(m_nodemap[i]);
+            update_node(m_map[i].node);
         }                
     }
     
     void delete_root()
     {
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_root_deleting(*this);
+        #endif
+        
         if (!m_btree.empty())
         {            
             int n = m_btree.size();            
@@ -156,93 +253,47 @@ public:
             {                                
                 // swap root with last node, and update
                 trnode pl = m_btree.last_node();
-                swap_node(m_btree.root(), pl);
+                swap_node(m_btree.root_node(), pl);
                 
                 // delete the last node
-                m_inheap[m_btree[pl]] = false;
                 m_btree.pop_node();
                 
                 // update the root node
-                update_node(m_btree.root());
+                update_node(m_btree.root_node());
             }
             else
             {
                 // delete the last node, which is also the root node
-                m_inheap[m_btree.root_value()] = false; 
                 m_btree.pop_node();
-            }                        
+            } 
+            
+            #ifdef SMI_BINARY_HEAP_INSPECTION
+                    if (m_mon != 0)
+                        m_mon->on_root_deleted(*this);
+            #endif
         }
     }
-    
-    key_type extract_root(int& i)
-    {
-        i = root_index();
-        key_type kv = get_key(i);
-        
-        delete_root();
-        
-        return kv;
-    }    
-            
-        
-#ifdef MATLAB_INSPECT_HEAPS
-
-    void dump_heap_to_matlab() const
-    {   
-        trnode endp = m_btree.end();
-        for (trnode p = m_btree.root(); p != endp; ++p)
-        {
-            dump_node_to_matlab(p);            
-            mexPrintf(" ");
-        }       
-        mexPrintf("\n");
-    }    
-
-    void dump_node_to_matlab(trnode p) const
-    {          
-        double v = double(key_at_node(p));            
-        mexPrintf("%g", v);
-    }
-    
-    void dump_imap_to_matlab() const
-    {
-        for (int i = 0; i < m_keys.size(); ++i)
-        {
-            trnode p = m_nodemap[i];
-            
-            if (in_heap(i))
-            {
-                mexPrintf("(%d: %d -> %g) ", 
-                        i, p.index(), double(key_at_node(p)));
-            }
-            else
-            {
-                mexPrintf("(%d: ~)", i); 
-            }            
-        }
-        mexPrintf("\n");
-    }
-
-#endif
-    
+                           
        
 private:
     
-    key_type key_at_node(trnode p) const
+    const key_type& key_at_node(trnode p) const
     {
-        return m_keys[m_btree[p]];
+        return get_key(m_btree[p]);
     }
-    
+        
                       
     void append_node(key_type kv)
     {
-        int new_index = m_keys.size();
+        index_type new_index = m_map.size();
         
-        m_btree.push_node(new_index);
-        m_nodemap[new_index] = m_btree.last_node();
-        m_inheap[new_index] = true;
-                
-        m_keys.add(kv);        
+        m_map.push_back(entry(kv, new_index));
+        m_btree.push_node(new_index);    
+        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_node_appended(*this, new_index);
+        #endif
     }
     
     
@@ -262,9 +313,9 @@ private:
     bool superior_to_parent(trnode p) const
     {
         trnode par = p.parent();
-        if (m_btree.has_node(par))
+        if (!par.is_null())
         {
-            return _compare( key_at_node(p), key_at_node(par) );
+            return m_ord( key_at_node(p), key_at_node(par) );
         }
         else
         {
@@ -282,7 +333,7 @@ private:
             int dir = -1;
             
             key_type klc = key_at_node(lc);            
-            if (_compare(klc, k))
+            if (m_ord(klc, k))
             {
                 k = klc;
                 dir = 0;
@@ -292,7 +343,7 @@ private:
             if (m_btree.has_node(rc))
             {
                 key_type krc = key_at_node(rc);
-                if (_compare(krc, k))
+                if (m_ord(krc, k))
                 {
                     k = krc;
                     dir = 1;
@@ -310,6 +361,11 @@ private:
     
     void upheap(trnode p) 
     {
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_upheaping(*this, m_btree[p]);
+        #endif
+        
         do 
         {
             p = swap_node(p, p.parent());
@@ -318,7 +374,12 @@ private:
     }
     
     void downheap(trnode p, int dir)
-    {                        
+    {      
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_downheaping(*this, m_btree[p]);
+        #endif
+                
         do
         {         
             p = swap_node(p, p.child(dir));    
@@ -327,77 +388,32 @@ private:
     }
      
     trnode swap_node(trnode ps, trnode pt)
-    {
-        
-#ifdef MATLAB_DUMP_HEAP_ACTION
-        
-        mexPrintf("swap ");
-        dump_node_to_matlab(ps);
-        mexPrintf(" <--> ");
-        dump_node_to_matlab(pt);
-        mexPrintf("\n");
-        
-#endif
-        int si = m_btree[ps];
-        int ti = m_btree[pt];
+    {        
+        index_type si = m_btree[ps];
+        index_type ti = m_btree[pt];
         
         m_btree[ps] = ti;
         m_btree[pt] = si;
         
-        m_nodemap[si] = pt;
-        m_nodemap[ti] = ps;        
+        m_map[si].node = pt;
+        m_map[ti].node = ps;  
+        
+        #ifdef SMI_BINARY_HEAP_INSPECTION
+                if (m_mon != 0)
+                    m_mon->on_node_swaped(*this, si, ti);
+        #endif
                
         return pt;
     }           
             
 private:
-    HeapOrder _compare;  
-    btree_type m_btree;  // binary tree of index: from node --> index
-    
-    SeqList<key_type> m_keys;   // map from index --> key
-    Array<trnode> m_nodemap;   // map from index --> node 
-    
-    Array<bool> m_inheap;   // whether an index is in-heap
+    key_order m_ord;  
+    btree_type m_btree;  // node -> index    
+    std::vector<entry> m_map;  // index -> (key, node)       
     
 }; // end class BinaryHeap
     
     
-/**
- * Extract the root-values sequentially from a well-formed heap
- *
- * @param heap the heap from which the keys are to be extracted
- * @param n the number of values to be extracted (n <= heap.size())
- * @param keys the buffer to store the output keys (can be NULL)
- * @param indices the buffer to store the output indices (can be NULL)
- *
- * @remarks A heap-sort can be accomplished by make_heap -> extract_all
- */
-template<typename THeap>
-void heap_extract_n(THeap& heap, int n, typename THeap::key_type *keys, int *indices = 0)
-{
-    int i = 0;
-    
-    if (keys != 0)
-    {
-        if (indices != 0)        
-            for (int t = 0; t < n; ++t) 
-                keys[t] = heap.extract_root(indices[t]);
-        else
-            for (int t = 0; t < n; ++t) 
-                keys[t] = heap.extract_root(i);
-    }
-    else
-    {
-        if (indices != 0)        
-            for (int t = 0; t < n; ++t) 
-                heap.extract_root(indices[t]);
-        else
-            for (int t = 0; t < n; ++t) 
-                heap.extract_root(i);
-    }
-}
-
-
 
 }
 
