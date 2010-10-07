@@ -354,6 +354,28 @@ public:
     }    
             
     
+    /**
+     * Move the iterator forward until a loop is detected (back edge)
+     *
+     * @return the target node of the back edge, or -1 if no loop is found
+     */
+    template<typename TObserver>
+    int detect_loop(TObserver& obs)
+    {
+        edge_info e = next_edge(obs);
+        while (e.etype != DFS_BACK_EDGE && e.etype != DFS_NO_EDGE) 
+            e = next_edge(obs);
+                        
+        return e.t;
+    }
+    
+    int detect_loop()
+    {
+        detect_loop(nil_observer);
+    }
+    
+    
+    
 public:
     bool is_discovered(int v) const
     {
@@ -398,31 +420,51 @@ private:
  *
  *****************************************/
 
+template<typename TInserter>
+struct acyclic_testing_dfs_observer
+{
+    acyclic_testing_dfs_observer(TInserter it) : inserter(it) { }
+    
+    void on_discover(int s, int t) { }
+    
+    void on_finish(int v)
+    {
+        *(inserter++) = v;
+    }
+    
+    TInserter inserter;
+};
+
+
 
 /**
  * tests whether a directed graph is acylic
  *
- * @param n the number of nodes
  * @param dfs_it A DFS iterator (at initial status) on the graph 
+ * @param inserter for output the sequence of finished node
  * 
  * @return true if the graph is acyclic, false otherwise
  *
  * @remarks if the graph is acyclic, the reversed order of the 
- *  finish_order of dfs_it is a topological order of the graph
+ *  finishing order is a topological order of the graph
  *
  */
-bool test_acyclic(int n, DFSIterator& dfs_it)
+template<typename TInserter>
+bool test_acyclic(DFSIterator& dfs_it, TInserter inserter)
 {           
-//     for (int i = 0; i < n; ++i)
-//     {
-//         if (!dfs_it.is_discovered(i))
-//         {
-//             dfs_it.set_seed(i);
-//             
-//             if (dfs_it.find_loop() >= 0)
-//                 return false;
-//         }
-//     }
+    int n = dfs_it.num_nodes();
+    acyclic_testing_dfs_observer<TInserter> obs(inserter);
+    
+    for (int i = 0; i < n; ++i)
+    {
+        if (!dfs_it.is_discovered(i))
+        {
+            dfs_it.set_seed(i);
+            
+            if (dfs_it.detect_loop(obs) >= 0)
+                return false;
+        }
+    }
     return true;
 }
 

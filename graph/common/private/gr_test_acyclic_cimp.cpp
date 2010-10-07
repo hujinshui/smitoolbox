@@ -11,21 +11,13 @@
 #include "../../clib/mgraph.h"
 #include "../../clib/graph_search.h"
 
+
+#include <vector>
+#include <functional>
+#include <iterator>
+
+
 using namespace smi;
-
-
-mxArray* revlist_to_matlab(const SeqList<int>& s)
-{
-    int n = s.size();
-    mxArray *mx = create_matlab_matrix<int>(1, n);
-    int *dst = (int*)mxGetData(mx);
-    
-    for (int i = 0; i < n; ++i)
-    {
-        dst[i] = s[n-(i+1)] + 1;
-    }
-    return mx;
-}
 
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
@@ -39,16 +31,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     // main
     
-    // do DFS
+    std::vector<int> vs;
+    vs.reserve(G.nnodes());    
     
-    DFSIteratorEx dfs_it(adjList);
+    DFSIterator dfs_it(adjList);
     
-    if (test_acyclic(G.nnodes(), dfs_it))
+    if (test_acyclic(dfs_it, std::back_inserter(vs)))
     {
         plhs[0] = create_matlab_scalar(true);
         if (nlhs >= 2)
         {
-            plhs[1] = revlist_to_matlab(dfs_it.finish_order());
+            plhs[1] = iter_to_matlab_row(vs.rbegin(), (int)vs.size(), 
+                    std::bind2nd(std::plus<int>(), 1));
         }        
     }
     else
