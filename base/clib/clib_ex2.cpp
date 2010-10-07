@@ -6,85 +6,156 @@
  *
  ********************************************************************/
 
-#define MATLAB_INSPECT_HEAPS
-#define MATLAB_DUMP_HEAP_ACTION
+#define SMI_BINARY_HEAP_INSPECTION
 
 #include "marray.h"
+#include "array.h"
 #include "heaps.h"
 
 using namespace smi;
 
-typedef double key_type;
 
+typedef BinaryHeap<double> BHeap;
 
-template class CompleteBinaryTree<int>;
-template class BinaryHeap<key_type>;
-
-typedef BinaryHeap<key_type> BHeap;
-
-
-inline void print_node(const ConstArray<key_type>& src, int i)
+template<typename TArray>
+void print_array(const char* title, const TArray& a)
 {
-    mexPrintf("%g", double(src[i]));  
-}
-
-
-void print_array(const char *title, const ConstArray<key_type>& src)
-{
-    mexPrintf(title);
-    for (int i = 0; i < src.size(); ++i)
+    mexPrintf("%s ", title);
+    for (typename TArray::const_iterator it = a.begin(); it != a.end(); ++it)
     {
-        print_node(src, i);
-        mexPrintf(" ");
+        mexPrintf("%g ", double(*it));
     }
     mexPrintf("\n");
 }
 
 
-template<class THeap>
-void print_heap(const THeap& h)
+class Monitor : public BHeap::IMonitor
 {
-    mexPrintf("heap:\n");
-    h.dump_heap_to_matlab();
-    mexPrintf("imap:\n");
-    h.dump_imap_to_matlab();
-}
-
-
-template<class THeap>
-void run_on(const ConstArray<key_type>& src)
-{
-    int n = src.size();
-    Array<key_type> buffer(n);
+public:
+    typedef BHeap::index_type index_type;
+    typedef BHeap::key_type key_type;
     
-    print_array("source:\n", src);
-    mexPrintf("\n");
-    
-    THeap heap1(2 * n);
+public:
+    virtual void on_node_swaped(const BHeap& H, index_type i, index_type j)
+    {
+        mexPrintf("swap %g <--> %g\n", H.get_key(i), H.get_key(j));
+    }
         
-    mexPrintf("Make heap:\n");
-    heap1.make_heap(n, src.data());
-    print_heap(heap1);
+    virtual void on_node_appended(const BHeap& H, index_type i)
+    {
+        mexPrintf("append [%d] = %g\n", i, H.get_key(i));
+    }
+
+    virtual void on_upheaping(const BHeap& H, index_type i)
+    {
+        mexPrintf("To upheap %g\n", H.get_key(i));
+    }
+
+    virtual void on_downheaping(const BHeap& H, index_type i)
+    {
+        mexPrintf("To downheap %g\n", H.get_key(i));
+    }
+
+    virtual void on_key_setting(const BHeap& H, index_type i, const key_type& kv)
+    {        
+        mexPrintf("To set [%d] = %g\n", i, kv);
+    }
+
+    virtual void on_key_adding(const BHeap& H, const key_type& kv)
+    {
+        mexPrintf("to add %g\n", kv);
+    }
+
+    virtual void on_heap_making(const BHeap& H)
+    {
+        mexPrintf("to make-heap\n");
+    }
+
+    virtual void on_heap_made(const BHeap& H)
+    {
+        mexPrintf("heap-made => ");
+        print_heap(H);
+    }
+
+    virtual void on_clearing(const BHeap& H)
+    {
+        mexPrintf("to clear-heap\n");
+    }
+
+    virtual void on_cleared(const BHeap& H)
+    {
+        mexPrintf("heap-cleared => ");
+        print_heap(H);
+    }
+
+    virtual void on_root_deleting(const BHeap& H)
+    {
+        mexPrintf("to delete root %g\n", H.root_key());
+    }
+
+    virtual void on_root_deleted(const BHeap& H)
+    {
+        mexPrintf("root-deleted => ");
+        print_heap(H);
+    }
+    
+    void print_heap(const BHeap& H)
+    {
+        const BHeap::btree_type& T = H.btree(); 
+        
+        for (BHeap::btree_type::const_iterator it = T.begin(); it != T.end(); ++it)
+        {
+            mexPrintf("%g ", H.get_key(*it));
+        }
+        mexPrintf("\n");
+    }
+};
+
+
+
+
+
+template<class THeap>
+void run_on(const CRefArray<double>& src)
+{
+    std::vector<double> results;
+    
+    print_array("Source:", src);
+    
+    Monitor mon;
+    
+    THeap heap1;        
+    heap1.set_monitor(&mon);
+        
+    mexPrintf("Test 1: Make Heap\n");
+    mexPrintf("===========================\n");
+    heap1.make_heap(src.begin(), src.end());
     mexPrintf("\n");
     
-    mexPrintf("Extract all:\n");
-    heap_extract_n(heap1, heap1.size(), buffer.data());
-    print_heap(heap1);
-    print_array("result:\n", buffer);
+    mexPrintf("Test 2: Heap sort\n");
+    mexPrintf("===========================\n");
+    while (!heap1.empty())
+    {
+        results.push_back(heap1.root_key());
+        heap1.delete_root();
+    }
+    mexPrintf("----------------------\n");
+    print_array("result:", results);
     mexPrintf("\n");
     
     THeap& heap2 = heap1;
     
-    mexPrintf("Refill heap by sequential insertion:\n");
-    for (int i = 0; i < n; ++i)
+    mexPrintf("Test 3: Re-insertion\n");
+    mexPrintf("===========================\n");
+    for (size_t i = 0; i < src.size(); ++i)
     {
-        mexPrintf("add ");
-        print_node(src, i);
-        mexPrintf("\n");
         heap2.add_key(src[i]);
     }
-    print_heap(heap2);
-    mexPrintf("\n");    
+    mexPrintf("----------------------\n");
+    mexPrintf("heap after insertion: ");
+    mon.print_heap(heap2);    
+    mexPrintf("\n");
+    
 }
 
 
@@ -106,7 +177,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgTxt("The src should be a non-sparse double vector.");
     }
     
-    ConstArray<key_type> src(mSrc.nelems(), mSrc.get_data<key_type>());
+    CRefArray<double> src(mSrc.nelems(), mSrc.get_data<double>());
     
     run_on<BHeap>(src);
 }

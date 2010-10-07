@@ -50,6 +50,11 @@ public:
             return _p; 
         }        
         
+        bool is_null() const
+        {
+            return _p == 0;
+        }
+        
         node_indicator pred() const
         {
             return _p - 1;
@@ -125,7 +130,7 @@ public:
     
     CompleteBinaryTree(size_type initcap)
     {
-        m_stree.reserve(initcap + 1);
+        reserve(initcap);
         m_stree.push_back(value_type());
     }    
     
@@ -143,6 +148,11 @@ public:
     {
         return m_stree.size() <= 1;
     }       
+    
+    void reserve(size_type cap)
+    {
+        m_stree.reserve(cap + 1);
+    }    
             
     node_indicator root_node() const
     {
@@ -157,6 +167,21 @@ public:
     node_indicator last_nonleaf() const
     {
         return last_node().parent();
+    }
+    
+    
+    node_indicator pre_root_node() const
+    {
+        return 0;
+    }
+    
+    
+    /**
+     * A indicator of pointing to nowhere
+     */
+    node_indicator null_node() const
+    {
+        return 0;
     }
         
     
