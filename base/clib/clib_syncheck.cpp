@@ -5,6 +5,7 @@
 #include "marray.h"
 
 #include "array.h"
+#include "civector.h"
 #include "bintree.h"
 #include "heaps.h"
 
@@ -12,6 +13,7 @@ using namespace smi;
 
 template class Array<double>;
 template class Array<bool>;
+template class CIVector<double>;
 
 template class CompleteBinaryTree<double>;
 template class BinaryHeap<double>;
