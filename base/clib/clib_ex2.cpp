@@ -120,7 +120,7 @@ void run_on(const CRefArray<double>& src)
 {
     std::vector<double> results;
     
-    print_array("Source:", src);
+    // print_array("Source:", src);
     
     Monitor mon;
     

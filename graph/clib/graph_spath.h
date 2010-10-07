@@ -14,6 +14,12 @@
 #include "graph_search.h"
 #include "../../base/clib/heaps.h"
 
+#include <vector>
+#include <iterator>
+#include <functional>
+#include <algorithm>
+
+
 namespace smi
 {
 
@@ -26,8 +32,10 @@ class SingleSource_SPathIterator
 public:
     SingleSource_SPathIterator(int n) 
     : m_n(n), m_s(-1)
-    , m_discovered(n), m_closed(n), m_close_seq(n), m_d(n), m_preds(n)
+    , m_discovered(n), m_closed(n), m_d(n), m_preds(n)
     {
+        m_close_seq.reserve(n);
+        
         m_discovered.set_zeros();
         m_closed.set_zeros();        
     }
@@ -62,14 +70,14 @@ public:
         return m_preds[v];
     }
     
-    const SeqList<int>& close_sequence() const
+    const std::vector<int>& close_sequence() const
     {
         return m_close_seq;
     }
     
     int num_closed() const
     {
-        return m_close_seq.size();
+        return (int)m_close_seq.size();
     }
     
 protected:
@@ -114,7 +122,7 @@ protected:
     void close_node(int v)
     {
         m_closed[v] = true;
-        m_close_seq.add(v);
+        m_close_seq.push_back(v);
     }
                 
 private:    
@@ -129,7 +137,7 @@ private:
     Array<bool> m_discovered;   // whether a node is discovered (initial bound assigned)
     Array<bool> m_closed;   // whether a node is closed (s-path determined)
     
-    SeqList<int> m_close_seq;   // the sequence of closed nodes    
+    std::vector<int> m_close_seq;   // the sequence of closed nodes    
     
     Array<TWeight> m_d;     // the distance bounds
                             // the value is meaningful only after discovered
@@ -153,11 +161,11 @@ class DAG_SPathIterator : public SingleSource_SPathIterator<TWeight>
 public:
     explicit DAG_SPathIterator(const WAdjList<TWeight>& adjlist)
     : SingleSource_SPathIterator<TWeight>(adjlist.nnodes())
-    , m_adjlist(adjlist), m_tord(adjlist.nnodes())
-    {
+    , m_adjlist(adjlist)
+    {        
     }       
     
-    const SeqList<int>& topological_order()
+    const std::vector<int>& topological_order()
     {
         return m_tord;
     }     
@@ -180,18 +188,14 @@ public:
     {
         this->set_source(s);
         
-        DFSIteratorEx dfs_it(m_adjlist);
-        dfs_it.set_seed(s);
+        // solve topological order from s
         
-        if (dfs_it.find_loop() >= 0)
-            return false;
+        m_tord.reserve(m_adjlist.nnodes());
         
-        const SeqList<int>& ford = dfs_it.finish_order();
-        int nf = ford.size();
-        for (int i = 0; i < nf; ++i)
-        {
-            m_tord.add(ford[nf-i-1]);
-        }
+        test_acyclic(m_adjlist, s, back_inserter(m_tord));
+        std::reverse(m_tord.begin(), m_tord.end());
+        
+        // discover s
         
         this->discover_node(-1, s, 0); 
         
@@ -248,7 +252,7 @@ private:
     
 private:
     const WAdjList<TWeight>& m_adjlist;      // the adjacency list of the graph
-    SeqList<int> m_tord;            // the topological order of the nodes                   
+    std::vector<int> m_tord;            // the topological order of the nodes                   
     
 }; // end class DAG_SPathIterator
     
@@ -261,8 +265,9 @@ public:
     Dijkstra_SPathIterator(const WAdjList<TWeight>& adjlist)
     : SingleSource_SPathIterator<TWeight>(adjlist.nnodes())
     , m_adjlist(adjlist), m_H(adjlist.nnodes()), m_done(false)
-    , m_hseq(adjlist.nnodes()), m_hmap(adjlist.nnodes())
+    , m_hmap(adjlist.nnodes())
     {
+        m_hseq.reserve(adjlist.nnodes());
     }
     
 public:
@@ -306,16 +311,17 @@ public:
         if (!done())
         {
             // extract the node with min-dist from unclosed ones
-            int i;                        
-            
-            m_H.extract_root(i);
+                        
+            int i = m_H.root_index();            
+            m_H.delete_root();
             int u = m_hseq[i];
                                     
             // close the node
+                        
             this->close_node(u);
                         
             // scan neighbors
-            
+                        
             int nnb = m_adjlist.neighbor_num(u);
             const int *nbs = m_adjlist.neighbor_nodes(u);
             const TWeight *ws = m_adjlist.neighbor_weights(u);
@@ -363,11 +369,11 @@ public:
 private:
     
     void enheap(int v)
-    {        
+    {                        
         m_hmap[v] = m_hseq.size();
-        m_hseq.add(v);
+        m_hseq.push_back(v);
         
-        m_H.add_key(this->distance_of(v));        
+        m_H.add_key(this->distance_of(v));           
     }    
     
 private:
@@ -375,12 +381,12 @@ private:
     Dijkstra_SPathIterator<TWeight, THeap>& operator = (Dijkstra_SPathIterator<TWeight, THeap>& );
     
 private:
-    const WAdjList<TWeight>& m_adjlist;     // the adjacency list of the graph
-    THeap<TWeight, less<TWeight> > m_H;           // min dist heap
+    const WAdjList<TWeight>& m_adjlist;         // the adjacency list of the graph
+    THeap<TWeight, std::less<TWeight> > m_H;     // min dist heap
     bool m_done;
     
-    SeqList<int> m_hseq;   // the sequence of nodes in the heap
-    Array<int> m_hmap;     // from node index --> enheap order
+    std::vector<int> m_hseq;    // the sequence of nodes in the heap
+    Array<int> m_hmap;          // from node index --> enheap order
     
 }; // end class Dijkstra_SPathIterator
 
