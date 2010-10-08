@@ -9,6 +9,8 @@
 #include "bintree.h"
 #include "heaps.h"
 
+#include "disjointset.h"
+
 using namespace smi;
 
 template class Array<double>;
