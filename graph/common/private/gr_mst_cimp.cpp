@@ -77,6 +77,26 @@ void do_prim_mst(const MArray& mG, int root,
 
 
 template<typename T>
+void do_kruskal_mst(const MArray& mG, 
+        mxArray*& mxI, mxArray*& mxJ, mxArray*& mxW)
+{
+    RefWGraph<T> G = to_refwgraph<T>(mG);
+    WAdjList<T> adjList(G);
+    
+    std::vector<WEdge<T> > edges;
+    edges.reserve(G.nnodes());
+        
+    Kruskal_MSTIterator<T> mst_it(adjList);
+    
+    mst_it.initialize();
+    mst_it.solve_all(std::back_inserter(edges));
+    
+    create_edge_array(edges, mxI, mxJ, mxW);
+}
+
+
+
+template<typename T>
 void do_mst(const MArray& mG, char code, const mxArray *prhs[], 
         mxArray*& mxI, mxArray*& mxJ, mxArray*& mxW)
 {
@@ -86,6 +106,10 @@ void do_mst(const MArray& mG, char code, const mxArray *prhs[],
         
         int root = (int)(mRoot.get_double_scalar()) - 1;        
         do_prim_mst<T>(mG, root, mxI, mxJ, mxW);
+    }
+    else if (code == 'k')
+    {
+        do_kruskal_mst<T>(mG, mxI, mxJ, mxW);
     }
 }
 

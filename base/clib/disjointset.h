@@ -57,21 +57,32 @@ public:
         return parent(x) == x;
     }            
     
-    index_type find_root(index_type x) const
+    index_type find_root(index_type x)
     {
-        index_type p = parent(x);
-        while (p != x)
+        index_type r = x;
+        
+        // trace upward to the root
+        
+        index_type pr = parent(r);
+        while (r != pr)
         {
-            p = parent(p);
+            r = pr;
+            pr = parent(r);
         }
-        return p;
+        
+        // path compression
+        
+        index_type px = parent(x);        
+        while (px != r)
+        {
+            m_entries[x].parent = r;
+            x = px;
+            px = parent(x);
+        }                         
+        
+        return r;
     }    
         
-    bool in_same_set(size_type x, size_type y) const
-    {
-        return find_root(x) == find_root(y);
-    }
-    
     
     void add_singletons(size_type n)
     {
@@ -81,7 +92,7 @@ public:
             m_entries.push_back(entry(idx++));
         }
     } 
-    
+        
     bool merge(size_type x, size_type y)
     {
         index_type xroot = find_root(x);
@@ -105,6 +116,8 @@ public:
                 m_entries[yroot].parent = xroot;
                 m_entries[xroot].rank = xrank + 1;
             }
+            
+            return true;
         }
         else
         {
