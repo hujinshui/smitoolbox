@@ -56,6 +56,7 @@ gr_test_acyclic_cimp: graph/common/private/gr_test_acyclic_cimp.cpp
 gr_conncomp_cimp: graph/common/private/gr_conncomp_cimp.cpp
 
 gr_ss_spath_cimp: graph/common/private/gr_ss_spath_cimp.cpp
+gr_mst_cimp: graph/common/private/gr_mst_cimp.cpp
 
 mincut_bk_mex:  graph/mincut/private/mincut_bk_mex.cpp
 
