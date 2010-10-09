@@ -2,8 +2,7 @@
  *
  *  graph_base.h
  *
- *  The BGL-compliant graph classes which are designed for efficient
- *  adaptation from MATLAB representation.
+ *  The base facilities for graph library
  *  
  *  Created by Dahua Lin, on Oct 8, 2010
  *
@@ -12,14 +11,21 @@
 #ifndef SMI_GRAPH_BASE_H
 #define SMI_GRAPH_BASE_H
 
+#include <utility>
 
 #include <boost/iterator/iterator_facade.hpp>
-#include <boost/graph/graph_traits.hpp>
+#include <boost/property_map/property_map.hpp>
+#include <boost/graph/graph_concepts.hpp>
+
 
 namespace smi
 {
 
-// Basic types    
+/************************************************
+ *
+ *  Basic types
+ *
+ ************************************************/
     
 typedef int graph_size_t;        
 
@@ -27,8 +33,8 @@ struct vertex_t
 {
     graph_size_t i;
     
-    vertex_t { }
-    vertex_t (graph_size_t i_) : i(i_) { }
+    vertex_t( ) { }
+    vertex_t(graph_size_t i_) : i(i_) { }
     
     bool operator == (const vertex_t& rhs) const
     {
@@ -44,64 +50,78 @@ struct vertex_t
 
 struct edge_t
 {
-    vertex_t s;
-    vertex_t t;     
+    graph_size_t i;
     
-    edge_t() { }
-    edge_t(vertex_t s_, vertex_t t_) : s(s_), t(t_) { }
+    edge_t( ) { }
+    edge_t(graph_size_t i_) : i(i_) { }
     
     bool operator == (const edge_t& rhs) const
     {
-        return s == rhs.s && t == rhs.t;
+        return i == rhs.i;
     }
     
     bool operator != (const edge_t& rhs) const
     {
-        return !(operator == (rhs));
-    }        
+        return i != rhs.i;
+    }
+};
+
+
+struct no_edge_weight { };
+
+
+struct edge_info
+{
+    vertex_t s;
+    vertex_t t;
+    
+    edge_info( ) { }
+    edge_info(vertex_t s_, vertex_t t_) : s(s_), t(t_) { }
 };
 
 
 template<typename TWeight>
-struct wedge_t : edge_t
+struct wedge_info : public edge_info
 {
     typedef TWeight weight_type;
     
     weight_type w;
     
-    wedge_t() { }
-    wedge_t(vertex_t s_, vertex_t t_, weight_type w_) : s(s_), t(t_), w(w_) { }        
+    wedge_info() { }
+    wedge_info(vertex_t s_, vertex_t t_, weight_type w_) 
+    : edge_info(s_, t_), w(w_) { }
+    
+    template<typename TGraph>
+    static wedge_info<TWeight> from_edge(const edge_t& e, const TGraph& g)
+    {
+        return wedge_info<TWeight>(g.get_source(e), g.get_target(e), g.get_weight(e));
+    }
 };
 
-struct no_edge_weight { };
-
-template<typename TWeight>
-struct get_edge_type
-{
-    typedef wedge_t<TWeight> edge_type;    
-};
 
 template<>
-struct get_edge_type<no_edge_weight>
+struct wedge_info<no_edge_weight> : public edge_info
 {
-    typedef edge_t edge_type;
+    typedef no_edge_weight weight_type;
+    
+    wedge_info() { }
+    wedge_info(vertex_t s_, vertex_t t_) 
+    : edge_info(s_, t_) { }
+    
+    template<typename TGraph>
+    static wedge_info<no_edge_weight> from_edge(const edge_t& e, const TGraph& g)
+    {
+        return wedge_info<no_edge_weight>(g.get_source(e), g.get_target(e));
+    }
 };
 
 
-template<class TGraph>
-inline vertex_t source(const edge_t& e, const TGraph& g)
-{
-    return e.s;
-}
 
-template<class TGraph>
-inline vertex_t target(const edge_t& e, const TGraph& g)
-{
-    return e.t;
-}
-
-
-// basic iterators
+/************************************************
+ *
+ *  Basic iterators
+ *
+ ************************************************/
 
 class vertex_iterator_t 
         : public boost::iterator_facade<
@@ -111,6 +131,8 @@ class vertex_iterator_t
                 vertex_t>
 {
 public:
+    vertex_iterator_t() { }
+    
     vertex_iterator_t(graph_size_t i) : _i(i)
     {
     }
@@ -120,7 +142,7 @@ public:
         return _i;
     }
     
-    bool equal(const vertex_iterator& r) const
+    bool equal(const vertex_iterator_t& r) const
     {
         return _i == r._i;
     }
@@ -140,6 +162,47 @@ private:
 };
 
 
+
+class edge_iterator_t 
+        : public boost::iterator_facade<
+                edge_iterator_t, 
+                edge_t, 
+                boost::bidirectional_traversal_tag,
+                edge_t>
+{
+public:
+    edge_iterator_t() { }
+    
+    edge_iterator_t(graph_size_t i) : _i(i)
+    {
+    }
+    
+    edge_t dereference() const
+    {
+        return _i;
+    }
+    
+    bool equal(const edge_iterator_t& r) const
+    {
+        return _i == r._i;
+    }
+    
+    void increment()
+    {
+        ++ _i;
+    }
+    
+    void decrement()
+    {
+        -- _i;
+    }    
+    
+private:
+    graph_size_t _i;
+};
+
+
+
 class vertex_array_iterator_t : 
     public boost::iterator_facade<
             vertex_array_iterator_t, 
@@ -148,241 +211,171 @@ class vertex_array_iterator_t :
             const vertex_t&>
 {
 public:
-    vertex_array_iterator_t(const vertex_t *pv) : _pv(pv) { }
+    vertex_array_iterator_t() { }
+    
+    vertex_array_iterator_t(const vertex_t *p) : _p(p) { }
     
     const vertex_t& dereference() const
     {
-        return *_pv;
+        return *_p;
     }
     
-    bool equal(const vertex_array_iterator& r) const
+    bool equal(const vertex_array_iterator_t& r) const
     {
-        return _pv == r._pv;
+        return _p == r._p;
     }
     
     void increment()
     {
-        ++ _pv;
+        ++ _p;
     }
     
     void decrement()
     {
-        -- _pv;
+        -- _p;
     }    
     
 private:
-    const vertex_t *_pv;
+    const vertex_t *_p;
     
 };
 
 
-class adj_edge_iterator_t 
-        : public boost::iterator_facade<
-                adj_edge_iterator_t, 
-                edge_t, 
-                boost::bidirectional_traversal_tag, 
-                edge_t>        
+
+class edge_array_iterator_t : 
+    public boost::iterator_facade<
+            edge_array_iterator_t, 
+            edge_t, 
+            boost::bidirectional_traversal_tag,
+            const edge_t&>
 {
 public:
-    adj_edge_iterator_t(vertex_t s, const vertex_t *ts) : _s(s), _ts(ts) { }
+    edge_array_iterator_t() { }
     
-    edge_t dereference() const
+    edge_array_iterator_t(const edge_t *p) : _p(p) { }
+    
+    const edge_t& dereference() const
     {
-        return edge_t(_s, *_ts);
+        return *_p;
     }
     
-    bool equal(const adj_edge_iterator& r) const
+    bool equal(const edge_array_iterator_t& r) const
     {
-        return _s == r._s && _ts == r._ts;
+        return _p == r._p;
     }
     
-    void increment() 
+    void increment()
     {
-        ++ _ts;
+        ++ _p;
     }
     
     void decrement()
     {
-        -- _ts;
-    }
-            
+        -- _p;
+    }    
+    
 private:
-    vertex_t _s;
-    const vertex_t *_ts;        
+    const edge_t *_p;
+    
 };
 
 
-// Graph classes
-    
-template<typename TWeight, typename TCategory=boost::incidence_graph_tag>        
-class CRefAdjList
+
+/************************************************
+ *
+ *  Property map classes
+ *
+ ************************************************/
+
+
+template<typename TWeight>
+class edge_weight_crefmap
 {
 public:
-    typedef vertex_t                                    vertex_type;
-    typedef typename get_edge_type<TWeight>::edge_type  edge_type;
-        
-    // BGL-compliant definitions
-    
-    typedef vertex_type     vertex_descriptor;
-    typedef edge_type       edge_descriptor;
-    typedef graph_size_t    vertices_size_type;
-    typedef graph_size_t    edges_size_type;
-    typedef graph_size_t    degree_size_type;
-    
-    typedef TCategory traversal_category;
-    typedef boost::directed_tag directed_category;
-    typedef boost::disallow_parallel_edge_tag edge_parallel_category;           
-    
-    typedef vertex_iterator_t       vertex_iterator;    
-    typedef adj_edge_iterator_t     out_edge_iterator;
-    typedef vertex_array_iterator_t adjacency_iterator;  
-    
-    typedef std::pair<vertex_iterator, vertex_iterator> vertex_iterator_pair;
-    typedef std::pair<out_edge_iterator, out_edge_iterator> out_edge_iterator_pair;
-    typedef std::pair<adjacency_iterator, adjacency_iterator> adjacency_iterator_pair;
-    
+    typedef TWeight value_type;
+    typedef const TWeight& reference;
+    typedef edge_t key_type;
+    typedef boost::readable_property_map_tag category;
+            
 public:
+    edge_weight_crefmap(const TWeight *ws) : m_ws(ws) { }
     
-    CRefAdjList(graph_size_t n, graph_size_t m, 
-            const graph_size_t *outdegs, const graph_size_t *offsets, const vertex_t* adj_vertices)
-    : m_num_vertices(n), m_num_vertices(m)
-    , m_degress(outdegs), m_offsets(offsets), m_adj_vertices(adj_vertices)
+    reference get(const key_type& e) const
     {
-    }
-    
-    
-    graph_size_t num_vertices() const
-    {
-        return m_num_vertices;
-    }
-    
-    graph_size_t num_edges() const
-    {
-        return m_num_edges;
-    }
-        
-    vertex_iterator vertices_begin() const
-    {
-        return 0;
-    }
-    
-    vertex_iterator vertices_end() const
-    {
-        return m_num_vertices;
-    }
-    
-    graph_size_t out_degree(vertex_t u) const
-    {
-        return m_degrees[u];
-    }
-    
-    adjacency_iterator adj_vertices_begin(vertex_t u) const
-    {
-        return _adj_begin(u);
-    }
-    
-    adjacency_iterator adj_vertices_end(vertex_t u) const
-    {
-        return _adj_end(u);
-    }
-    
-    out_edge_iterator out_edges_begin(vertex_t u) const
-    {
-        return out_edge_iterator(u, _adj_begin(u));
-    }
-    
-    out_edge_iterator out_edges_end(vertex_t u) const
-    {
-        return out_edge_iterator(u, _adj_end(u));
+        return m_ws[e.i];
     }
     
 private:
-    const vertex_t *_adj_begin(vertex_t u) const
-    {
-        return m_adj_vertices + m_offsets[u];
-    }
-    
-    const vertex_t *_adj_end(vertex_t u) const
-    {
-        return m_adj_vertices + (m_offsets[u] + m_degrees[u]);
-    }
-    
-    
-private:
-    graph_size_t    m_num_vertices;
-    graph_size_t    m_num_edges;    
-    
-    graph_size_t    *m_degrees;
-    graph_size_t    *m_offsets;     
-    vertex_t        *m_adj_vertices;
-    
-}; // end class AdjList
+    const TWeight *m_ws;    
+};
 
-
-
-// BGL-compliant adapting functions
-
-
-template<typename TWeight, typename TCategory>
-inline graph_size_t num_vertices(const CRefAdjList<TWeight, TCategory>& g)
+template<typename TWeight>
+const TWeight& get(const edge_weight_crefmap<TWeight>& wmap, const edge_t& e)
 {
-    return g.num_vertices();
-}
-
-template<typename TWeight, typename TCategory>
-inline CRefAdjList<TWeight, TCategory>::vertex_iterator_pair
-vertices(const CRefAdjList<TWeight, TCategory>& g)
-{
-    return std::make_pair(g.vertices_begin(), g.vertices_end());
-}
-
-template<typename TWeight, typename TCategory>
-inline graph_size_t num_edges(const CRefAdjList<TWeight, TCategory>& g)
-{
-    return g.num_edges();
+    return wmap.get(e);
 }
 
 
+
+/************************************************
+ *
+ *  Functions to extract attributes 
+ *  of vertices / edges from a graph
+ *
+ ************************************************/
 
 template<class TGraph>
-inline graph_size_t out_degree(vertex_t u, const TGraph& g)
+inline vertex_t source(const edge_t& e, const TGraph& g)
+{
+    return g.get_source(e.i);
+}
+
+template<class TGraph>
+inline vertex_t target(const edge_t& e, const TGraph& g)
+{
+    return g.get_target(e.i);
+}
+
+template<class TGraph>
+inline graph_size_t out_degree(const vertex_t& u, const TGraph& g)
 {
     return g.out_degree(u);
 }
 
 template<class TGraph>
-inline graph_size_t in_degree(vertex_t u, const TGraph& g)
+inline graph_size_t in_degree(const vertex_t& v, const TGraph& g)
 {
-    return g.in_degree(u);
+    return g.in_degree(v);
 }
 
 template<class TGraph>
-inline graph_size_t degree(vertex_t u, const TGraph& g)
+inline graph_size_t degree(const vertex_t& v, const TGraph& g)
 {
-    return g.degree(u);
+    return g.degree(v);
 }
 
-template<class TGraph>
-inline TGraph::adjacency_iterator_pair 
-adjacent_vertices(vertex_t u, const TGraph& g)
-{
-    return std::make_pair(g.adj_vertices_begin(u), g.adj_vertices_end(u));
-}
 
 template<class TGraph>
-inline TGraph::out_edge_iterator_pair
-out_edges(vertex_t u, const TGraph& g)
+inline std::pair<typename TGraph::out_edge_iterator, typename TGraph::out_edge_iterator> 
+out_edges(const vertex_t& u, const TGraph& g)
 {
     return std::make_pair(g.out_edges_begin(u), g.out_edges_end(u));
 }
 
 template<class TGraph>
-inline TGraph::in_edge_iterator_pair
-in_edges(vertex_t u, const TGraph& g)
+inline std::pair<typename TGraph::in_edge_iterator, typename TGraph::in_edge_iterator> 
+in_edges(const vertex_t& v, const TGraph& g)
 {
-    return std::make_pair(g.in_edges_begin(u), g.in_edges_end(u));
+    return std::make_pair(g.in_edges_begin(v), g.in_edges_end(v));
 }
 
+
+template<class TGraph>
+inline std::pair<typename TGraph::adjacency_iterator, typename TGraph::adjacency_iterator> 
+out_edges(const vertex_t& u, const TGraph& g)
+{
+    return std::make_pair(g.adj_vertices_begin(u), g.adj_vertices_end(u));
+}
 
 
 
@@ -391,3 +384,5 @@ in_edges(vertex_t u, const TGraph& g)
 
 
 #endif
+
+

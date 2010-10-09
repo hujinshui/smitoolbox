@@ -10,6 +10,16 @@ function smi_build_mex(varargin)
 
 %% main
 
+
+% get environment 
+
+boost_home = getenv('BOOST_HOME');
+if isempty(boost_home)
+    error('smi_build_mex:enverror', ...
+        'Cannot find Boost C++ Library. Please add environment variable BOOST_HOME.');
+end
+
+
 % read in the build list
 
 text = read_list('smi_mex_list.txt');
@@ -33,21 +43,19 @@ end
 
 % build 
 
-bopts = {'-O'};
+bopts = {['-I' boost_home], '-O'};
 
 rootdir = fileparts(fileparts(mfilename('fullpath')));
-
-original_dir = pwd;
-if ~strcmp(original_dir, rootdir)
-    cd(rootdir);
-end
 
 for i = 1 : n
     s = S(i);
     
     fprintf('Building %s ...\n', s.name);
         
-    args = [bopts, {'-outdir', s.outdir}, s.sources];
+    outdir = fullfile(rootdir, s.outdir);
+    sources = cellfun(@(s) fullfile(rootdir, s), s.sources, 'UniformOutput', false);
+    
+    args = [bopts, {'-outdir', outdir}, sources];
     cmd = joinstr('mex', args{:});    
     fprintf('%s\n', cmd);
     fprintf('\n');
@@ -57,9 +65,7 @@ for i = 1 : n
     fprintf('\n');
 end
 
-if ~strcmp(original_dir, rootdir)
-    cd(original_dir);
-end
+
 
 
 %% parse function
