@@ -157,9 +157,14 @@ struct CRefAdjListConceptCheck
 };
 
 
-
-
+template class CRefEdgeListConceptCheck<no_edge_weight>;
+template class CRefEdgeListConceptCheck<int>;
 template class CRefEdgeListConceptCheck<double>;
+
+template class CRefAdjListConceptCheck<no_edge_weight>;
+template class CRefAdjListConceptCheck<int>;
+template class CRefAdjListConceptCheck<double>;
+
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
