@@ -372,7 +372,7 @@ in_edges(const vertex_t& v, const TGraph& g)
 
 template<class TGraph>
 inline std::pair<typename TGraph::adjacency_iterator, typename TGraph::adjacency_iterator> 
-out_edges(const vertex_t& u, const TGraph& g)
+adjacent_vertices(const vertex_t& u, const TGraph& g)
 {
     return std::make_pair(g.adj_vertices_begin(u), g.adj_vertices_end(u));
 }
