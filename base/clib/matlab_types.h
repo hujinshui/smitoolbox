@@ -83,6 +83,20 @@ inline mxArray* src_to_matlab_matrix(int m, int n, const T *src)
     return mx;
 }
 
+template<typename T>
+inline mxArray* src_to_matlab_matrix_cond(int m, int n, const T *src)
+{
+    if (src != 0)
+    {
+        return src_to_matlab_matrix<T>(m, n, src);
+    }
+    else
+    {
+        return create_matlab_matrix<T>(0, 0);
+    }
+}
+
+
 
 template<typename T>
 inline mxArray* create_matlab_scalar(T v)
