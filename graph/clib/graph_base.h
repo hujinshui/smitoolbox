@@ -451,6 +451,68 @@ adjacent_vertices(const vertex_t& u, const TGraph& g)
 }
 
 
+/************************************************
+ *
+ *  Property maps (based on valarray)
+ *
+ ***********************************************/
+
+template<typename T>
+class VertexValueMap
+{
+public:
+    typedef vertex_t key_type;
+    typedef T value_type;
+    typedef value_type& reference;    
+    typedef boost::lvalue_property_map_tag category;    
+    
+    VertexValueMap(graph_size_t n) : m_values(n)
+    {
+    }
+    
+    VertexValueMap(graph_size_t n, const value_type& v0) : m_values(v0, n)
+    {
+    }
+             
+    const value_type& operator[] (const vertex_t& v) const
+    {
+        return m_values[v.i];
+    }
+    
+    value_type& operator[] (const vertex_t& v)
+    {
+        return m_values[v.i];
+    }
+    
+private:
+    std::valarray<value_type> m_values;    
+};
+
+
+template<typename T>
+const T& get(const VertexValueMap<T>& m, const vertex_t& v)
+{
+    return m[v.i];
+}
+
+template<typename T>
+const T& get(const VertexValueMap<T>& m, unsigned long i)
+{
+    return m[i];
+}
+
+template<typename T>
+void put(VertexValueMap<T>& m, const vertex_t& v, const T& c)
+{
+    m[v.i] = c;
+}
+
+template<typename T>
+void put(VertexValueMap<T>& m, unsigned long i, const T& c)
+{
+    m[i] = c;
+}
+
 
 /************************************************
  *
@@ -486,73 +548,7 @@ struct GraphSearchColorValue
 };
 
 
-struct VertexColorMap
-{
-public:
-    typedef vertex_t key_type;
-    typedef GraphSearchColorValue value_type;
-    typedef value_type& reference;    
-    typedef boost::lvalue_property_map_tag category;    
-    
-    VertexColorMap(graph_size_t n) : colors(value_type::white(), n)
-    {
-    }
-             
-    const value_type& operator[] (const vertex_t& v) const
-    {
-        return colors[v.i];
-    }
-    
-    value_type& operator[] (const vertex_t& v)
-    {
-        return colors[v.i];
-    }
-    
-    std::valarray<GraphSearchColorValue> colors;    
-};
-
-
-const GraphSearchColorValue& get(const VertexColorMap& m, const vertex_t& v)
-{
-    return m.colors[v.i];
 }
-
-const GraphSearchColorValue& get(const VertexColorMap& m, unsigned long i)
-{
-    return m.colors[i];
-}
-
-
-void put(VertexColorMap& m, const vertex_t& v, const GraphSearchColorValue& c)
-{
-    m.colors[v.i] = c;
-}
-
-void put(VertexColorMap& m, unsigned long i, const GraphSearchColorValue& c)
-{
-    m.colors[i] = c;
-}
-
-
-}
-
-
-
-namespace boost
-{
-
-template<>    
-struct color_traits<smi::GraphSearchColorValue>
-{
-    static smi::GraphSearchColorValue white() { return char(0); }
-    static smi::GraphSearchColorValue gray()  { return char(1); }
-    static smi::GraphSearchColorValue black() { return char(2); }
-};
-
-
-
-}
-
 
 
 

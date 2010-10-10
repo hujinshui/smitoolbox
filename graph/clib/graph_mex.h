@@ -42,12 +42,12 @@ struct matlab_graph_repr
     
     graph_size_t n() const
     {
-        return mG.get_field("n").get_double_scalar();
+        return (graph_size_t)mG.get_field("n").get_double_scalar();
     }
     
     graph_size_t m() const
     {
-        return mG.get_field("m").get_double_scalar();
+        return (graph_size_t)mG.get_field("m").get_double_scalar();
     }
     
     const vertex_t* s() const
