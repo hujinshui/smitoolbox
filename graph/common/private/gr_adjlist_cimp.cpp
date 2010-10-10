@@ -106,7 +106,7 @@ struct adjlist_ws
             t[idx] = e_t;
             if (w) w[idx] = g.get_weight(e);
         }
-        
+                        
         delete[] c;
     }
        

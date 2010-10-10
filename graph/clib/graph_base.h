@@ -1,12 +1,12 @@
 /********************************************************************
-*
-*  graph_base.h
-*
-*  The base facilities for graph library
-*  
-*  Created by Dahua Lin, on Oct 8, 2010
-*
-********************************************************************/
+ *
+ *  graph_base.h
+ *
+ *  The base facilities for graph library
+ *  
+ *  Created by Dahua Lin, on Oct 8, 2010
+ *
+ ********************************************************************/
 
 #ifndef SMI_GRAPH_BASE_H
 #define SMI_GRAPH_BASE_H
