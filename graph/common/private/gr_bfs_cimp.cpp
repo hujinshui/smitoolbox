@@ -222,7 +222,7 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
     CRefAdjList<no_edge_weight> g = matlab_graph_repr(prhs[0]).to_cref_adjlist();
-    
+        
     MArray mS(prhs[1]);
     int ns = mS.nelems();
     int *s = mS.get_data<int>();
