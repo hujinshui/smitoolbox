@@ -52,7 +52,7 @@ public:
         
     typedef vertex_iterator_t   vertex_iterator;
     typedef edge_iterator_t     edge_iterator; 
-        
+            
 public:
     
     CRefEdgeList(graph_size_t n, graph_size_t m, 
@@ -140,10 +140,6 @@ private:
 }; // end class CRefEdgeList
 
 
-
-
-
-
 // BGL-compliant adapting functions for CRefEdgeList
 
 template<typename TWeight, typename TCategory, typename TDirected>
@@ -177,6 +173,20 @@ edges(const CRefEdgeList<TWeight, TCategory, TDirected>& g)
     return std::make_pair(g.edges_begin(), g.edges_end());
 }
 
+
+template<typename TWeight, typename TCategory, typename TDirected>
+inline vertex_index_dmap
+get(boost::vertex_index_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+{
+    return vertex_index_dmap();
+}
+
+template<typename TWeight, typename TCategory, typename TDirected>
+inline vertex_index_dmap
+get(boost::edge_index_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+{
+    return edge_index_dmap();
+}
 
 template<typename TWeight, typename TCategory, typename TDirected>
 inline edge_weight_crefmap<TWeight>
@@ -280,7 +290,6 @@ private:
     
 };  // end class CRefAdjList
 
-
 }
 
 
@@ -308,6 +317,14 @@ struct graph_traits<smi::CRefEdgeList<TWeight, TCategory, TDirected> >
 
 
 template<typename TWeight, typename TCategory, typename TDirected>
+struct property_map<smi::CRefEdgeList<TWeight, TCategory, TDirected>, boost::vertex_index_t>
+{    
+    typedef smi::vertex_index_dmap type;
+    typedef smi::vertex_index_dmap const_type;
+};
+
+
+template<typename TWeight, typename TCategory, typename TDirected>
 struct graph_traits<smi::CRefAdjList<TWeight, TCategory, TDirected> >
 {
     typedef smi::CRefAdjList<TWeight, TCategory, TDirected> graph_type;
@@ -328,7 +345,6 @@ struct graph_traits<smi::CRefAdjList<TWeight, TCategory, TDirected> >
     typedef typename graph_type::out_edge_iterator out_edge_iterator;
     typedef typename graph_type::adjacency_iterator adjacency_iterator;
 };
-
 
 
 }

@@ -140,11 +140,74 @@ struct RefAdjacencyGraphConcept
 
 
 
+
+/**
+ * G:           the graph type
+ * X:           the key value type
+ * PropertyTag: the property tag type, such as boost::vertex_index_t, ...
+ *
+ */
+template <class G, class X, class PropertyTag>
+struct RefPropertyGraphConcept 
+{
+    typedef typename boost::property_map<G, PropertyTag>::type Map;
+    typedef typename boost::property_map<G, PropertyTag>::const_type const_Map;
+    
+    void constraints() 
+    {
+        G& g = *pg;
+        
+        boost::function_requires< boost::GraphConcept<G> >();
+        boost::function_requires< boost::ReadWritePropertyMapConcept<Map, X> >();
+        boost::function_requires< boost::ReadablePropertyMapConcept<const_Map, X> >();
+        
+        Map pmap = get(PropertyTag(), g);
+        pval = get(pmap, x);        
+        pval = get(PropertyTag(), g, x);
+        
+        put(pmap, x, pval);
+        put(PropertyTag(), g, x, pval);
+    }
+        
+    G* pg;
+    X x;
+    typename boost::property_traits<Map>::value_type pval;
+};
+
+
+template <class G, class X, class PropertyTag>
+struct RefConstPropertyGraphConcept 
+{
+    typedef typename boost::property_map<G, PropertyTag>::const_type const_Map;
+    
+    void constraints() 
+    {
+        G& g = *pg;
+        
+        boost::function_requires< boost::GraphConcept<G> >();
+        boost::function_requires< boost::ReadablePropertyMapConcept<const_Map, X> >();
+        
+        const_Map pmap = get(PropertyTag(), g);
+        pval = get(pmap, x);        
+        pval = get(PropertyTag(), g, x);        
+    }
+        
+    G* pg;
+    X x;
+    typename boost::property_traits<const_Map>::value_type pval;
+};
+
+
+
+
 template<typename TWeight>
 struct CRefEdgeListConceptCheck
 {
     BOOST_CONCEPT_ASSERT((RefVertexListGraphConcept<CRefEdgeList<TWeight> >)); 
-    BOOST_CONCEPT_ASSERT((RefEdgeListGraphConcept<CRefEdgeList<TWeight> >));   
+    BOOST_CONCEPT_ASSERT((RefEdgeListGraphConcept<CRefEdgeList<TWeight> >));
+    
+    BOOST_CONCEPT_ASSERT((RefConstPropertyGraphConcept<
+            CRefEdgeList<TWeight>, vertex_t, boost::vertex_index_t>));  
 };
 
 template<typename TWeight>
@@ -157,13 +220,13 @@ struct CRefAdjListConceptCheck
 };
 
 
-template class CRefEdgeListConceptCheck<no_edge_weight>;
-template class CRefEdgeListConceptCheck<int>;
+// template class CRefEdgeListConceptCheck<no_edge_weight>;
+// template class CRefEdgeListConceptCheck<int>;
 template class CRefEdgeListConceptCheck<double>;
 
-template class CRefAdjListConceptCheck<no_edge_weight>;
-template class CRefAdjListConceptCheck<int>;
-template class CRefAdjListConceptCheck<double>;
+// template class CRefAdjListConceptCheck<no_edge_weight>;
+// template class CRefAdjListConceptCheck<int>;
+// template class CRefAdjListConceptCheck<double>;
 
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
