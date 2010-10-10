@@ -25,7 +25,7 @@ namespace smi
 
 struct matlab_graph_repr
 {
-    const MArray& mG;
+    MArray mG;
     
     matlab_graph_repr(const MArray& G) : mG(G) { }
     
@@ -33,9 +33,7 @@ struct matlab_graph_repr
     
     bool has_weight() const
     {
-        mexPrintf("detect isempty");
         return !mG.get_field("w").is_empty();
-        mexPrintf("detect done");
     }
     
     mxClassID weight_class() const
