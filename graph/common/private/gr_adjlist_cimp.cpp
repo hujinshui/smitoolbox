@@ -59,7 +59,7 @@ struct adjlist_ws
     {
         typedef typename TGraph::edge_iterator edge_iterator;
         
-        graph_size_t n = num_vertices(g);
+        n = num_vertices(g);
         
         // scan edge numbers
         
@@ -76,7 +76,7 @@ struct adjlist_ws
             ++ o_degs[source(*it, g).i];
         }
         
-        graph_size_t m = 0;
+        m = 0;
         for (graph_size_t i = 0; i < n; ++i)
         {
             o_offsets[i] = m;
@@ -113,7 +113,8 @@ struct adjlist_ws
     
     mxArray* output_matlab()
     {
-        return create_matlab_graph_struct(n, m, s, t, w, o_degs, o_offsets);
+        return create_matlab_graph_struct("gr_adjlist", 
+                n, m, s, t, w, o_degs, o_offsets);
     }
            
     
