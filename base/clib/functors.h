@@ -57,7 +57,7 @@ struct unary_chain_functor2
      
     result_type operator() (argument_type x)
     {
-        return f2(f1(x));
+        return second_func(first_func(x));
     }
 };
 
@@ -85,7 +85,7 @@ struct unary_chain_functor3
      
     result_type operator() (argument_type x)
     {
-        return f3(f2(f1(x)));
+        return third_func(second_func(first_func(x)));
     }
 };
 

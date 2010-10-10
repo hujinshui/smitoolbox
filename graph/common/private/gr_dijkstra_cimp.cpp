@@ -14,6 +14,9 @@
 #include <vector>
 #include <valarray>
 
+#include <boost/graph/dijkstra_shortest_paths.hpp>
+
+using namespace smi;
 
 typedef boost::default_color_type color_t;
 
@@ -27,30 +30,31 @@ struct DijkstraRecord
     std::valarray<TWeight> distance_map;
     std::valarray<color_t> color_map;
     
-    public DijkstraRecord(graph_size_t n)
-    : distance_map(n, TWeight(0))
-    , color_map(n, boost::color_traits<color_t>::white())
+    DijkstraRecord(graph_size_t n)
+    : parent_map(n)
+    , distance_map(TWeight(0), n)
+    , color_map(boost::color_traits<color_t>::white(), n)
     {
         vertices.reserve(n);
     }        
        
     mxArray *vertices_to_matlab() const
     {
-        return src_to_matlab_row(vertices.begin(), vertices.size(), 
+        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
                 vertex_to_mindex());
         
     }
     
     mxArray *parents_to_matlab() const
     {
-        return src_to_matlab_row(vertices.begin(), vertices.size(),
+        return iter_to_matlab_row(vertices.begin(), vertices.size(),
                 unary_chain(vertex_to_index(), arr_map(parent_map), vertex_to_mindex()) );                
     }
     
     
     mxArray *distances_to_matlab() const
     {
-        return src_to_matlab_row(vertices.begin(), vertices.size(),
+        return iter_to_matlab_row(vertices.begin(), vertices.size(),
                 unary_chain(vertex_to_index(), arr_map(distance_map)) );                
     }         
     
@@ -58,11 +62,11 @@ struct DijkstraRecord
 
 
 template<typename TWeight>
-class DijkstraVisitorSimple : public boost::default_dijkstra_visior
+class DijkstraVisitorSimple : public boost::default_dijkstra_visitor
 {
 public:
     
-    DijkstraRecord(DijkstraRecord<TWeight>& record)
+    DijkstraVisitorSimple(DijkstraRecord<TWeight>& record)
     : m_record(record)
     {        
     }
@@ -73,7 +77,7 @@ public:
     }    
     
 private:
-    DijkstraRecord& m_record;
+    DijkstraRecord<TWeight>& m_record;
 };
 
 
@@ -86,18 +90,19 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
     CRefAdjList<TWeight> g = gr.to_cref_wadjlist<TWeight>();
     
     DijkstraRecord<TWeight> record(num_vertices(g));    
-    DijkstraVisitor vis(record);
+    DijkstraVisitorSimple<TWeight> vis(record);
     
+    using boost::weight_map;
     using boost::predecessor_map;
     using boost::distance_map;
     using boost::color_map;
     
-    vertex_t *pmap = &(record.parent_map[0]);
-    TWeight *dmap = &(record.distance_map[0]);
-    color_t *cmap = VertexRefMap(&(record.color_map[0]));
+    VertexRefMap<vertex_t> pmap = &(record.parent_map[0]);
+    VertexRefMap<TWeight> dmap = &(record.distance_map[0]);
+    VertexRefMap<color_t> cmap = &(record.color_map[0]);
         
     boost::dijkstra_shortest_paths(g, vertex_t(s), 
-            predecessor_map(pmap).distance_map(dmap).color_map(cmap));
+            weight_map(dmap).predecessor_map(pmap).distance_map(dmap).color_map(cmap));
     
     plhs[0] = record.vertices_to_matlab();
     if (nlhs >= 2)
@@ -132,15 +137,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             break;
             
         case mxSINGLE_CLASS:
-            main_delegate<float>(gr, s, nlhs, plhs);
+            // main_delegate<float>(gr, s, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            main_delegate<int>(gr, s, nlhs, plhs);
+            // main_delegate<int>(gr, s, nlhs, plhs);
             break;
             
         case mxUINT32_CLASS:
-            main_delegate<unsigned int>(gr, s, nlhs, plhs);
+            // main_delegate<unsigned int>(gr, s, nlhs, plhs);
             break;
             
         default:
