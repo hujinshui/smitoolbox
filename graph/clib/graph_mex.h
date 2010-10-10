@@ -33,7 +33,9 @@ struct matlab_graph_repr
     
     bool has_weight() const
     {
+        mexPrintf("detect isempty");
         return !mG.get_field("w").is_empty();
+        mexPrintf("detect done");
     }
     
     mxClassID weight_class() const
