@@ -121,7 +121,7 @@ inline mxArray* iter_to_matlab_row(TIter it, int n)
 template<typename TIter, typename TGen>
 inline mxArray* iter_to_matlab_row(TIter it, int n, TGen g)
 {
-    typedef typename std::iterator_traits<TIter>::value_type T;
+    typedef typename TGen::result_type T;
         
     mxArray *mx = create_matlab_matrix<T>(1, n);
     T *dst = (T*)mxGetData(mx);

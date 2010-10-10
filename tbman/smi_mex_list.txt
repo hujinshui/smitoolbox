@@ -51,6 +51,7 @@ qpps: optim/qpps.cpp
 # for graph
 
 gr_adjlist_cimp: graph/common/private/gr_adjlist_cimp.cpp
+gr_bfs_cimp:     graph/common/private/gr_bfs_cimp.cpp
 
 gr_neighbors_cimp: graph/common/private/gr_neighbors_cimp.cpp 
 gr_search_cimp: graph/common/private/gr_search_cimp.cpp
