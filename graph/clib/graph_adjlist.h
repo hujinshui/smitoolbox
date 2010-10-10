@@ -190,7 +190,7 @@ get(boost::edge_index_t, const CRefEdgeList<TWeight, TDirected>& g)
 }
 
 template<typename TWeight, typename TDirected>
-inline edge_weight_crefmap<TWeight>
+inline EdgeCRefMap<TWeight>
 get(boost::edge_weight_t, const CRefEdgeList<TWeight, TDirected>& g)
 {
     return g.weights();
@@ -324,8 +324,22 @@ struct graph_traits<smi::CRefEdgeList<TWeight, TDirected> >
 template<typename TWeight, typename TDirected>
 struct property_map<smi::CRefEdgeList<TWeight, TDirected>, boost::vertex_index_t>
 {    
-    typedef smi::vertex_index_dmap type;
     typedef smi::vertex_index_dmap const_type;
+};
+
+
+template<typename TWeight, typename TDirected>
+struct property_map<smi::CRefEdgeList<TWeight, TDirected>, boost::edge_index_t>
+{    
+    typedef smi::edge_index_dmap const_type;
+};
+
+
+template<typename TWeight, typename TDirected>
+struct property_map<smi::CRefEdgeList<TWeight, TDirected>, boost::edge_weight_t>
+{    
+    typedef smi::EdgeCRefMap<TWeight> const_type;
+    typedef smi::EdgeRefMap<TWeight> type;
 };
 
 

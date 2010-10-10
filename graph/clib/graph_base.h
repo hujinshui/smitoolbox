@@ -282,12 +282,73 @@ private:
 };
 
 
+/************************************************
+ *
+ *  Functions to extract attributes 
+ *  of vertices / edges from a graph
+ *
+ ************************************************/
+
+template<class TGraph>
+inline vertex_t source(const edge_t& e, const TGraph& g)
+{
+    return g.get_source(e.i);
+}
+
+template<class TGraph>
+inline vertex_t target(const edge_t& e, const TGraph& g)
+{
+    return g.get_target(e.i);
+}
+
+template<class TGraph>
+inline graph_size_t out_degree(const vertex_t& u, const TGraph& g)
+{
+    return g.out_degree(u);
+}
+
+template<class TGraph>
+inline graph_size_t in_degree(const vertex_t& v, const TGraph& g)
+{
+    return g.in_degree(v);
+}
+
+template<class TGraph>
+inline graph_size_t degree(const vertex_t& v, const TGraph& g)
+{
+    return g.degree(v);
+}
+
+
+template<class TGraph>
+inline std::pair<typename TGraph::out_edge_iterator, typename TGraph::out_edge_iterator> 
+out_edges(const vertex_t& u, const TGraph& g)
+{
+    return std::make_pair(g.out_edges_begin(u), g.out_edges_end(u));
+}
+
+template<class TGraph>
+inline std::pair<typename TGraph::in_edge_iterator, typename TGraph::in_edge_iterator> 
+in_edges(const vertex_t& v, const TGraph& g)
+{
+    return std::make_pair(g.in_edges_begin(v), g.in_edges_end(v));
+}
+
+
+template<class TGraph>
+inline std::pair<typename TGraph::adjacency_iterator, typename TGraph::adjacency_iterator> 
+adjacent_vertices(const vertex_t& u, const TGraph& g)
+{
+    return std::make_pair(g.adj_vertices_begin(u), g.adj_vertices_end(u));
+}
+
 
 /************************************************
  *
- *  Property map classes
+ *  Property maps
  *
- ************************************************/
+ ***********************************************/
+
 
 // for vertex index
 
@@ -359,103 +420,38 @@ inline graph_size_t get(boost::edge_index_t, const TGraph& g, const edge_t &e)
 }
 
 
-// for edge weight
+// generic value map
 
-template<typename TWeight>
-class edge_weight_crefmap
+template<typename T>
+class VertexCRefMap
 {
 public:
-    typedef edge_t key_type;
-    typedef TWeight value_type;
-    typedef const TWeight& reference;    
-    typedef boost::readable_property_map_tag category;
-            
-public:
-    edge_weight_crefmap(const TWeight *ws) : m_ws(ws) { }
+    typedef vertex_t key_type;
+    typedef T value_type;
+    typedef const value_type& reference;    
+    typedef boost::readable_property_map_tag category;    
     
-    reference get(const key_type& e) const
+    VertexCRefMap(const T *vals) : m_values(vals)
     {
-        return m_ws[e.i];
     }
-    
+                 
+    const value_type& operator[] (const vertex_t& v) const
+    {
+        return m_values[v.i];
+    }
+        
 private:
-    const TWeight *m_ws;    
+    const T *m_values;    
 };
 
-template<typename TWeight>
-inline const TWeight& get(const edge_weight_crefmap<TWeight>& wmap, const edge_t& e)
+
+template<typename T>
+const T& get(const VertexCRefMap<T>& m, const vertex_t& v)
 {
-    return wmap.get(e);
+    return m[v.i];
 }
 
 
-
-/************************************************
- *
- *  Functions to extract attributes 
- *  of vertices / edges from a graph
- *
- ************************************************/
-
-template<class TGraph>
-inline vertex_t source(const edge_t& e, const TGraph& g)
-{
-    return g.get_source(e.i);
-}
-
-template<class TGraph>
-inline vertex_t target(const edge_t& e, const TGraph& g)
-{
-    return g.get_target(e.i);
-}
-
-template<class TGraph>
-inline graph_size_t out_degree(const vertex_t& u, const TGraph& g)
-{
-    return g.out_degree(u);
-}
-
-template<class TGraph>
-inline graph_size_t in_degree(const vertex_t& v, const TGraph& g)
-{
-    return g.in_degree(v);
-}
-
-template<class TGraph>
-inline graph_size_t degree(const vertex_t& v, const TGraph& g)
-{
-    return g.degree(v);
-}
-
-
-template<class TGraph>
-inline std::pair<typename TGraph::out_edge_iterator, typename TGraph::out_edge_iterator> 
-out_edges(const vertex_t& u, const TGraph& g)
-{
-    return std::make_pair(g.out_edges_begin(u), g.out_edges_end(u));
-}
-
-template<class TGraph>
-inline std::pair<typename TGraph::in_edge_iterator, typename TGraph::in_edge_iterator> 
-in_edges(const vertex_t& v, const TGraph& g)
-{
-    return std::make_pair(g.in_edges_begin(v), g.in_edges_end(v));
-}
-
-
-template<class TGraph>
-inline std::pair<typename TGraph::adjacency_iterator, typename TGraph::adjacency_iterator> 
-adjacent_vertices(const vertex_t& u, const TGraph& g)
-{
-    return std::make_pair(g.adj_vertices_begin(u), g.adj_vertices_end(u));
-}
-
-
-/************************************************
- *
- *  Property maps (based on valarray)
- *
- ***********************************************/
 
 template<typename T>
 class VertexRefMap
@@ -492,56 +488,84 @@ const T& get(const VertexRefMap<T>& m, const vertex_t& v)
 }
 
 template<typename T>
-const T& get(const VertexRefMap<T>& m, unsigned long i)
-{
-    return m[i];
-}
-
-template<typename T>
 void put(VertexRefMap<T>& m, const vertex_t& v, const T& c)
 {
     m[v.i] = c;
 }
 
+
+
 template<typename T>
-void put(VertexRefMap<T>& m, unsigned long i, const T& c)
+class EdgeCRefMap
 {
-    m[i] = c;
+public:
+    typedef edge_t key_type;
+    typedef T value_type;
+    typedef const value_type& reference;    
+    typedef boost::readable_property_map_tag category;    
+    
+    EdgeCRefMap(const T *vals) : m_values(vals)
+    {
+    }
+                 
+    const value_type& operator[] (const edge_t& e) const
+    {
+        return m_values[e.i];
+    }
+        
+private:
+    const T *m_values;    
+};
+
+
+template<typename T>
+const T& get(const EdgeCRefMap<T>& m, const edge_t& e)
+{
+    return m[e.i];
 }
 
 
-/************************************************
- *
- *  A simple color map for use in some algorithms
- *
- ************************************************/
 
-struct GraphSearchColorValue
+template<typename T>
+class EdgeRefMap
 {
-    char _c;
+public:
+    typedef edge_t key_type;
+    typedef T value_type;
+    typedef value_type& reference;    
+    typedef boost::lvalue_property_map_tag category;    
     
-    GraphSearchColorValue() { }
-    
-    GraphSearchColorValue(char c) : _c(c) { }
-               
-    bool operator == (const GraphSearchColorValue& r) const
+    EdgeRefMap(T *vals) : m_values(vals)
     {
-        return _c == r._c;
+    }
+                 
+    const value_type& operator[] (const edge_t& e) const
+    {
+        return m_values[e.i];
     }
     
-    bool operator != (const GraphSearchColorValue& r) const
+    value_type& operator[] (const edge_t& e)
     {
-        return _c != r._c;
-    }    
+        return m_values[e.i];
+    }
     
-    bool is_white() const { return _c == char(0); }
-    bool is_gray()  const { return _c == char(1); }
-    bool is_black() const { return _c == char(2); }
-    
-    static GraphSearchColorValue white() { return char(0); }
-    static GraphSearchColorValue gray()  { return char(1); }
-    static GraphSearchColorValue black() { return char(2); }
+private:
+    T *m_values;    
 };
+
+
+template<typename T>
+const T& get(const EdgeRefMap<T>& m, const edge_t& e)
+{
+    return m[e.i];
+}
+
+template<typename T>
+void put(EdgeRefMap<T>& m, const edge_t& e, const T& c)
+{
+    m[e.i] = c;
+}
+
 
 
 }
