@@ -25,7 +25,7 @@ namespace smi
 
 struct matlab_graph_repr
 {
-    const MArray& mG;
+    MArray mG;
     
     matlab_graph_repr(const MArray& G) : mG(G) { }
     

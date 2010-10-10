@@ -54,6 +54,11 @@ public:
         return mxGetClassID(mxA);
     }
     
+    const mxArray *matlab_ptr() const
+    {
+        return mxA;
+    }
+    
 public:    
     bool is_empty() const
     {
