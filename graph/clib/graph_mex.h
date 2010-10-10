@@ -15,6 +15,7 @@
 
 #include "../../base/clib/matlab_types.h"
 #include "../../base/clib/marray.h"
+#include "../../base/clib/functors.h"
 
 #include "graph_adjlist.h"
 
@@ -165,6 +166,55 @@ inline mxArray *create_matlab_graph_struct(
     return mxG;
 }
 
+
+// Convenient functors
+
+struct vertex_to_index
+{
+    typedef const vertex_t& argument_type;
+    typedef graph_size_t result_type;
+    
+    result_type operator() (argument_type v)
+    {
+        return v.i;
+    }
+};
+
+
+struct vertex_to_mindex
+{
+    typedef const vertex_t& argument_type;
+    typedef graph_size_t result_type;
+    
+    result_type operator() (argument_type v)
+    {
+        return v.i + 1;
+    }
+};
+
+
+struct edge_to_index
+{
+    typedef const edge_t& argument_type;
+    typedef graph_size_t result_type;
+    
+    result_type operator() (argument_type e)
+    {
+        return e.i;
+    }
+};
+
+
+struct edge_to_mindex
+{
+    typedef const edge_t& argument_type;
+    typedef graph_size_t result_type;
+    
+    result_type operator() (argument_type e)
+    {
+        return e.i + 1;
+    }
+};
 
 
 

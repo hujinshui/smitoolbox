@@ -10,11 +10,10 @@
 
 #include "../../clib/graph_mex.h"
 
-#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 
-#include <string.h>
 #include <vector>
+#include <valarray>
 
 
 using namespace smi;
@@ -57,7 +56,7 @@ struct BFSRecord
     typedef boost::default_color_type color_t;
     
     BFSRecord(graph_size_t n) 
-    : colors(n, boost::color_traits<color_t>::white()), dist_map(0) { }
+    : colors(boost::color_traits<color_t>::white(), n), dist_map(0) { }
     
     ~BFSRecord()
     {
@@ -65,7 +64,7 @@ struct BFSRecord
     }
     
     
-    std::vector<color_t> colors;
+    std::valarray<color_t> colors;
     
     std::vector<vertex_t> vertices;
     std::vector<vertex_t> parents;
@@ -94,12 +93,7 @@ struct BFSRecord
     mxArray *distances_to_matlab() const
     {
         return iter_to_matlab_row(distances.begin(), distances.size());
-    }
-    
-    VertexRefMap<color_t> color_map() 
-    {
-        return &(colors[0]);
-    }
+    }   
     
 };
 
@@ -216,9 +210,8 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
     color_t white = boost::color_traits<color_t>::white();
     
     TVisitor vis(g, record);
-    VertexRefMap<color_t> cmap = record.color_map();
-    
-        
+    VertexRefMap<color_t> cmap = &(record.colors[0]);
+            
     // initial search with s[0]
     
     vis.initialize_seed(s[0]);
@@ -233,7 +226,8 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
         if (cmap[v] == white)
         {
             vis.initialize_seed(v);
-            boost::breadth_first_visit(g, s[i], visitor(vis).color_map(cmap));
+            boost::breadth_first_visit(g, s[i], 
+                    visitor(vis).color_map(cmap));
         }
     }
     

@@ -131,6 +131,16 @@ inline mxArray* iter_to_matlab_row(TIter it, int n, TGen g)
 
 
 
+template<typename T>
+struct offset_to_index
+{
+    typedef int argument_type;
+    typedef T result_type;
+    
+    result_type operator() (argument_type i) const { return i+1; }
+};
+
+
 
 }
 
