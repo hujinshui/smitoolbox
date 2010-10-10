@@ -102,7 +102,9 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
     VertexRefMap<color_t> cmap = &(record.color_map[0]);
         
     boost::dijkstra_shortest_paths(g, vertex_t(s), 
-            predecessor_map(pmap).distance_map(dmap).color_map(cmap));
+            predecessor_map(pmap).distance_map(dmap).color_map(cmap).visitor(vis));
+    
+    pmap[0] = -1;
     
     plhs[0] = record.vertices_to_matlab();
     if (nlhs >= 2)
