@@ -17,6 +17,8 @@
 #include <boost/property_map/property_map.hpp>
 #include <boost/graph/graph_concepts.hpp>
 
+#include <valarray>
+
 
 namespace smi
 {
@@ -287,14 +289,85 @@ private:
  *
  ************************************************/
 
+// for vertex index
+
+class vertex_index_dmap
+{
+public:
+    typedef vertex_t key_type;
+    typedef graph_size_t value_type;
+    typedef graph_size_t reference;
+    typedef boost::readable_property_map_tag category;
+    
+public:
+    reference get(const key_type& v) const
+    {
+        return v.i;
+    }    
+};
+
+inline graph_size_t get(const vertex_index_dmap& m, const vertex_t& v)
+{
+    return m.get(v);
+}
+
+template<typename TGraph>
+inline vertex_index_dmap get(boost::vertex_index_t, const TGraph& g)
+{
+    return vertex_index_dmap();
+}
+
+template<typename TGraph>
+inline graph_size_t get(boost::vertex_index_t, const TGraph& g, const vertex_t &v)
+{
+    return v.i;
+}
+
+
+// for edge index
+
+class edge_index_dmap
+{
+public:
+    typedef edge_t key_type;
+    typedef graph_size_t value_type;
+    typedef graph_size_t reference;
+    typedef boost::readable_property_map_tag category;
+    
+public:
+    reference get(const key_type& e) const
+    {
+        return e.i;
+    }    
+};
+
+inline graph_size_t get(const edge_index_dmap& m, const edge_t& e)
+{
+    return m.get(e);
+}
+
+template<typename TGraph>
+inline edge_index_dmap get(boost::edge_index_t, const TGraph& g)
+{
+    return edge_index_dmap();
+}
+
+template<typename TGraph>
+inline graph_size_t get(boost::edge_index_t, const TGraph& g, const edge_t &e)
+{
+    return e.i;
+}
+
+
+// for edge weight
 
 template<typename TWeight>
 class edge_weight_crefmap
 {
 public:
-    typedef TWeight value_type;
-    typedef const TWeight& reference;
     typedef edge_t key_type;
+    typedef TWeight value_type;
+    typedef const TWeight& reference;    
     typedef boost::readable_property_map_tag category;
             
 public:
@@ -310,7 +383,7 @@ private:
 };
 
 template<typename TWeight>
-const TWeight& get(const edge_weight_crefmap<TWeight>& wmap, const edge_t& e)
+inline const TWeight& get(const edge_weight_crefmap<TWeight>& wmap, const edge_t& e)
 {
     return wmap.get(e);
 }
@@ -379,8 +452,109 @@ adjacent_vertices(const vertex_t& u, const TGraph& g)
 
 
 
+/************************************************
+ *
+ *  A simple color map for use in some algorithms
+ *
+ ************************************************/
+
+struct GraphSearchColorValue
+{
+    char _c;
+    
+    GraphSearchColorValue() { }
+    
+    GraphSearchColorValue(char c) : _c(c) { }
+               
+    bool operator == (const GraphSearchColorValue& r) const
+    {
+        return _c == r._c;
+    }
+    
+    bool operator != (const GraphSearchColorValue& r) const
+    {
+        return _c != r._c;
+    }    
+    
+    bool is_white() const { return _c == char(0); }
+    bool is_gray()  const { return _c == char(1); }
+    bool is_black() const { return _c == char(2); }
+    
+    static GraphSearchColorValue white() { return char(0); }
+    static GraphSearchColorValue gray()  { return char(1); }
+    static GraphSearchColorValue black() { return char(2); }
+};
+
+
+struct VertexColorMap
+{
+public:
+    typedef vertex_t key_type;
+    typedef GraphSearchColorValue value_type;
+    typedef value_type& reference;    
+    typedef boost::lvalue_property_map_tag category;    
+    
+    VertexColorMap(graph_size_t n) : colors(value_type::white(), n)
+    {
+    }
+             
+    const value_type& operator[] (const vertex_t& v) const
+    {
+        return colors[v.i];
+    }
+    
+    value_type& operator[] (const vertex_t& v)
+    {
+        return colors[v.i];
+    }
+    
+    std::valarray<GraphSearchColorValue> colors;    
+};
+
+
+const GraphSearchColorValue& get(const VertexColorMap& m, const vertex_t& v)
+{
+    return m.colors[v.i];
+}
+
+const GraphSearchColorValue& get(const VertexColorMap& m, unsigned long i)
+{
+    return m.colors[i];
+}
+
+
+void put(VertexColorMap& m, const vertex_t& v, const GraphSearchColorValue& c)
+{
+    m.colors[v.i] = c;
+}
+
+void put(VertexColorMap& m, unsigned long i, const GraphSearchColorValue& c)
+{
+    m.colors[i] = c;
+}
+
 
 }
+
+
+
+namespace boost
+{
+
+template<>    
+struct color_traits<smi::GraphSearchColorValue>
+{
+    static smi::GraphSearchColorValue white() { return char(0); }
+    static smi::GraphSearchColorValue gray()  { return char(1); }
+    static smi::GraphSearchColorValue black() { return char(2); }
+};
+
+
+
+}
+
+
+
 
 
 #endif
