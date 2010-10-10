@@ -145,7 +145,7 @@ inline mxArray *create_matlab_graph_struct(
     static const char* fieldnames[] = {
         "tag", "n", "m", "s", "t", "w", 
         "o_degs", "o_offsets", "i_degs", "i_offsets"};
-    static int nfields = 10;        
+    static int nfields = sizeof(fieldnames) / sizeof(const char*);        
     
     mxArray *mxG = mxCreateStructMatrix(1, 1, nfields, fieldnames);
     
