@@ -1,5 +1,5 @@
 function G = gr_edgelist(varargin)
-% Construct or verify a edge list representation of a graph
+% Construct or verify an edge list representation of a graph
 %
 %   G = gr_edgelist(G);
 %       verifies whether G is a valid edge list array. If not, it raises

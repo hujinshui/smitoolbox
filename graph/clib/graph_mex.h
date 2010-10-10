@@ -135,18 +135,20 @@ inline mxArray *create_matlab_edge_weight_matrix<no_edge_weight>(
 
 template<typename TWeight>
 inline mxArray *create_matlab_graph_struct(
+        const char *tag, 
         graph_size_t n, graph_size_t m,
         const vertex_t *s, const vertex_t *t, const TWeight *w, 
         const graph_size_t *o_degs, const graph_size_t *o_offsets, 
         const graph_size_t *i_degs = 0, const graph_size_t *i_offsets = 0)
 {
     static const char* fieldnames[] = {
-        "n", "m", "s", "t", "w", 
+        "tag", "n", "m", "s", "t", "w", 
         "o_degs", "o_offsets", "i_degs", "i_offsets"};
     static int nfields = 9;        
     
     mxArray *mxG = mxCreateStructMatrix(1, 1, nfields, fieldnames);
     
+    mxSetField(mxG, 0, "tag", mxCreateString(tag));
     mxSetField(mxG, 0, "n", create_matlab_scalar<double>(n));
     mxSetField(mxG, 0, "m", create_matlab_scalar<double>(m));
     
