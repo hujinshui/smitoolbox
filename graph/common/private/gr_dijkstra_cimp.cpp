@@ -102,7 +102,7 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
     VertexRefMap<color_t> cmap = &(record.color_map[0]);
         
     boost::dijkstra_shortest_paths(g, vertex_t(s), 
-            weight_map(dmap).predecessor_map(pmap).distance_map(dmap).color_map(cmap));
+            predecessor_map(pmap).distance_map(dmap).color_map(cmap));
     
     plhs[0] = record.vertices_to_matlab();
     if (nlhs >= 2)
@@ -137,15 +137,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             break;
             
         case mxSINGLE_CLASS:
-            // main_delegate<float>(gr, s, nlhs, plhs);
+            main_delegate<float>(gr, s, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            // main_delegate<int>(gr, s, nlhs, plhs);
+            main_delegate<int>(gr, s, nlhs, plhs);
             break;
             
         case mxUINT32_CLASS:
-            // main_delegate<unsigned int>(gr, s, nlhs, plhs);
+            main_delegate<unsigned int>(gr, s, nlhs, plhs);
             break;
             
         default:
