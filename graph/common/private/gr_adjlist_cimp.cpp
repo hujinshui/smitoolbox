@@ -114,7 +114,7 @@ struct adjlist_ws
     mxArray* output_matlab()
     {
         return create_matlab_graph_struct("gr_adjlist", 
-                n, m, s, t, w, o_degs, o_offsets);
+                n, m, s, t, w, o_degs, o_offsets, 0, 0);
     }
            
     
@@ -133,6 +133,7 @@ mxArray* make_adjlist_e(const matlab_graph_repr& mg)
         aws.construct_from_edges(edges);
         
         return aws.output_matlab();
+        // return create_matlab_scalar<double>(0);
     }
     else
     {

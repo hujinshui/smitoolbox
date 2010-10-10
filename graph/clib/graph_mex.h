@@ -33,9 +33,7 @@ struct matlab_graph_repr
     
     bool has_weight() const
     {
-        mexPrintf("detect isempty");
         return !mG.get_field("w").is_empty();
-        mexPrintf("detect done");
     }
     
     mxClassID weight_class() const
@@ -142,12 +140,12 @@ inline mxArray *create_matlab_graph_struct(
         graph_size_t n, graph_size_t m,
         const vertex_t *s, const vertex_t *t, const TWeight *w, 
         const graph_size_t *o_degs, const graph_size_t *o_offsets, 
-        const graph_size_t *i_degs = 0, const graph_size_t *i_offsets = 0)
+        const graph_size_t *i_degs, const graph_size_t *i_offsets)
 {
     static const char* fieldnames[] = {
         "tag", "n", "m", "s", "t", "w", 
         "o_degs", "o_offsets", "i_degs", "i_offsets"};
-    static int nfields = 9;        
+    static int nfields = 10;        
     
     mxArray *mxG = mxCreateStructMatrix(1, 1, nfields, fieldnames);
     
@@ -156,7 +154,7 @@ inline mxArray *create_matlab_graph_struct(
     mxSetField(mxG, 0, "m", create_matlab_scalar<double>(m));
     
     mxSetField(mxG, 0, "s", src_to_matlab_matrix<graph_size_t>(m, 1, (const graph_size_t*)s));
-    mxSetField(mxG, 0, "t", src_to_matlab_matrix<graph_size_t>(m, 1, (const graph_size_t*)t));        
+    mxSetField(mxG, 0, "t", src_to_matlab_matrix<graph_size_t>(m, 1, (const graph_size_t*)t));   
     
     mxSetField(mxG, 0, "w", create_matlab_edge_weight_matrix<TWeight>(m, 1, w));
     

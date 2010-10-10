@@ -92,7 +92,7 @@ inline mxArray* src_to_matlab_matrix_cond(int m, int n, const T *src)
     }
     else
     {
-        return create_matlab_matrix<T>(0, 0);
+        return create_empty_matrix();
     }
 }
 
