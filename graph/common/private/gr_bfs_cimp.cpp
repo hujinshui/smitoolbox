@@ -27,11 +27,6 @@ struct vtoi
 };
 
 
-
-
-
-
-
 /**
  * The struct to capture the information of BFS running
  */
@@ -39,7 +34,7 @@ struct BFSRecord
 {
     BFSRecord(graph_size_t n) : colors(n) { }
     
-    VertexColorMap colors;
+    VertexValueMap<boost::default_color_type> colors;
     
     std::vector<vertex_t> vertices;
     std::vector<vertex_t> parents;
@@ -51,7 +46,6 @@ struct BFSRecord
     }
     
 };
-
 
 
 /**

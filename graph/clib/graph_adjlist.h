@@ -33,13 +33,10 @@ namespace smi
  * It implements the following concepts in BGL:
  *
  *      VertexListGraph
- *      EdgeListGraph
- *      
- *      PropertyGraph (with readable weightmap)
+ *      EdgeListGraph      
  *
  */
 template<typename TWeight=no_edge_weight, 
-        typename TCategory=boost::edge_list_graph_tag,
         typename TDirected=boost::directed_tag>
 class CRefEdgeList
 {
@@ -52,7 +49,11 @@ public:
         
     typedef vertex_iterator_t   vertex_iterator;
     typedef edge_iterator_t     edge_iterator; 
-            
+    
+    struct traversal_category : 
+        public virtual boost::vertex_list_graph_tag,
+        public virtual boost::edge_list_graph_tag { };
+                        
 public:
     
     CRefEdgeList(graph_size_t n, graph_size_t m, 
@@ -142,55 +143,55 @@ private:
 
 // BGL-compliant adapting functions for CRefEdgeList
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline graph_size_t
-num_vertices(const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+num_vertices(const CRefEdgeList<TWeight, TDirected>& g)
 {
     return g.num_vertices();
 }
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline std::pair<vertex_iterator_t, vertex_iterator_t> 
-vertices(const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+vertices(const CRefEdgeList<TWeight, TDirected>& g)
 {
     return std::make_pair(g.vertices_begin(), g.vertices_end());
 }
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline graph_size_t
-num_edges(const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+num_edges(const CRefEdgeList<TWeight, TDirected>& g)
 {
     return g.num_edges();
 }
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline std::pair<edge_iterator_t, edge_iterator_t> 
-edges(const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+edges(const CRefEdgeList<TWeight, TDirected>& g)
 {
     return std::make_pair(g.edges_begin(), g.edges_end());
 }
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline vertex_index_dmap
-get(boost::vertex_index_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+get(boost::vertex_index_t, const CRefEdgeList<TWeight, TDirected>& g)
 {
     return vertex_index_dmap();
 }
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline vertex_index_dmap
-get(boost::edge_index_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+get(boost::edge_index_t, const CRefEdgeList<TWeight, TDirected>& g)
 {
     return edge_index_dmap();
 }
 
-template<typename TWeight, typename TCategory, typename TDirected>
+template<typename TWeight, typename TDirected>
 inline edge_weight_crefmap<TWeight>
-get(boost::edge_weight_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
+get(boost::edge_weight_t, const CRefEdgeList<TWeight, TDirected>& g)
 {
     return g.weights();
 }
@@ -205,7 +206,6 @@ get(boost::edge_weight_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
  *
  *      VertexListGraph
  *      EdgeListGraph
- *      PropertyGraph (with readable weightmap)
  *
  *  In addition, it implements the following 
  *  concept:
@@ -214,12 +214,11 @@ get(boost::edge_weight_t, const CRefEdgeList<TWeight, TCategory, TDirected>& g)
  *      AdjacencyGraph
  */
 template<typename TWeight=no_edge_weight, 
-        typename TCategory=boost::incidence_graph_tag,
         typename TDirected=boost::directed_tag>
-class CRefAdjList : public CRefEdgeList<TWeight, TCategory, TDirected>
+class CRefAdjList : public CRefEdgeList<TWeight, TDirected>
 {
 public:
-    typedef CRefEdgeList<TWeight, TCategory, TDirected> _base_class;
+    typedef CRefEdgeList<TWeight, TDirected> _base_class;
     
     typedef typename _base_class::vertex_type       vertex_type;
     typedef typename _base_class::edge_type         edge_type;
@@ -230,6 +229,12 @@ public:
     
     typedef edge_iterator_t         out_edge_iterator;
     typedef vertex_array_iterator_t adjacency_iterator;
+    
+    struct traversal_category : 
+        public virtual boost::vertex_list_graph_tag,
+        public virtual boost::edge_list_graph_tag,
+        public virtual boost::incidence_graph_tag,
+        public virtual boost::adjacency_graph_tag { };
        
 public:
     CRefAdjList(graph_size_t n, graph_size_t m, 
@@ -296,10 +301,10 @@ private:
 namespace boost
 {
 
-template<typename TWeight, typename TCategory, typename TDirected>
-struct graph_traits<smi::CRefEdgeList<TWeight, TCategory, TDirected> >
+template<typename TWeight, typename TDirected>
+struct graph_traits<smi::CRefEdgeList<TWeight, TDirected> >
 {
-    typedef smi::CRefEdgeList<TWeight, TCategory, TDirected> graph_type;
+    typedef smi::CRefEdgeList<TWeight, TDirected> graph_type;
     
     typedef typename graph_type::vertex_type    vertex_descriptor;
     typedef typename graph_type::edge_type      edge_descriptor;
@@ -307,7 +312,7 @@ struct graph_traits<smi::CRefEdgeList<TWeight, TCategory, TDirected> >
     typedef smi::graph_size_t   vertices_size_type;
     typedef smi::graph_size_t   edges_size_type;
     
-    typedef TCategory traversal_category;
+    typedef typename graph_type::traversal_category traversal_category;
     typedef TDirected directed_category;
     typedef disallow_parallel_edge_tag edge_parallel_category;
     
@@ -316,18 +321,18 @@ struct graph_traits<smi::CRefEdgeList<TWeight, TCategory, TDirected> >
 };
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
-struct property_map<smi::CRefEdgeList<TWeight, TCategory, TDirected>, boost::vertex_index_t>
+template<typename TWeight, typename TDirected>
+struct property_map<smi::CRefEdgeList<TWeight, TDirected>, boost::vertex_index_t>
 {    
     typedef smi::vertex_index_dmap type;
     typedef smi::vertex_index_dmap const_type;
 };
 
 
-template<typename TWeight, typename TCategory, typename TDirected>
-struct graph_traits<smi::CRefAdjList<TWeight, TCategory, TDirected> >
+template<typename TWeight, typename TDirected>
+struct graph_traits<smi::CRefAdjList<TWeight, TDirected> >
 {
-    typedef smi::CRefAdjList<TWeight, TCategory, TDirected> graph_type;
+    typedef smi::CRefAdjList<TWeight, TDirected> graph_type;
     
     typedef typename graph_type::vertex_type    vertex_descriptor;
     typedef typename graph_type::edge_type      edge_descriptor;
@@ -336,7 +341,7 @@ struct graph_traits<smi::CRefAdjList<TWeight, TCategory, TDirected> >
     typedef smi::graph_size_t   edges_size_type;
     typedef smi::graph_size_t   degree_size_type;
     
-    typedef TCategory traversal_category;
+    typedef typename graph_type::traversal_category traversal_category;
     typedef TDirected directed_category;
     typedef disallow_parallel_edge_tag edge_parallel_category;
     
