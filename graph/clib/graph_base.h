@@ -458,7 +458,7 @@ adjacent_vertices(const vertex_t& u, const TGraph& g)
  ***********************************************/
 
 template<typename T>
-class VertexValueMap
+class VertexRefMap
 {
 public:
     typedef vertex_t key_type;
@@ -466,14 +466,10 @@ public:
     typedef value_type& reference;    
     typedef boost::lvalue_property_map_tag category;    
     
-    VertexValueMap(graph_size_t n) : m_values(n)
+    VertexRefMap(T *vals) : m_values(vals)
     {
     }
-    
-    VertexValueMap(graph_size_t n, const value_type& v0) : m_values(v0, n)
-    {
-    }
-             
+                 
     const value_type& operator[] (const vertex_t& v) const
     {
         return m_values[v.i];
@@ -485,30 +481,30 @@ public:
     }
     
 private:
-    std::valarray<value_type> m_values;    
+    T *m_values;    
 };
 
 
 template<typename T>
-const T& get(const VertexValueMap<T>& m, const vertex_t& v)
+const T& get(const VertexRefMap<T>& m, const vertex_t& v)
 {
     return m[v.i];
 }
 
 template<typename T>
-const T& get(const VertexValueMap<T>& m, unsigned long i)
+const T& get(const VertexRefMap<T>& m, unsigned long i)
 {
     return m[i];
 }
 
 template<typename T>
-void put(VertexValueMap<T>& m, const vertex_t& v, const T& c)
+void put(VertexRefMap<T>& m, const vertex_t& v, const T& c)
 {
     m[v.i] = c;
 }
 
 template<typename T>
-void put(VertexValueMap<T>& m, unsigned long i, const T& c)
+void put(VertexRefMap<T>& m, unsigned long i, const T& c)
 {
     m[i] = c;
 }
