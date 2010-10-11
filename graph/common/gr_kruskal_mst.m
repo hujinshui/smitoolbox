@@ -1,9 +1,14 @@
-function [I, J, W] = gr_kruskal_mst(G)
+function [s, t, w] = gr_kruskal_mst(G)
 % Solve the minimum spanning tree (MST) using Kruskal's algorithm
 %
-%   [I, J, W] = gr_kruskal_mst(G);
+%   [s, t, w] = gr_kruskal_mst(G);
 %       solves the minimum spanning tree (forest) of the graph G using
-%       Prim's algorithm. Here, G should be a symmetric/undirected graph.
+%       Kruskal's algorithm. Here, G should be a symmetric/undirected graph.
+%
+%       In the output, 
+%           - s:    the source vertices of edges
+%           - t:    the target vertices of edges
+%           - w:    the weights of edges
 %
 
 % Created by Dahua Lin, on Oct 10, 2010
@@ -21,9 +26,9 @@ end
 %% main
 
 if nargout <= 2
-    [I, J] = gr_kruskal_cimp(G);
+    [s, t] = gr_kruskal_cimp(G);
 else
-    [I, J, W] = gr_kruskal_cimp(G);
+    [s, t, w] = gr_kruskal_cimp(G);
 end
 
 
