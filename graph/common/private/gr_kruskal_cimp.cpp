@@ -1,6 +1,6 @@
 /********************************************************************
  *
- *  gr_dijkstra_cimp.cpp
+ *  gr_kruskal_cimp.cpp
  *
  *  The C++ mex implementation for Kruskal's minimum spanning tree
  *
@@ -65,9 +65,9 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
  *  [0]: G:     the undirected graph with adjlist representation
  *
  * Outputs:
- *  [0]: vs:        the vertices in discovery order
- *  [1]: parents:   parents in the search tree (corresponding to vs)
- *  [2]: dists:     the distances to the source in search tree (corresponding to vs)
+ *  [0]: s:     the sources of edges
+ *  [1]: t:     the targets of edges
+ *  [2]: w:     the weights of edges
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
