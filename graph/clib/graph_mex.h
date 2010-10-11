@@ -231,6 +231,74 @@ struct edge_to_mindex
 };
 
 
+template<typename TGraph>
+struct edge_to_source_t
+{
+    typedef const edge_t& argument_type;
+    typedef vertex_t result_type;
+    
+    const TGraph &_g;
+    edge_to_source_t(const TGraph& g) : _g(g) { } 
+    
+    result_type operator() (argument_type e)
+    {
+        return source(e, _g);
+    }    
+};
+
+
+template<typename TGraph>
+struct edge_to_target_t
+{
+    typedef const edge_t& argument_type;
+    typedef vertex_t result_type;
+    
+    const TGraph &_g;
+    edge_to_target_t(const TGraph& g) : _g(g) { } 
+    
+    result_type operator() (argument_type e)
+    {
+        return target(e, _g);
+    }    
+};
+
+
+template<typename TGraph>
+struct edge_to_weight_t
+{
+    typedef const edge_t& argument_type;
+    typedef typename TGraph::edge_weight_type result_type;
+    
+    const TGraph &_g;
+    edge_to_weight_t(const TGraph& g) : _g(g) { } 
+    
+    result_type operator() (argument_type e)
+    {
+        return _g.get_weight(e);
+    }    
+};
+
+
+
+template<typename TGraph>
+inline edge_to_source_t<TGraph> edge_to_source(const TGraph& g)
+{
+    return edge_to_source_t<TGraph>(g);
+}
+
+template<typename TGraph>
+inline edge_to_target_t<TGraph> edge_to_target(const TGraph& g)
+{
+    return edge_to_target_t<TGraph>(g);
+}
+
+template<typename TGraph>
+inline edge_to_weight_t<TGraph> edge_to_weight(const TGraph& g)
+{
+    return edge_to_weight_t<TGraph>(g);
+}
+
+
 
 
 }

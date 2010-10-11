@@ -130,6 +130,30 @@ inline mxArray* iter_to_matlab_row(TIter it, int n, TGen g)
 }
 
 
+template<typename TIter>
+inline mxArray* iter_to_matlab_column(TIter it, int n)
+{
+    typedef typename std::iterator_traits<TIter>::value_type T;
+    
+    mxArray *mx = create_matlab_matrix<T>(n, 1);
+    T *dst = (T*)mxGetData(mx);
+    for (int i = 0; i < n; ++i) dst[i] = *(it++);    
+    return mx;
+}
+
+template<typename TIter, typename TGen>
+inline mxArray* iter_to_matlab_column(TIter it, int n, TGen g)
+{
+    typedef typename TGen::result_type T;
+        
+    mxArray *mx = create_matlab_matrix<T>(n, 1);
+    T *dst = (T*)mxGetData(mx);
+    for (int i = 0; i < n; ++i) dst[i] = g(*(it++));    
+    return mx;
+}
+
+
+
 
 template<typename T>
 struct offset_to_index
