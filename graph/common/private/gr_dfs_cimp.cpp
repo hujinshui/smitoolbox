@@ -10,73 +10,71 @@
 
 #include "../../clib/graph_mex.h"
 
-#include <boost/graph/breadth_first_search.hpp>
+#include <boost/graph/depth_first_search.hpp>
 
 #include <vector>
 #include <valarray>
 
+
 using namespace smi;
 
 /**
- * The struct to capture the information of BFS running
+ * The struct to capture the information of DFS running
  */
-struct BFSRecord
+struct DFSRecord
 {
     typedef boost::default_color_type color_t;
     
-    BFSRecord(graph_size_t n) 
-    : num_vertices(n), colors(boost::white_color, n), p_dist_map(0) { }
-    
-    ~BFSRecord()
-    {
-        if (p_dist_map != 0) delete p_dist_map;
-    }
+    DFSRecord(graph_size_t n) 
+    : num_vertices(n), colors(boost::white_color, n) 
+    { }
         
     // fields
     
     graph_size_t num_vertices;
     std::valarray<color_t> colors;
     
-    std::vector<vertex_t> vertices;
-    std::vector<vertex_t> parents;    
-    std::valarray<int> *p_dist_map;
-        
+    std::vector<vertex_t> discover_seq;
+    std::vector<vertex_t> parents_seq;
+    std::vector<vertex_t> finish_seq;
     
+        
     // actions
     
     void init_vertices()
     {
-        vertices.reserve(num_vertices);
+        discover_seq.reserve(num_vertices);
     }
     
     void init_parents()
     {
-        parents.reserve(num_vertices);
+        parents_seq.reserve(num_vertices);
     }
     
-    void init_distmap()
+    void init_finish_order()
     {
-        p_dist_map = new std::valarray<int>(0, num_vertices);
+        finish_seq.reserve(num_vertices);
     }
-    
+        
+    // output
     
     mxArray *vertices_to_matlab() const
     {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
+        return iter_to_matlab_row(discover_seq.begin(), discover_seq.size(), 
                 vertex_to_mindex());
     }
     
     mxArray *parents_to_matlab() const
     {
-        return iter_to_matlab_row(parents.begin(), parents.size(), 
+        return iter_to_matlab_row(parents_seq.begin(), parents_seq.size(), 
                 vertex_to_mindex());
     }
-    
-    mxArray *distances_to_matlab() const
+
+    mxArray *finishord_to_matlab() const
     {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
-                unary_chain(vertex_to_index(), arr_map(*p_dist_map)));
-    }   
+        return iter_to_matlab_row(finish_seq.begin(), finish_seq.size(),
+                vertex_to_mindex());
+    }
     
 };
 
@@ -84,11 +82,11 @@ struct BFSRecord
 /**
  * The BFS visitor that only records discovered vertices
  */
-class BFSVisitorSimple : public boost::default_bfs_visitor
+class DFSVisitorSimple : public boost::default_dfs_visitor
 {
 public:    
-    BFSVisitorSimple(BFSRecord& rec) 
-    : vertices(rec.vertices) 
+    DFSVisitorSimple(DFSRecord& rec) 
+    : vertices(rec.discover_seq) 
     {
     }
     
@@ -105,13 +103,13 @@ private:
 
 
 /**
- * The BFS visitor that also records parents
+ * The DFS visitor that also records parents
  */
-class BFSVisitorEx : public boost::default_bfs_visitor
+class DFSVisitorEx : public boost::default_dfs_visitor
 {
 public:    
-    BFSVisitorEx(BFSRecord& rec) 
-    : vertices(rec.vertices), parents(rec.parents)
+    DFSVisitorEx(DFSRecord& rec) 
+    : vertices(rec.discover_seq), parents(rec.parents_seq)
     {           
     }
     
@@ -134,21 +132,20 @@ private:
 
 
 /**
- * The BFS visitor that also records parents and distances
+ * The DFS visitor that also records parents and finishing order
  */
-class BFSVisitorExD : public boost::default_bfs_visitor
+class DFSVisitorExF : public boost::default_dfs_visitor
 {
 public:    
-    BFSVisitorExD(BFSRecord& rec) 
-    : vertices(rec.vertices), parents(rec.parents), dists(*(rec.p_dist_map))
+    DFSVisitorExF(DFSRecord& rec) 
+    : vertices(rec.discover_seq), parents(rec.parents_seq), ford(rec.finish_seq)
     {        
     }
     
     void initialize_seed(const vertex_t& u)
     {
         vertices.push_back(u);
-        parents.push_back(-1);        
-        dists[u.i] = 0;
+        parents.push_back(-1);         
     }
         
     void tree_edge(const edge_t& e, const CRefAdjList<no_edge_weight>& g)
@@ -157,14 +154,18 @@ public:
         vertex_t t = target(e, g);
         
         vertices.push_back(t);        
-        parents.push_back(s);        
-        dists[t.i] = dists[s.i] + 1;
+        parents.push_back(s);         
     }        
+    
+    void finish_vertex(const vertex_t& u, const CRefAdjList<no_edge_weight>& g)
+    {
+        ford.push_back(u);
+    }
     
 private:
     std::vector<vertex_t>& vertices;
     std::vector<vertex_t>& parents;
-    std::valarray<int>& dists;
+    std::vector<vertex_t>& ford;
 };
 
 
@@ -173,7 +174,7 @@ private:
  * Core function
  */
 template<typename TVisitor>
-void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int *s)
+void do_dfs(const CRefAdjList<no_edge_weight>& g, DFSRecord& record, int ns, int *s)
 {
     using boost::visitor;
     using boost::color_map;
@@ -183,10 +184,8 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
     
     TVisitor vis(record);
     VertexRefMap<color_t> cmap = &(record.colors[0]);
-                
-    // subsequent search 
-    
-    boost::queue<vertex_t> Q;
+            
+    // initial search with s[0]
     
     for (int i = 0; i < ns; ++i)
     {
@@ -195,7 +194,7 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
         if (cmap[v] == white)
         {
             vis.initialize_seed(v);
-            boost::breadth_first_visit(g, s[i], Q, vis, cmap);
+            boost::depth_first_visit(g, s[i], vis, cmap);
         }
     }    
 }
@@ -222,35 +221,35 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int ns = mS.nelems();
     int *s = mS.get_data<int>();
     
-    BFSRecord record(num_vertices(g));    
+    DFSRecord record(num_vertices(g));    
        
     if (nlhs <= 1)
     {        
         record.init_vertices();
         
-        do_bfs<BFSVisitorSimple>(g, record, ns, s);
+        do_dfs<DFSVisitorSimple>(g, record, ns, s);
     }
     else if (nlhs == 2)
     {
         record.init_vertices();
         record.init_parents();
         
-        do_bfs<BFSVisitorEx>(g, record, ns, s);
+        do_dfs<DFSVisitorEx>(g, record, ns, s);
     }
     else if (nlhs == 3)
     {
         record.init_vertices();
         record.init_parents();
-        record.init_distmap();
+        record.init_finish_order();
         
-        do_bfs<BFSVisitorExD>(g, record, ns, s);                
+        do_dfs<DFSVisitorExF>(g, record, ns, s);                
     }
         
     plhs[0] = record.vertices_to_matlab();
     if (nlhs >= 2)
         plhs[1] = record.parents_to_matlab();
     if (nlhs >= 3)
-        plhs[2] = record.distances_to_matlab();    
+        plhs[2] = record.finishord_to_matlab();    
 }
 
 
