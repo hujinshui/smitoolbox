@@ -20,6 +20,10 @@ function [vs, dists, preds] = gr_dijkstra(G, s)
 
 G = gr_adjlist(G);
 
+if isempty(G.w)
+    error('gr_dijkstra:invalidarg', 'G should be a weighted graph.');
+end
+
 if ~(isnumeric(s) && isscalar(s) && s >= 1 && s <= G.n)
     error('gr_dijkstra:invalidarg', 's should be an integer scalar in [1, n]');
 end
