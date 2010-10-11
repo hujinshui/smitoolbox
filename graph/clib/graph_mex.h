@@ -102,18 +102,32 @@ struct matlab_graph_repr
         return CRefEdgeList<TWeight>(n(), m(), s(), t(), w<TWeight>());
     }  
     
+    
     inline CRefAdjList<no_edge_weight> to_cref_adjlist() const
     {
         return CRefAdjList<no_edge_weight>(n(), m(), s(), t(), 0, 
                 o_degs(), o_offsets());
-    }
+    }    
     
+    
+    inline CRefAdjList<no_edge_weight, boost::undirected_tag> to_cref_adjlist_ud() const
+    {
+        return CRefAdjList<no_edge_weight, boost::undirected_tag>(
+                n(), m(), s(), t(), 0, o_degs(), o_offsets());
+    }   
     
     template<typename TWeight>
     inline CRefAdjList<TWeight> to_cref_wadjlist() const
     {
         return CRefAdjList<TWeight>(n(), m(), s(), t(), w<TWeight>(), 
                 o_degs(), o_offsets());
+    }
+    
+    template<typename TWeight>
+    inline CRefAdjList<TWeight, boost::undirected_tag> to_cref_wadjlist_ud() const
+    {
+        return CRefAdjList<TWeight, boost::undirected_tag>(
+                n(), m(), s(), t(), w<TWeight>(), o_degs(), o_offsets());
     }
 };
 

@@ -19,7 +19,7 @@ function [vs, preds, ford] = gr_dfs(G, seeds)
 %       - ford:     the finish order of nodes
 %
 
-% Created by Dahua Lin, on Oct 3, 2010
+% Created by Dahua Lin, on Oct 10, 2010
 %
 
 %% verify input
