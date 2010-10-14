@@ -10,9 +10,9 @@
 
 #include <mex.h>
 
-#include "maxflow-v3.01/graph.cpp"
-#include "maxflow-v3.01/maxflow.cpp"
+#include "../../clib/kolmogorov_maxflow.h"
 
+using namespace smi::vkolmogorov;
 
 template<typename T>
 Graph<T,T,T>* create_graph(int n, int m)
@@ -131,8 +131,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray* prhs[])
     
     // size info
     
-    int m = mxGetNumberOfElements(mxI);
-    int n = mxGetN(mxTWs);
+    int m = (int)mxGetNumberOfElements(mxI);
+    int n = (int)mxGetN(mxTWs);
     mxClassID cid = mxGetClassID(mxV);
     
     double mfv = 0;
@@ -158,12 +158,4 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray* prhs[])
         plhs[1] = mxCreateDoubleScalar(mfv);
     }
 }
-
-
-
-
-
-
-
-
 
