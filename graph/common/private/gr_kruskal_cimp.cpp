@@ -34,6 +34,7 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
     VertexRefMap<int> rmap = &(ranks[0]);
     VertexRefMap<vertex_t> pmap = &(preds[0]);
         
+    using boost::vertex_index_map;
     using boost::predecessor_map;
     using boost::rank_map;
     
@@ -41,7 +42,7 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
     mst_edges.reserve(n);
     
     boost::kruskal_minimum_spanning_tree(g, std::back_inserter(mst_edges), 
-            rank_map(rmap).predecessor_map(pmap));
+            vertex_index_map(vertex_index_dmap()).rank_map(rmap).predecessor_map(pmap));
     
     plhs[0] = iter_to_matlab_column(mst_edges.begin(), mst_edges.size(),
             unary_chain(edge_to_source(g), vertex_to_mindex()));
