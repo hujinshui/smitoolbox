@@ -61,6 +61,7 @@ gr_dijkstra_cimp:   graph/common/private/gr_dijkstra_cimp.cpp
 gr_kruskal_cimp:    graph/common/private/gr_kruskal_cimp.cpp
 gr_prim_cimp:       graph/common/private/gr_prim_cimp.cpp
 
+mincut_kolmogorov_cimp:  graph/mincut/private/mincut_kolmogorov_cimp.cpp
 mincut_bk_mex:  graph/mincut/private/mincut_bk_mex.cpp
 
 

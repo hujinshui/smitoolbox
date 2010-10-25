@@ -100,7 +100,15 @@ struct matlab_graph_repr
     inline CRefEdgeList<TWeight> to_cref_wedgelist() const
     {
         return CRefEdgeList<TWeight>(n(), m(), s(), t(), w<TWeight>());
-    }  
+    } 
+    
+    
+    template<typename TWeight>
+    inline CRefEdgeList<TWeight, boost::undirected_tag> to_cref_wedgelist_ud() const
+    {
+        return CRefEdgeList<TWeight, boost::undirected_tag>(
+                n(), m(), s(), t(), w<TWeight>());
+    }    
     
     
     inline CRefAdjList<no_edge_weight> to_cref_adjlist() const
