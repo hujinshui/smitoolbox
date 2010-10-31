@@ -31,11 +31,13 @@ struct PrimRecord
     std::valarray<vertex_t> parent_map;   
     std::valarray<TWeight> eweight_map;
     std::valarray<color_t> color_map;
+    std::valarray<graph_size_t> edge_map;
     
     PrimRecord(graph_size_t n)
     : parent_map(n)
     , eweight_map(n)
     , color_map(boost::color_traits<color_t>::white(), n)
+    , edge_map(n)
     {
         vertices.reserve(n);
     }        
@@ -43,9 +45,14 @@ struct PrimRecord
     mxArray *vertices_to_matlab() const
     {
         return iter_to_matlab_column(++vertices.begin(), vertices.size()-1, 
-                vertex_to_mindex());
-        
+                vertex_to_mindex());        
     }
+    
+    mxArray *edges_to_matlab() const
+    {
+        return iter_to_matlab_column(++vertices.begin(), vertices.size()-1,
+                unary_chain(vertex_to_index(), arr_map(edge_map), vertex_to_mindex()) );                
+    } 
     
     mxArray *parents_to_matlab() const
     {
@@ -70,6 +77,14 @@ public:
     PrimVisitor(PrimRecord<TWeight>& record)
     : m_record(record)
     {        
+    }
+    
+    void edge_relaxed(const edge_t& e, const CRefAdjList<TWeight, boost::undirected_tag>& g)
+    {
+        vertex_t s = source(e, g);
+        vertex_t t = target(e, g);
+        
+        m_record.edge_map[t.i] = e.i;
     }
     
     void finish_vertex(const vertex_t& u, const CRefAdjList<TWeight, boost::undirected_tag>& g)
@@ -105,10 +120,7 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
     
     pmap[0] = -1;
     
-    plhs[0] = record.parents_to_matlab();
-    plhs[1] = record.vertices_to_matlab();
-    if (nlhs >= 3)
-        plhs[2] = record.eweights_to_matlab();
+    plhs[0] = record.edges_to_matlab();
 }
 
 

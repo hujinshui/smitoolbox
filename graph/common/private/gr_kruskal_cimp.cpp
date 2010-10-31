@@ -45,16 +45,7 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
             vertex_index_map(vertex_index_dmap()).rank_map(rmap).predecessor_map(pmap));
     
     plhs[0] = iter_to_matlab_column(mst_edges.begin(), mst_edges.size(),
-            unary_chain(edge_to_source(g), vertex_to_mindex()));
-    
-    plhs[1] = iter_to_matlab_column(mst_edges.begin(), mst_edges.size(),
-            unary_chain(edge_to_target(g), vertex_to_mindex()));
-    
-    if (nlhs >= 3)
-    {
-        plhs[2] = iter_to_matlab_column(mst_edges.begin(), mst_edges.size(),
-                edge_to_weight(g));
-    }    
+            edge_to_mindex());   
 }
 
 
