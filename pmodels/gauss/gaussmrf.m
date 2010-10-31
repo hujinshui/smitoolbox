@@ -13,26 +13,23 @@ classdef gaussmrf
         
         dims;   % the dimensions of all nodes
         tdim;   % the total dimension
-        npots;  % the number of potential vectors of each node
         
-        hs;     % the potential sub-vector of all nodes
         Js;     % the information sub-matrix of all nodes
         Rs;     % the information cross-matrix (corresponding to edges)        
     end
     
     methods
         
-        function obj = gaussmrf(hs, Js, edges, Rs)
+        function obj = gaussmrf(Js, edges, Rs)
             % Constructs a Gaussian MRF object
             %
-            %   obj = gaussmrf(hs, Js, edges, Rs);
+            %   obj = gaussmrf(Js, edges, Rs);
             %       constructs a Gauss-MRF model using information-form
             %       parameterization. 
             %
             %       Suppose the MRF has n nodes and m edges. Then
-            %       hs and Js should be both cell array with n cells.
-            %       In particular, hs{i} and Js{i} are respectively
-            %       the potential vector and information matrix
+            %       Js should be a cell array with n cells.
+            %       In particular, Js{i} is the information matrix
             %       for the i-th node.
             %
             %       edges should be an m x 2 array, each row specifies
@@ -46,31 +43,17 @@ classdef gaussmrf
             %       (s, t) or (t, s) need to be given in edges.
             %
             
-            % verify hs and Js
+            % verify Js
             
-            if ~(iscell(hs) && isvector(hs))
-                error('gaussmrf:invalidarg', 'hs should be a cell vector.');
+            if ~(iscell(Js) && isvector(Js))
+                error('gaussmrf:invalidarg', 'Js should be a cell vector.');
             end
-            n = numel(hs);
-            
-            if ~(iscell(Js) && isvector(Js) && numel(Js) == n)
-                error('gaussmrf:invalidarg', 'Js should be a cell vector with n cells.');
-            end
-            
-            % verify the contents of hs and Js
-            
-            ds = zeros(n, 1);
-            K = size(hs{1}, 2);            
+            n = numel(Js);
+                        
+            ds = zeros(n, 1);         
             for i = 1 : n
-                h = hs{i};
-                J = Js{i};
-                
-                if ~(isfloat(h) && ndims(h) == 2 && size(h, 2) == K)
-                    error('gaussmrf:invalidarg', ...
-                        'some potential vectors in hs are invalid.');
-                end
-                d = size(h, 1);
-                
+                J = Js{i};                
+                d = size(J, 1);                
                 if ~(isfloat(J) && isequal(size(J), [d d]))
                     error('gaussmrf:invalidarg', ...
                         'some information matrices in Js are invalid.');
@@ -115,24 +98,12 @@ classdef gaussmrf
             
             obj.dims = ds;
             obj.tdim = sum(ds);
-            obj.npots = K;
             
-            obj.hs = hs;
             obj.Js = Js;
             obj.Rs = Rs;            
         end
         
-        
-        function h = potential_vector(obj)
-            % Get the full potential vector of the model
-            %
-            %   h = obj.potential_vector;
-            %
-            
-            h = vertcat(obj.hs{:});            
-        end
-        
-        
+               
         function J = information_matrix(obj)
             % Get the full information matrix of the entire model
             %
