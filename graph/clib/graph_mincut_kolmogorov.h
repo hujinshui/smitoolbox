@@ -66,10 +66,7 @@ namespace smi
             int ti = (int)t.i;
             TWeight w = g.get_weight(e);
             
-            if (si < ti)
-            {
-                g_vk.add_edge(si, ti, w, w);
-            }            
+            g_vk.add_edge(si, ti, w, w);            
         }
         
         // solve the maxflow problem

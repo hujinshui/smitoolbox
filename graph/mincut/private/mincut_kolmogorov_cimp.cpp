@@ -46,7 +46,7 @@ void main_delegate(const matlab_graph_repr& gr,
  *  main entry:
  *
  *  Input:
- *    [0] g:        the graph (in form of edgelist or adjlist)
+ *    [0] g:        the graph (in form of edgelist or adjlist, undirected)
  *    [1] src_ws:   the weights to source
  *    [2] sink_ws:  the weights to sink
  *     
