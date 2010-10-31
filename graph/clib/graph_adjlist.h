@@ -227,7 +227,7 @@ namespace smi
 		typedef typename _base_class::vertex_iterator   vertex_iterator;
 		typedef typename _base_class::edge_iterator     edge_iterator;
 
-		typedef edge_iterator_t         out_edge_iterator;
+		typedef edge_array_iterator_t   out_edge_iterator;
 		typedef vertex_array_iterator_t adjacency_iterator;
 
 		struct traversal_category : 
@@ -242,9 +242,12 @@ namespace smi
 			const vertex_type *tars, 
 			const edge_weight_type *ws,
 			const graph_size_t *out_degs, 
-			const graph_size_t *out_offsets)
+			const graph_size_t *out_offsets,
+            const edge_t *out_edges,
+            const vertex_t *out_neighbors)
 			: _base_class(n, m, srcs, tars, ws)
 			, m_out_degs(out_degs), m_out_offsets(out_offsets)
+            , m_out_edges(out_edges), m_out_neighbors(out_neighbors)
 		{        
 		}
 
@@ -258,22 +261,22 @@ namespace smi
 
 		out_edge_iterator out_edges_begin(const vertex_type& u) const
 		{
-			return adj_begin(u);
+			return this->m_out_edges + adj_begin(u);
 		}
 
 		out_edge_iterator out_edges_end(const vertex_type& u) const
 		{
-			return adj_end(u);
+			return this->m_out_edges + adj_end(u);
 		}
 
 		adjacency_iterator adj_vertices_begin(const vertex_type& u) const
 		{
-			return this->targets() + adj_begin(u);
+			return this->m_out_neighbors + adj_begin(u);
 		}
 
 		adjacency_iterator adj_vertices_end(const vertex_type& u) const
 		{
-			return this->targets() + adj_end(u);
+			return this->m_out_neighbors + adj_end(u);
 		}
 
 	private:
@@ -291,6 +294,8 @@ namespace smi
 	private:
 		const graph_size_t *m_out_degs;
 		const graph_size_t *m_out_offsets;
+        const edge_t *m_out_edges;
+        const vertex_t *m_out_neighbors;
 
 
 	};  // end class CRefAdjList

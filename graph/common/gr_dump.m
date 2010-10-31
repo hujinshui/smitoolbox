@@ -38,8 +38,15 @@ fprintf('\n');
 if is_edgelist
     fprintf('Edge List:\n');
     fprintf('----------------------\n');
-    for i = 1 : G.m
-        fprintf('    [%d]: (%d, %d)\n', i, G.s(i)+1, G.t(i)+1);
+    
+    if isempty(G.w)
+        for i = 1 : G.m
+            fprintf('    [%d]: (%d, %d)\n', i, G.s(i)+1, G.t(i)+1);
+        end
+    else
+        for i = 1 : G.m
+            fprintf('    [%d]: (%d, %d) = %g\n', i, G.s(i)+1, G.t(i)+1, G.w(i));
+        end
     end
     fprintf('\n');
 end

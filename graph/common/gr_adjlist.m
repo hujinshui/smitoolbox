@@ -13,12 +13,12 @@ function G = gr_adjlist(varargin)
 %   G = gr_adjlist(edlist, dty);
 %       constructs a adjacency list from an input edge list.
 %       Here, dty can be 'd' or 'u', indicating whether the graph is
-%       a directed or undirected graph.
+%       a directed or undirected graph. If dty is omitted, it uses 'd'.
 %
 %   G = gr_adjlist(A, dty);
 %       constructs an adjacency list from the adjacency matrix A.
 %       Here, dty can be 'd' or 'u', indicating whether the graph is
-%       a directed or undirected graph.
+%       a directed or undirected graph. If dty is omitted, it uses 'd'.
 %
 %   G = gr_adjlist(dty, n, [s, t]);
 %   G = gr_adjlist(dty, n, [s, t, w]);
@@ -44,45 +44,60 @@ function G = gr_adjlist(varargin)
 
 %% main
 
-if nargin <= 2 && isstruct(varargin{1})
+if nargin <= 2 
     
-    G = varargin{1};  
-    if nargin < 2
-        dty = [];
-    end
+    if isstruct(varargin{1})
     
-    if isfield(G, 'tag')            
-        if strcmp(G.tag, 'gr_adjlist') 
-            if isempty(dty)             
-                return;
-            else
-                if ~isequal(G.dty, dty)
-                    error('gr_adjlist:invalidarg', ...
-                        'The direction type is not as expected.');
+        G = varargin{1};  
+        if nargin < 2
+            dty = [];
+        end
+    
+        if isfield(G, 'tag')
+            if strcmp(G.tag, 'gr_adjlist')
+                if isempty(dty)
+                    return;
+                else
+                    if ~isequal(G.dty, dty)
+                        error('gr_adjlist:invalidarg', ...
+                            'The direction type is not as expected.');
+                    end
                 end
+                
+                
+            elseif strcmp(G.tag, 'gr_edgelist')
+                if isempty(dty)
+                    dty = 'd';
+                end
+                G = make_adjlist(G, dty);
+                
+            else
+                G = [];
             end
-                    
-        
-        elseif strcmp(G.tag, 'gr_edgelist')
-            if isempty(dty)
-                error('gr_adjlist:invalidarg', ...
-                    'The direction dtype is not specified.');
-            end
-            G = make_adjlist(G, dty);
-            
         else
             G = [];
         end
-    else
-        G = [];
-    end
-       
-    if isempty(G)
-        error('gr_adjlist:invalidarg', ...
-            'G is not a valid struct for graph representation.');
-    end
+        
+        if isempty(G)
+            error('gr_adjlist:invalidarg', ...
+                'G is not a valid struct for graph representation.');
+        end
+    
+    elseif isnumeric(varargin{1})
+        
+        A = varargin{1};
+        if nargin < 2
+            dty = 'd';
+        else
+            dty = varargin{2};
+        end
+                    
+        G = gr_edgelist(A, dty);
+        G = make_adjlist(G, dty);
+    end                
     
 else
+        
     dty = varargin{1};
     
     G = gr_edgelist(varargin{2:end});    
