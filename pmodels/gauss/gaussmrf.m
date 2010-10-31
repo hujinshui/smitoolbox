@@ -5,21 +5,19 @@ classdef gaussmrf
     % Created by Dahua Lin, on Oct 21, 2010
     %
     
-    properties(GetAccess='public', SetAccess='private')        
-        nnodes;     % the number of nodes (n)
-        nedges;     % the number of undirected edges (m)
-        npots;      % the number of potential vectors for each node (K)
+    properties(GetAccess='public', SetAccess='private')
         
-        dims;       % the dimension of each node [n x 1]
-        tdim;       % the total dimension of all nodes
+        nnodes; % the number of nodes
+        nedges; % the number of edges        
+        graph;  % the underlying graph struct (gr_adjlist)
         
-        edges;      % the edges [2m x 2]
-        nbnodes;    % the cell array of neighboring nodes [n x 1]
-        nbedges;    % the cell array of neighboring edges [n x 1]
+        dims;   % the dimensions of all nodes
+        tdim;   % the total dimension
+        npots;  % the number of potential vectors of each node
         
-        hs;         % the cell array of potential vectors (or multi-vectors) [n x 1 cells]  
-        Js;         % the cell array of information matrices [n x 1 cells]
-        Rs;         % the cell array of cross information matrices [2m x 1 cells]      
+        hs;     % the potential sub-vector of all nodes
+        Js;     % the information sub-matrix of all nodes
+        Rs;     % the information cross-matrix (corresponding to edges)        
     end
     
     methods
@@ -81,7 +79,7 @@ classdef gaussmrf
                 ds(i) = d;
             end
            
-            % verify edges and Rs
+            % verify graph and Rs
             
             if ~(isnumeric(edges) && ndims(edges) == 2 && size(edges,2) == 2)
                 error('gaussmrf:invalidarg', ...
@@ -100,36 +98,24 @@ classdef gaussmrf
                 end
             end
             
-            % expand edges and Rs (for reversed direction)
+            % build graph and extend Rs
             
-            edges = [edges; edges(:, [2 1])];
-            Rs{2 * m} = [];
-            
+            G = gr_adjlist('u', n, edges);
+                        
+            Rs{2 * m} = [];            
             for k = 1 : m
                 Rs{m+k} = Rs{k}';
-            end
-            
-            % build neighborhood structure
-            
-            nb_nbs = cell(n, 1);
-            nb_eds = intgroup([1, n], edges(:, 1));            
-            
-            for i = 1 : n
-                nb_nbs{i} = edges(nb_eds{i}, 2).';                
             end
             
             % set fields
             
             obj.nnodes = n;
             obj.nedges = m;
-            obj.npots = K;
+            obj.graph = G;
             
             obj.dims = ds;
             obj.tdim = sum(ds);
-            
-            obj.edges = edges;
-            obj.nbnodes = nb_nbs;
-            obj.nbedges = nb_eds;
+            obj.npots = K;
             
             obj.hs = hs;
             obj.Js = Js;
@@ -159,8 +145,9 @@ classdef gaussmrf
             ibase = [0; cumsum(ds(1:end-1))];
             
             n = obj.nnodes;
-            E = obj.edges;
-            m = size(E, 1);
+            srcs = obj.graph.s;
+            tars = obj.graph.t;
+            m = length(srcs);
             
             Js_ = obj.Js;
             Rs_ = obj.Rs;
@@ -178,8 +165,8 @@ classdef gaussmrf
             end
             
             for k = 1 : m
-                s = E(k, 1);
-                t = E(k, 2);                
+                s = srcs(k) + 1;
+                t = tars(k) + 1;                
                 [i, j, w] = find(Rs_{k});
                 
                 i_s{n+k} = i + ibase(s);
