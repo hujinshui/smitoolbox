@@ -17,7 +17,7 @@ function ccs = gr_conncomp(G)
 
 %% verify input
 
-G = gr_adjlist(G);
+G = gr_adjlist(G, 'u');
 
 %% main
 

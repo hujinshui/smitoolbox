@@ -1,14 +1,11 @@
-function [s, t, w] = gr_kruskal_mst(G)
+function es = gr_kruskal_mst(G)
 % Solve the minimum spanning tree (MST) using Kruskal's algorithm
 %
-%   [s, t, w] = gr_kruskal_mst(G);
+%   es = gr_kruskal_mst(G);
 %       solves the minimum spanning tree (forest) of the graph G using
 %       Kruskal's algorithm. Here, G should be a symmetric/undirected graph.
 %
-%       In the output, 
-%           - s:    the source vertices of edges
-%           - t:    the target vertices of edges
-%           - w:    the weights of edges
+%       The functions outputs a list of edge indices in row vector es.
 %
 
 % Created by Dahua Lin, on Oct 10, 2010
@@ -16,7 +13,7 @@ function [s, t, w] = gr_kruskal_mst(G)
 
 %% verify input
 
-G = gr_adjlist(G);
+G = gr_adjlist(G, 'u');
 
 if isempty(G.w)
     error('gr_kruskal_mst:invalidarg', 'G should be a weighted graph');
@@ -25,10 +22,5 @@ end
 
 %% main
 
-if nargout <= 2
-    [s, t] = gr_kruskal_cimp(G);
-else
-    [s, t, w] = gr_kruskal_cimp(G);
-end
-
+es = gr_kruskal_cimp(G);
 

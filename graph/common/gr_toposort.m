@@ -14,7 +14,7 @@ function vs = gr_toposort(G)
 
 %% verify input
 
-G = gr_adjlist(G);
+G = gr_adjlist(G, 'd');
 
 %% main
 

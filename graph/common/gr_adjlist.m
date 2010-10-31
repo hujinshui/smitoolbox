@@ -10,6 +10,21 @@ function G = gr_adjlist(varargin)
 %       type, where dty can be 'd' or 'u', respectively indicating
 %       directed or undirected graph.
 %
+%       A gr_adjlist struct contains the following fields:
+%       - tag:  a string indicating the type of the graph
+%       - n:    the number of vertices
+%       - m:    the number of edges
+%       - s:    the source vertices of all edges [m' x 1 int32 zero-based]
+%       - t:    the target vertices of all edges [m' x 1 int32 zero-based]
+%       - w:    the edge weights [empty or m' x 1 numeric]
+%       - dty:  the direction type ('d': directed, 'u': undirected)
+%       - o_ds: the out-degree of all nodes [n x 1 int32]
+%       - o_os: the section offset for all nodes [n x 1 int32 zero-based]
+%       - o_es: the concatenated out-going edge array [m' x 1 int32 zero-based]
+%       - o_ns: the concatenated out-going neighbor array [m' x 1 int32 zero-based]
+%
+%       For directed graph, m' = m, while for undirected graph m' = 2m.
+%
 %   G = gr_adjlist(edlist, dty);
 %       constructs a adjacency list from an input edge list.
 %       Here, dty can be 'd' or 'u', indicating whether the graph is
@@ -51,6 +66,8 @@ if nargin <= 2
         G = varargin{1};  
         if nargin < 2
             dty = [];
+        else
+            dty = varargin{2};
         end
     
         if isfield(G, 'tag')
@@ -114,8 +131,15 @@ if isequal(dty, 'd')
     [G.o_ds, G.o_os, G.o_es, G.o_ns] = build_nbs(G.n, G.s, G.t);
     
 elseif isequal(dty, 'u')
-    [G.o_ds, G.o_os, G.o_es, G.o_ns] = build_nbs(G.n, [G.s; G.t], [G.t; G.s]);
-    G.o_es = rem(G.o_es, int32(G.m));
+    s = G.s;
+    t = G.t;
+    w = G.w;
+    
+    G.s = [s; t];
+    G.t = [t; s];
+    G.w = [w; w];
+    
+    [G.o_ds, G.o_os, G.o_es, G.o_ns] = build_nbs(G.n, G.s, G.t);        
     
 else
     error('gr_adjlist:invalidarg', ...

@@ -30,5 +30,5 @@ end
 
 %% main
 
-[vs, dists, preds] = gr_dijkstra_cimp(G, int32(s-1));
+[vs, preds, dists] = gr_dijkstra_cimp(G, int32(s-1));
 

@@ -5,6 +5,14 @@ function G = gr_edgelist(varargin)
 %       verifies whether G is a valid edge list array. If not, it raises
 %       an error.
 %
+%       A gr_edgelist struct contains the following fields:
+%       - tag:  a string indicating the type of the graph
+%       - n:    the number of vertices
+%       - m:    the number of edges
+%       - s:    the source vertices of all edges [m x 1 int32 zero-based]
+%       - t:    the target vertices of all edges [m x 1 int32 zero-based]
+%       - w:    the edge weights [empty or m x 1 numeric]
+%
 %   G = gr_edgelist(A);
 %   G = gr_edgelist(A, 'u');
 %       constructs an edge list representation from an adjacency matrix.

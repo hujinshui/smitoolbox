@@ -61,7 +61,13 @@ if is_adjlist
         fprintf('    [%d] (deg = %d): ', i, d);
         
         for j = 1 : d
-            fprintf('<%d>-%d ', G.o_es(b+j)+1, G.o_ns(b+j)+1);            
+            e = G.o_es(b+j);
+            
+            if e < G.m
+                fprintf('%d>%d ', e+1, G.o_ns(b+j)+1);
+            else
+                fprintf('%d<%d ', e-G.m+1, G.o_ns(b+j)+1);
+            end
         end
         fprintf('\n');
     end
