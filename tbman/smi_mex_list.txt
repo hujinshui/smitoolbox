@@ -37,10 +37,10 @@ rpick_merge_new: base/sample/private/rpick_merge_new.cpp
 
 
 
-# for stats
+# for pmodels
 
-measure_mtimes_cimp: stats/common/private/measure_mtimes_cimp.cpp
-pwjsdiv_ulogu_cimp: stats/common/private/pwjsdiv_ulogu_cimp.cpp
+measure_mtimes_cimp: pmodels/common/private/measure_mtimes_cimp.cpp
+pwjsdiv_ulogu_cimp: pmodels/common/private/pwjsdiv_ulogu_cimp.cpp
 
 
 # for optim
