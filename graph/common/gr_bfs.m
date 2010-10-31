@@ -5,8 +5,8 @@ function [vs, parents, dists] = gr_bfs(G, seeds)
 %   [vs, parents] = gr_bfs(G, seeds);
 %   [vs, parents, dists] = gr_bfs(G, seeds);
 %
-%       performs breadth-first-search traversal along the graph G.
-%       G can be an affinity matrix or a mgraph struct.
+%       performs breadth-first-search traversal along the graph G, which
+%       should be an adjlist.
 %
 %       seeds is an array comprised of the indices of seed nodes, which
 %       are all discovered initially.

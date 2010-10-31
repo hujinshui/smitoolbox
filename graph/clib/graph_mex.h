@@ -70,22 +70,22 @@ struct matlab_graph_repr
     
     const graph_size_t *o_degs() const
     {
-        return mG.get_field("o_degs").get_data<graph_size_t>();
+        return mG.get_field("o_ds").get_data<graph_size_t>();
     }
     
     const graph_size_t *o_offsets() const
     {
-        return mG.get_field("o_offsets").get_data<graph_size_t>();
+        return mG.get_field("o_os").get_data<graph_size_t>();
     }
     
-    const graph_size_t *i_degs() const
+    const edge_t *o_edges() const
     {
-        return mG.get_field("i_degs").get_data<graph_size_t>();
+        return mG.get_field("o_es").get_data<edge_t>();
     }
     
-    const graph_size_t *i_offsets() const
+    const vertex_t *o_neighbors() const
     {
-        return mG.get_field("i_offsets").get_data<graph_size_t>();
+        return mG.get_field("o_ns").get_data<vertex_t>();
     }
     
 
@@ -99,7 +99,8 @@ struct matlab_graph_repr
     template<typename TWeight>
     inline CRefEdgeList<TWeight> to_cref_wedgelist() const
     {
-        return CRefEdgeList<TWeight>(n(), m(), s(), t(), w<TWeight>());
+        return CRefEdgeList<TWeight>(
+                n(), m(), s(), t(), w<TWeight>());
     } 
     
     
@@ -113,29 +114,33 @@ struct matlab_graph_repr
     
     inline CRefAdjList<no_edge_weight> to_cref_adjlist() const
     {
-        return CRefAdjList<no_edge_weight>(n(), m(), s(), t(), 0, 
-                o_degs(), o_offsets());
+        return CRefAdjList<no_edge_weight>(
+                n(), m(), s(), t(), 0, 
+                o_degs(), o_offsets(), o_edges(), o_neighbors());
     }    
     
     
     inline CRefAdjList<no_edge_weight, boost::undirected_tag> to_cref_adjlist_ud() const
     {
         return CRefAdjList<no_edge_weight, boost::undirected_tag>(
-                n(), m(), s(), t(), 0, o_degs(), o_offsets());
+                n(), m(), s(), t(), 0, 
+                o_degs(), o_offsets(), o_edges(), o_neighbors());
     }   
     
     template<typename TWeight>
     inline CRefAdjList<TWeight> to_cref_wadjlist() const
     {
-        return CRefAdjList<TWeight>(n(), m(), s(), t(), w<TWeight>(), 
-                o_degs(), o_offsets());
+        return CRefAdjList<TWeight>(
+                n(), m(), s(), t(), w<TWeight>(), 
+                o_degs(), o_offsets(), o_edges(), o_neighbors());
     }
     
     template<typename TWeight>
     inline CRefAdjList<TWeight, boost::undirected_tag> to_cref_wadjlist_ud() const
     {
         return CRefAdjList<TWeight, boost::undirected_tag>(
-                n(), m(), s(), t(), w<TWeight>(), o_degs(), o_offsets());
+                n(), m(), s(), t(), w<TWeight>(), 
+                o_degs(), o_offsets(), o_edges(), o_neighbors());
     }
 };
 

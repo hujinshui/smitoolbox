@@ -6,11 +6,15 @@ function G = gr_edgelist(varargin)
 %       an error.
 %
 %   G = gr_edgelist(A);
+%   G = gr_edgelist(A, 'u');
 %       constructs an edge list representation from an adjacency matrix.
 %       
 %       A here can be either a logical or numeric array. If W is logical,
 %       then it creates an edge list with unweighted edges, otherwise
 %       it creates an edge list with weighted edges.
+%
+%       When the second argument is 'u', only those pairs (s, t) with
+%       s < t are added.
 %
 %   G = gr_edgelist(n, [s, t]);
 %   G = gr_edgelist(n, [s, t, w]);
@@ -25,26 +29,57 @@ function G = gr_edgelist(varargin)
 
 %% main
 
+% determine input types
+
 if nargin == 1
-    
-    G = varargin{1};
-    
-    if isstruct(G)
-        if ~( isfield(G, 'tag') && ( ...
-                strcmp(G.tag, 'gr_edgelist') || ...
-                strcmp(G.tag, 'gr_adjlist')) )
-            
-            error('gr_edgelist:invalidarg', ...
-                'G is not a valid graph edgelist.');
-        end
-        
-    elseif isnumeric(G) || islogical(G)
-        
-        G = from_amat(G);
-        
+    if isstruct(varargin{1})
+        intype = 'g';
+    elseif isnumeric(varargin{1})
+        intype = 'a';
+        dty = 'd';
+    else
+        error('gr_edgelist:invalidarg', 'The input arguments are invalid.');
     end
     
 elseif nargin == 2
+    if ~isnumeric(varargin{1})
+        error('gr_edgelist:invalidarg', 'The input arguments are invalid.');
+    end
+    
+    if ischar(varargin{2})
+        intype = 'a';
+        dty = varargin{2};
+    else
+        intype = 'e';
+    end
+    
+elseif nargin == 3 || nargin == 4
+    intype = 'l';
+else
+    error('gr_edgelist:invalidarg', ...
+        'The number of input arguments are invalid.');
+end
+    
+
+% do construction
+
+if intype == 'g'
+    
+    G = varargin{1};
+    if ~( isfield(G, 'tag') && ( ...
+            strcmp(G.tag, 'gr_edgelist') || ...
+            strcmp(G.tag, 'gr_adjlist')) )
+        
+        error('gr_edgelist:invalidarg', ...
+            'G is not a valid graph edgelist.');
+    end
+    
+elseif intype == 'a'
+    
+    A = varargin{1};
+    G = from_amat(A, dty);
+    
+elseif intype == 'e'        
     
     n = varargin{1};
     E = varargin{2};
@@ -73,7 +108,7 @@ elseif nargin == 2
     
     G = from_stw(n, m, s, t, w);
     
-elseif nargin == 3 || nargin == 4
+else
     
     n = varargin{1};
     s = varargin{2};
@@ -81,22 +116,21 @@ elseif nargin == 3 || nargin == 4
     
     if nargin < 4
         w = [];
+    else
+        w = varargin{4};
     end
     
     [m, s, t, w] = verify_stw(s, t, w);
     
     G = from_stw(n, m, s, t, w);    
-
-else
-    error('gr_edgelist:invalidarg', ...
-        'The number of input arguments are invalid.');
+    
 end
     
     
     
 %% construction functions
 
-function G = from_amat(A)
+function G = from_amat(A, dty)
         
 n = size(A, 1);
 if ~(ndims(A) == 2 && n == size(A,2))
@@ -108,6 +142,16 @@ if isnumeric(A)
 else
     [s, t] = find(A);
     w = [];
+end
+
+if dty == 'u'
+    se = find(s < t);
+    s = s(se);
+    t = t(se);
+    
+    if ~isempty(w)
+        w = w(se);
+    end
 end
 
 m = numel(s);
