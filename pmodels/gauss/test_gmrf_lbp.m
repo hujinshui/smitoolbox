@@ -37,8 +37,27 @@ for i = 1 : n
     b = b + dims(i);
 end
 
+% main 
 
-% run bp
+tbp = run_tbp(gm, hs);
+tbp_r = process_results(tbp, Cs0, us0);
+
+lbp = run_lbp(gm, hs);
+lbp_r = process_results(lbp, Cs0, us0);
+
+% output
+
+S.gm = gm;
+S.Cs0 = Cs0;
+S.us0 = us0;
+S.tbp_r = tbp_r;
+S.lbp_r = lbp_r;
+
+
+%% sub functions
+
+
+function tbp = run_tbp(gm, hs)
 
 tbp = gmrf_tbp(gm, 1);
 tbp.infer_Js();
@@ -46,14 +65,27 @@ tbp.infer_Js();
 tbp.initialize_hs(hs);
 tbp.infer_hs();
 
-% extract results
+function lbp = run_lbp(gm, hs)
+
+vs = repmat(1 : gm.nnodes, [1, gm.nnodes]);
+
+lbp = gmrf_lbp(gm);
+lbp.infer_Js(vs);
+
+lbp.initialize_hs(hs);
+lbp.infer_hs(vs);
+
+
+function r = process_results(bp, Cs0, us0)
+
+n = numel(Cs0);
 
 Cs = cell(n, 1);
 us = cell(n, 1);
 
 for i = 1 : n
-    Cs{i} = inv(tbp.r_Js{i});
-    us{i} = Cs{i} * tbp.r_hs{i};
+    Cs{i} = inv(bp.r_Js{i});
+    us{i} = Cs{i} * bp.r_hs{i};
 end
 
 c_diffs = zeros(1, n);
@@ -63,14 +95,9 @@ for i = 1 : n
     u_diffs(i) = norm(us{i} - us0{i});
 end
 
-% output
-
-S.gm = gm;
-S.tbp = tbp;
-S.Cs0 = Cs0;
-S.Cs = Cs;
-S.us0 = us0;
-S.us = us;
-S.c_diffs = c_diffs;
-S.u_diffs = u_diffs;
+r.sol = bp;
+r.Cs = Cs;
+r.us = us;
+r.c_diffs = c_diffs;
+r.u_diffs = u_diffs;
 
