@@ -1,12 +1,13 @@
-function [vs, parents, tf] = gr_bfs_trees(G, seeds)
+function [vs, parents, edges, tf] = gr_bfs_trees(G, seeds)
 % Construct a tree/forest by breadth-first-search on an undirected graph
 %
-%   [vs, parents, tf] = gr_bfs_trees(G, seeds);
+%   [vs, parents, edges, tf] = gr_bfs_trees(G, seeds);
 %       constructs a BFS tree/forest that cover the connected components
 %       involving all seeds. If seeds are omitted, it uses 1:n as seeds.
 %
 %       In the output, vs is the vertex traversal order, and parents
-%       are the parents corresponding to vs.
+%       are the parents corresponding to vs, and edges are corresponding
+%       edge indices.
 %       tf indicates whether the input graph g is actually a
 %       singly-connected graph.
 %
@@ -32,6 +33,6 @@ end
 
 %% main
 
-[vs, parents, tf] = gr_bfs_trees_cimp(G, seeds-1);
+[vs, parents, edges, tf] = gr_bfs_trees_cimp(G, seeds-1);
 
 

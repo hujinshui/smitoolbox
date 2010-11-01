@@ -34,15 +34,17 @@ struct BFSRecord
     std::valarray<vertex_t> parent_map;
     
     std::vector<vertex_t> vertices;
+    std::vector<edge_t> edges;
     bool is_tree;
         
     
     // actions
     
-    void init_vertices()
+    void init()
     {
         vertices.reserve(num_vertices);
-    }
+        edges.reserve(num_vertices);
+    }            
         
     mxArray *vertices_to_matlab() const
     {
@@ -54,6 +56,12 @@ struct BFSRecord
     {
         return iter_to_matlab_row(vertices.begin(), vertices.size(), 
                 unary_chain(vertex_to_index(), arr_map(parent_map), vertex_to_mindex()) );
+    }
+    
+    mxArray *edges_to_matlab() const
+    {
+        return iter_to_matlab_row(edges.begin(), edges.size(), 
+                edge_to_mindex());
     }
         
 };
@@ -67,13 +75,15 @@ class BFSTreeVisitor : public boost::default_bfs_visitor
 {
 public:    
     BFSTreeVisitor(BFSRecord& rec) 
-    : vertices(rec.vertices), parent_map(rec.parent_map), is_tree(rec.is_tree)
+    : vertices(rec.vertices), edges(rec.edges)
+    , parent_map(rec.parent_map), is_tree(rec.is_tree)
     {           
     }
     
     void initialize_seed(const vertex_t& u)
     {
         vertices.push_back(u);
+        edges.push_back(edge_t(-1));
         parent_map[u.i] = -1;
     }
         
@@ -90,13 +100,15 @@ public:
         vertex_t s = source(e, g);
         vertex_t t = target(e, g);
         
-        vertices.push_back(t);        
+        vertices.push_back(t);    
+        edges.push_back(e);
         parent_map[t.i] = s;
     }        
         
     
 private:
     std::vector<vertex_t>& vertices;
+    std::vector<edge_t>& edges;
     std::valarray<vertex_t>& parent_map;
     bool& is_tree;
 };
@@ -146,7 +158,8 @@ void do_bfs_tree(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns
  * Outputs:
  *  [0]: vs:        the vertices in discovery order
  *  [1]: parents:   parents in the search tree (corresponding to vs)
- *  [2]: dists:     the distances to the root in search tree (corresponding to vs)
+ *  [2]: edges:     the edges in discovery order
+ *  [3]: tf:        whether it is a tree-structured graph
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
@@ -158,13 +171,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     BFSRecord record(num_vertices(g));    
        
-    record.init_vertices();
+    record.init();
         
     do_bfs_tree(g, record, ns, s);
         
     plhs[0] = record.vertices_to_matlab();
     plhs[1] = record.parents_to_matlab();
-    plhs[2] = mxCreateLogicalScalar(record.is_tree);
+    plhs[2] = record.edges_to_matlab();
+    plhs[3] = mxCreateLogicalScalar(record.is_tree);
 }
 
 
