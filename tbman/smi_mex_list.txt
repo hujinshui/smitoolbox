@@ -51,6 +51,7 @@ qpps: optim/qpps.cpp
 # for graph
 
 gr_bfs_cimp:        graph/common/private/gr_bfs_cimp.cpp
+gr_bfs_trees_cimp:  graph/common/private/gr_bfs_trees_cimp.cpp
 gr_dfs_cimp:        graph/common/private/gr_dfs_cimp.cpp 
 gr_toposort_cimp:   graph/common/private/gr_toposort_cimp.cpp
 gr_conncomp_cimp:   graph/common/private/gr_conncomp_cimp.cpp
