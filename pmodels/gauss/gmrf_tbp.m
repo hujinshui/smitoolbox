@@ -11,6 +11,7 @@ classdef gmrf_tbp < handle
         tree;   % the computation tree
         tord;   % the topological order
         
+        dims;   % the dimension of each node
         Js;     % sub information matrices
         hs;     % sub potential vectors 
         Rs;     % (cross) information matrices (from parent to self)
@@ -97,6 +98,7 @@ classdef gmrf_tbp < handle
             obj.tree = T;
             obj.tord = vs;
             
+            obj.dims = gm.dims;
             obj.Js = Js_;
             obj.hs = [];
             obj.Rs = Rs_;
@@ -109,95 +111,218 @@ classdef gmrf_tbp < handle
             obj.dn_hs = [];  
             
             obj.r_Js = cell(n, 1);
-            obj.r_hs = [];
-            
+            obj.r_hs = [];            
         end
         
         
-        function bottom_up_J(obj)
-            % Performs Bottom-up collection along the tree
+        function infer_Js(obj)
+            % Inferring information matrices of all local models
             
-            vs = obj.tord;
-            n = length(vs);
-            
-            for i = n : -1 : 1
-                up_collect_J(obj, vs(i));
-            end            
-            
-        end
+            bottom_up_Js(obj);
+            top_down_Js(obj);
+        end          
         
         
-        function top_down_J(obj)
-            % Performs top-down dispatch along the tree
+        function initialize_hs(obj, hs)
+            % Initialize relevant data structure for inferring hs
             
-            vs = obj.tord;
-            n = length(vs);
+            n = obj.tree.n;
+            if ~(iscell(hs) && isvector(hs) && numel(hs) == n)
+                error('gmrf_tbp:invalidarg', ...
+                    'hs should be a cell vector with n cells.');
+            end
             
+            ds = obj.dims;
+            K = size(hs{1}, 2);
             for i = 1 : n
-                down_dispatch_J(obj, vs(i));               
-            end            
-        end
-        
-        
-        function up_collect_J(obj, c) 
-            % compute upward message from a child node
-            
-            T = obj.tree;
-            nc = T.ncs(c);
-            
-            J = obj.Js{c};
-            if nc > 0
-                cs = T.cs(T.os(c)+(1:nc)) + 1;
-                if nc == 1
-                    J = J + obj.up_Js{cs};
-                else
-                    J = J + sum(cat(obj.up_Js{cs}, 3), 3);
+                h = hs{i};
+                if ~(isfloat(h) && isequal(size(h), [ds(i) K]))
+                    error('gmrf_tbp:invalidarg', ...
+                        'some h in hs is not valid.');
                 end
             end
-            obj.r_Js{c} = J;
             
-            p = T.ps(c) + 1;
-            if p > 0            
-                Jpc = obj.Rs{c};
-                L = Jpc / J;            
-                uJ = -(L * Jpc');
-                        
-                obj.up_Ls{c} = L;
-                obj.up_Js{c} = uJ;
-            end
+            obj.hs = hs;            
         end
         
         
-        function down_dispatch_J(obj, p)
-            % compute downward message from a parent node
+        function infer_hs(obj)
+            % Inferring potential vectors of all local models
+            
+            bottom_up_hs(obj);
+            top_down_hs(obj);
+        end
+        
+        
+        function clear_hs(obj)
+            % Clear the associated potential vectors and associated results
+            
+            obj.hs = [];
+            obj.r_hs = [];
+            obj.up_hs = [];
+            obj.dn_hs = [];            
+        end
+                            
+    end
+    
+    
+    
+    methods        
+        function bottom_up_Js(obj)
+            % Performs Bottom-up collection for inferring Js along the tree
             
             T = obj.tree;
-            J = obj.r_Js{p};            
+            Js_ = obj.Js;   
+            
+            vs = obj.tord;
+            n = length(vs);
+            
+            % for each node in a bottom-up order (rev topological order)
+            for i = n : -1 : 1
+                c = vs(i);
+                
+                % collect messages from the children of c to c
+                nc = T.ncs(c);                
+                J = Js_{c};
+                if nc > 0
+                    cs = T.cs(T.os(c)+(1:nc)) + 1;
+                    if nc == 1
+                        J = J + obj.up_Js{cs};
+                    else
+                        J = J + sum(cat(3, obj.up_Js{cs}), 3);
+                    end
+                end
+                obj.r_Js{c} = J;
+                
+                % set messages to parent (if not root)
+                p = T.ps(c) + 1;
+                if p > 0
+                    Jpc = obj.Rs{c};
+                    L = Jpc / J;
+                    uJ = -(L * Jpc');
+                    
+                    obj.up_Ls{c} = L;
+                    obj.up_Js{c} = uJ;
+                end                
+            end                        
+        end
+        
+        
+        function bottom_up_hs(obj)
+            % Performs bottom-up collection for inferring hs along tree
+            
+            T = obj.tree;
+            hs_ = obj.hs;
+            uLs = obj.up_Ls;
+            
+            vs = obj.tord;
+            n = length(vs);
+            
+            % for each node in a bottom-up order (rev topological order)
+            for i = n : -1 : 1
+                c = vs(i);
+                
+                % collect messages from the children of c to c
+                h = hs_{c};
+                nc = T.ncs(c);
+                if nc > 0
+                    cs = T.cs(T.os(c) + (1:nc)) + 1;
+                    if nc == 1
+                        h = h + obj.up_hs{cs};
+                    else
+                        h = h + sum(cat(3, obj.up_hs{cs}), 3);
+                    end
+                end
+                obj.r_hs{c} = h;
+                
+                % set messages to parent (if not root)
+                p = T.ps(c) + 1;
+                if p > 0
+                    L = uLs{c};
+                    obj.up_hs{c} = -L * h;
+                end
+            end            
+        end
+        
+        
+        
+        function top_down_Js(obj)
+            % Performs top-down dispatch for inferring Js along the tree
+            
+            T = obj.tree;
             Rs_ = obj.Rs;
             uJs = obj.up_Js;
             
-            pp = T.ps(p) + 1;                        
-            if pp > 0
-                J = J + obj.dn_Js{p};
-                obj.r_Js{p} = J;
-            end
+            vs = obj.tord;
+            n = length(vs);
             
-            nc = T.ncs(p);
-            if nc > 0                
-                cs = T.cs(T.os(p)+(1:nc)) + 1;
-                for i = 1 : nc
-                    c = cs(i);
-                    Jpc = Rs_{c};
-                    L = ((J - uJs{c}) \ Jpc)';
-                    dJ = -L * Jpc;
-                    
-                    obj.dn_Ls{c} = L;
-                    obj.dn_Js{c} = dJ;                    
-                end                
+            % for each node in a top-down order (topological order)
+            for i = 1 : n
+                p = vs(i);
+                
+                % incorporate top-down message from parent of p to p
+                J = obj.r_Js{p};
+                pp = T.ps(p) + 1;
+                if pp > 0
+                    J = J + obj.dn_Js{p};
+                    obj.r_Js{p} = J;
+                end
+                
+                % set messages to children (if not leaf)
+                nc = T.ncs(p);
+                if nc > 0
+                    cs = T.cs(T.os(p)+(1:nc)) + 1;
+                    for j = 1 : nc
+                        c = cs(j);
+                        Jpc = Rs_{c};
+                        L = ((J - uJs{c}) \ Jpc)';
+                        dJ = -L * Jpc;
+                        
+                        obj.dn_Ls{c} = L;
+                        obj.dn_Js{c} = dJ;
+                    end
+                end
             end            
         end
         
         
+        function top_down_hs(obj)
+            % Performs top-down dispatch for inferring the hs along tree
+            
+            T = obj.tree;
+            dLs = obj.dn_Ls;
+            uhs = obj.up_hs;
+            
+            vs = obj.tord;
+            n = length(vs);
+            
+            % for each node in a top-down order (topological order)
+            for i = 1 : n
+                p = vs(i);
+                
+                % incorporate top-down message from parent of p to p
+                h = obj.r_hs{p};
+                pp = T.ps(p) + 1;
+                if pp > 0
+                    h = h + obj.dn_hs{p};
+                    obj.r_hs{p} = h;
+                end
+                
+                % set messages to children (if not leaf)
+                nc = T.ncs(p);
+                if nc > 0
+                    cs = T.cs(T.os(p)+(1:nc)) + 1;
+                    for j = 1 : nc
+                        c = cs(j);
+                        L = dLs{c};
+                        
+                        dh = -L * (h - uhs{c});
+                        obj.dn_hs{c} = dh;
+                    end
+                end
+            end            
+        end
+                               
     end
         
 end
