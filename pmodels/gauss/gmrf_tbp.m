@@ -89,7 +89,7 @@ classdef gmrf_tbp < handle
             for k = 1 : m
                 e = es(k);
                 if e > 0
-                    Rs_{k} = gRs{e};
+                    Rs_{vs(k)} = gRs{e};
                 end
             end
                         

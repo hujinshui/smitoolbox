@@ -139,7 +139,11 @@ classdef gaussmrf
                 s = srcs(k) + 1;
                 t = tars(k) + 1;                
                 [i, j, w] = find(Rs_{k});
-                
+                if size(i, 2) > 1
+                    i = i.';
+                    j = j.';
+                    w = w.';
+                end                
                 i_s{n+k} = i + ibase(s);
                 j_s{n+k} = j + ibase(t);
                 w_s{n+k} = w;
