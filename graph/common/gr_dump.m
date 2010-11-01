@@ -16,10 +16,17 @@ end
 if strcmp(G.tag, 'gr_edgelist')
     is_edgelist = true;
     is_adjlist = false;
+    is_tree = false;
     
 elseif strcmp(G.tag, 'gr_adjlist')
     is_edgelist = true;
     is_adjlist = true;
+    is_tree = false;
+    
+elseif strcmp(G.tag, 'gr_tree')
+    is_edgelist = false;
+    is_adjlist = false;
+    is_tree = true;
     
 else
     error('gr_dump:invalidarg', 'The input struct is invalid.');
@@ -73,6 +80,32 @@ if is_adjlist
     end
     fprintf('\n');
 end
+
+if is_tree
+    fprintf('Tree nodes:\n');
+    fprintf('----------------------\n');
+    
+    for i = 1 : G.n
+        b = G.os(i);
+        pa = G.ps(i);
+        nc = G.ncs(i);
+        
+        fprintf('    [%d] (pa = %d)', i, pa+1);
+        
+        if nc > 0
+            fprintf(' ==> ');        
+            for j = 1 : nc
+                c = G.cs(b+j);
+                fprintf('%d ', c+1);
+            end            
+        end
+        fprintf('\n');
+    end
+    
+    fprintf('\n');    
+end
+
+
 
 %% subfunctions
 
