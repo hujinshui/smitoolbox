@@ -76,6 +76,30 @@ classdef sgmrf
         end
         
         
+        function E = quad_energy(obj, x)
+            % computes the quadratic energy 
+            %
+            %   E = quad_energy(obj, x);
+            %       computes the quadratic energy with respect to x,
+            %       which is given by (1/2) * x' * J * x.
+            %       
+            %       x can be a column vector of length n or 
+            %       multiple vectors organized into an n x K
+            %       matrix. In output, E is a scalar or a 1 x K
+            %       vector, correspondingly.
+            %
+            
+            d = size(x, 1);
+            Jx = obj.J * x;  
+            
+            if d > 1
+                E = 0.5 * dot(x, Jx);
+            else
+                E = 0.5 * (x .* Jx);
+            end            
+        end        
+        
+        
         function mu = infer(obj, h)
             % infer the mean vector from a potential vector
             %
