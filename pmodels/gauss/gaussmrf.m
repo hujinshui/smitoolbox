@@ -40,8 +40,8 @@ classdef gaussmrf
             %       be a ds x dt matrix. 
             %
             %       Note that for each pair of connected nodes, only
-            %       (s, t) or (t, s) need to be given in edges.
-            %
+            %       (s, t) or (t, s) need to be given in edges.            
+            %       
             
             % verify Js
             
@@ -155,6 +155,72 @@ classdef gaussmrf
             
             td = obj.tdim;            
             J = sparse(ii, jj, ww, td, td);   
+        end
+        
+    end
+    
+    
+    methods(Static)
+        
+        function gm = from_groupvars(J, grps)
+            % Constructs a Gaussian MRF by grouping variables
+            %            
+            %   gm = gaussmrf.from_groupvars(J, gmap);
+            %       constructs a Gaussian MRF model with the original
+            %       information matrix J over all variables, and
+            %       a grouping of variables specified by grps.
+            %
+            %       Suppose we want to divide all variables into 
+            %       K groups, then grps should be a cell array with
+            %       K cells, where grps{k} gives the indices of 
+            %       variables which are assigned to the k-th group.
+            %
+            
+            % verify variables
+            
+            n = size(J, 1);
+            if ~(isfloat(J) && ndims(J) == 2 && n == size(J, 2))
+                error('gaussmrf:from_groupvars:invalidarg', ...
+                    'J should be a square matrix of float type.');
+            end
+            if ~(iscell(grps) && isvector(grps))
+                error('gaussmrf:from_groupvars:invalidarg', ...
+                    'grps should be a cell vector.');
+            end            
+            K = numel(grps);
+            
+            % construct skeleton graph
+                                
+            gmap = zeros(n, 1);
+            for k = 1 : K
+                gmap(grps{k}) = k;
+            end
+            
+            [i, j] = find(J);            
+            gi = gmap(i);
+            gj = gmap(j);
+            
+            sge = find(gi < gj);
+            gi = gi(sge);
+            gj = gj(sge);
+            
+            edges = unique([gi gj], 'rows');
+            m = size(edges, 1);
+            
+            % extract corresponding matrices
+            
+            Js_ = cell(K, 1);
+            Rs_ = cell(m, 1);
+            
+            for i = 1 : K                
+                Js_{i} = full(J(grps{i}, grps{i}));
+            end
+            
+            for i = 1 : m
+                Rs_{i} = full(J(grps{edges(i, 1)}, grps{edges(i, 2)}));
+            end
+            
+            gm = gaussmrf(Js_, edges, Rs_);
         end
         
     end
