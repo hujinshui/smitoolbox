@@ -39,7 +39,6 @@ end
 use_full = 0;
 dty = [];
 
-
 if ~isempty(varargin)
     nv = numel(varargin);
     for i = 1 : nv
@@ -54,14 +53,7 @@ if ~isempty(varargin)
     end
 end
                     
-if isempty(dty)
-    if isfield(G, 'dty') && ~isempty(G.dty)
-        dty = G.dty;
-    else
-        dty = 'd';
-    end
-end 
-
+add_re = ~(isfield(G, 'dty') && isequal(G.dty, 'u')) && isequal(dty, 'u');
     
 %% main
 
@@ -75,13 +67,13 @@ if use_full
     if isempty(G.w)
         A = false(n, n);
         A(s + t * n + 1) = 1;
-        if dty == 'u'
+        if add_re
             A(t + s * n + 1) = 1;
         end        
     else
         A = zeros(n, n, class(G.w));
         A(s + t * n + 1) = G.w;
-        if dty == 'u'
+        if add_re
             A(t + s * n + 1) = G.w;
         end
     end
@@ -91,7 +83,7 @@ else
     s = double(G.s+1);
     t = double(G.t+1);
     
-    if dty ~= 'u'
+    if ~add_re
         if isempty(G.w)
             A = sparse(s, t, true, n, n);
         else
@@ -101,7 +93,7 @@ else
         if isempty(G.w)
             A = sparse([s; t], [t; s], true, n, n);
         else
-            A = sparse([s; t], [t; s], double(G.w), n, n);
+            A = sparse([s; t], [t; s], double([G.w; G.w]), n, n);
         end 
     end
 end
