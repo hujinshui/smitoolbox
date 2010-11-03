@@ -110,12 +110,83 @@ classdef gmrf_lbp < handle
         end
         
         
-        function infer_Js(obj, vs)
-            % Perform inference on information matrices
+        function r = infer_Js(obj, varargin)
+            % perform inferences on information matrices
             %
-            %   obj.infer_Js(vs);
-            %       performs inference on information matrices for
-            %       local models by updating messages sent from 
+            %   r = obj.infer_Js(...);
+            %       performs inference on information matrices by 
+            %       iteratively updating relevant messages.
+            %
+            %       One can specify additional options in form of
+            %       name/value pairs to control the inference process:
+            %       
+            %       - 'order':  the order of nodes to be updated in 
+            %                   each iteration. By default it is 1:n.
+            %
+            %       - 'maxiter':  the maximum number of iterations
+            %                     (by default = 100)
+            %
+            %       - 'tol':    the tolerance of changes at convergence
+            %                   the change is measured by the maximum 
+            %                   L-inf norm of local information matrix 
+            %                   difference. (by default = 1e-6)
+            %
+            %       The output is a struct recording the runtime
+            %       information, which comprises two fields:
+            %
+            %       - 'niters':     the number of elapsed iterations
+            %       - 'converged':  whether the iteration converges
+            %
+            
+            % verify and parse input 
+            
+            [order, maxiter, tol] = parse_infer_options(obj, varargin);
+            n = obj.nnodes;
+                        
+            % initialize
+            
+            converged = false;
+            it = 0;
+            
+            % iterations
+            
+            while ~converged && it < maxiter
+                
+                pre_Js = obj.r_Js;
+                it = it + 1;                
+                
+                % do update
+                update_Js(obj, order);
+                
+                % compare updates and determine convergence
+                diffs = zeros(1, n);
+                for i = 1 : n
+                    pJ = pre_Js{i};
+                    cJ = obj.r_Js{i};
+                    
+                    if ~isempty(pJ)
+                        diffs(i) = Linfdiff(pJ, cJ);
+                    else
+                        diffs(i) = inf;
+                    end                    
+                end
+                converged = max(diffs) < tol;                
+                
+            end
+            
+            % output
+            if nargout >= 1
+                r = struct('niters', it, 'converged', converged);
+            end                        
+        end
+        
+        
+        
+        function update_Js(obj, vs)
+            % update messages about information matrices
+            %
+            %   obj.update_Js(vs);
+            %       updates messages on information matrices sent from 
             %       a sequence of nodes specified by vs.
             %
             
@@ -215,12 +286,85 @@ classdef gmrf_lbp < handle
         end
 
         
-        function infer_hs(obj, vs)
+        
+        function r = infer_hs(obj, varargin)
+            % perform inferences on potential vectors
+            %
+            %   r = obj.infer_hs(...);
+            %       performs inference on potential vectors by 
+            %       iteratively updating relevant messages.
+            %
+            %       One can specify additional options in form of
+            %       name/value pairs to control the inference process:
+            %       
+            %       - 'order':  the order of nodes to be updated in 
+            %                   each iteration. By default it is 1:n.
+            %
+            %       - 'maxiter':  the maximum number of iterations
+            %                     (by default = 100)
+            %
+            %       - 'tol':    the tolerance of changes at convergence
+            %                   the change is measured by the maximum 
+            %                   L-inf norm of local information matrix 
+            %                   difference. (by default = 1e-6)
+            %
+            %       The output is a struct recording the runtime
+            %       information, which comprises two fields:
+            %
+            %       - 'niters':     the number of elapsed iterations
+            %       - 'converged':  whether the iteration converges
+            %
+            
+            % verify and parse input 
+            
+            [order, maxiter, tol] = parse_infer_options(obj, varargin);
+            n = obj.nnodes;
+                        
+            % initialize
+            
+            converged = false;
+            it = 0;
+            
+            % iterations
+            
+            while ~converged && it < maxiter
+                
+                pre_hs = obj.r_hs;
+                it = it + 1;                
+                
+                % do update
+                update_hs(obj, order);
+                
+                % compare updates and determine convergence
+                diffs = zeros(1, n);
+                for i = 1 : n
+                    ph = pre_hs{i};
+                    ch = obj.r_hs{i};
+                    
+                    if ~isempty(ph)
+                        diffs(i) = Linfdiff(ph, ch);
+                    else
+                        diffs(i) = inf;
+                    end                    
+                end
+                converged = max(diffs) < tol;                
+                
+            end
+            
+            % output
+            if nargout >= 1
+                r = struct('niters', it, 'converged', converged);
+            end      
+            
+        end
+        
+        
+        
+        function update_hs(obj, vs)
             % Perform inference on potential vectors
             %
             %   obj.infer_hs(vs);
-            %       performs inference on potential vectors for
-            %       local models by updating messages sent from
+            %       updates messages about potential vectors sent from
             %       a sequence of nodes specified by vs.
             %
             
@@ -271,9 +415,56 @@ classdef gmrf_lbp < handle
             
         end
         
- 
     end
     
+    
+    methods(Access='private')
+        
+        function [order, maxiter, tol] = parse_infer_options(obj, options)
+            % parse input options for inference 
+            
+            order = 1 : obj.nnodes;
+            maxiter = 100;
+            tol = 1e-6;
+            
+            if ~isempty(options)
+                onames = options(1:2:end);
+                ovals = options(2:2:end);
+                
+                nopts = numel(onames);
+                if ~(numel(ovals) == nopts && iscellstr(onames))
+                    error('gmrf_lbp:invalidopt', ...
+                        'The option list is invalid.');
+                end
+                
+                for i = 1 : nopts
+                    ov = ovals{i};
+                    switch onames{i}
+                        case 'order'
+                            if ~(isnumeric(ov) && ndims(ov)==2 && size(ov,1)==1)
+                                error('gmrf_lbp:invalidopt', ...
+                                    'order should be a numeric row vector.');
+                            end
+                            order = ov;
+                        case 'maxiter'
+                            if ~(isnumeric(ov) && isscalar(ov) && ov > 0)
+                                error('gmrf_lbp:invalidopt', ...
+                                    'maxiter should be a positive scalar.');
+                            end
+                            maxiter = ov;
+                        case 'tol'
+                            if ~(isfloat(tol) && isscalar(tol) && isreal(tol) && tol > 0)
+                                error('gmrf_lbp:invalidopt', ...
+                                    'tol should be a positive real scalar.');
+                            end
+                            tol = ov;
+                    end
+                end
+            end            
+        end
+        
+    end
+            
     
 end
 

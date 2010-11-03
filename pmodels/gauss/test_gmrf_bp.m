@@ -111,15 +111,14 @@ tbp.infer_Js();
 tbp.initialize_hs(hs);
 tbp.infer_hs();
 
+
 function lbp = run_lbp(gm, hs)
 
-vs = repmat(1 : gm.nnodes, [1, gm.nnodes]);
-
 lbp = gmrf_lbp(gm);
-lbp.infer_Js(vs);
+lbp.infer_Js('tol', 1e-12);
 
 lbp.initialize_hs(hs);
-lbp.infer_hs(vs);
+lbp.infer_hs('tol', 1e-12);
 
 
 function r = process_results(bp, Cs0, us0)
