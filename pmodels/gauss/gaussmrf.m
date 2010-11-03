@@ -165,7 +165,7 @@ classdef gaussmrf
         function gm = from_groupvars(J, grps)
             % Constructs a Gaussian MRF by grouping variables
             %            
-            %   gm = gaussmrf.from_groupvars(J, gmap);
+            %   gm = gaussmrf.from_groupvars(J, grps);
             %       constructs a Gaussian MRF model with the original
             %       information matrix J over all variables, and
             %       a grouping of variables specified by grps.
