@@ -108,7 +108,7 @@ public:
         #endif
     }    
     
-    BinaryHeap(size_type cap) 
+    explicit BinaryHeap(size_type cap) 
     {
         m_btree.reserve(cap);
         m_map.reserve(cap);
