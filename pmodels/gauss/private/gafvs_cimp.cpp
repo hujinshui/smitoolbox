@@ -8,24 +8,51 @@
  *
  ********************************************************************/
 
-#include "../../../graph/clib/graph_mex.h"
 
-#include "feedback_vertex_set.h"
+#include "../../../graph/clib/graph_mex.h"
+#include "../../../graph/clib/graph_fvset.h"
 
 #include <vector>
-#include <iterator>
 
 using namespace smi;
 
+template<typename TWeight>
+struct FVSVisitor
+{
+    FVSVisitor(graph_size_t n)
+    {
+        vs.reserve(n);
+        scores.reserve(n);
+    }    
+    
+    std::vector<vertex_t> vs;
+    std::vector<TWeight> scores;
+    
+    void select_vertex(vertex_t v, TWeight s)
+    {
+        vs.push_back(v);
+        scores.push_back(s);
+    }
+};
+
+
 
 template<typename TWeight>
-void do_gafvs(const matlab_graph_repr& gr, graph_size_t nmax, std::vector<vertex_t>& fvs)
+void do_gafvs(const matlab_graph_repr& gr, graph_size_t nmax, int nlhs, mxArray *plhs[])
 {
     typedef CRefAdjList<TWeight, boost::undirected_tag> graph_t;
     graph_t g = gr.to_cref_wadjlist_ud<TWeight>();
     
-    select_feedback_vertex(g, fvs_deg_computer<graph_t>(), nmax, 
-            std::back_inserter(fvs));    
+    FVSVisitor<TWeight> vis(nmax);
+    
+    select_feedback_vertex(g, fvs_deg_computer<graph_t>(), nmax, vis);    
+    
+    plhs[0] = iter_to_matlab_row(vis.vs.begin(), vis.vs.size(), vertex_to_mindex());
+    
+    if (nlhs > 1)
+    {
+        plhs[1] = iter_to_matlab_row(vis.scores.begin(), vis.scores.size());
+    }    
 }
 
 
@@ -48,29 +75,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     matlab_graph_repr gr(mG);
     graph_size_t nmax = (graph_size_t)mNmax.get_double_scalar();
-    
-    std::vector<vertex_t> fvs;
-        
+            
     switch (gr.weight_class())
     {
         case mxDOUBLE_CLASS:
-            do_gafvs<double>(gr, nmax, fvs);
+            do_gafvs<double>(gr, nmax, nlhs, plhs);
             break;
             
         case mxSINGLE_CLASS:
-            do_gafvs<float>(gr, nmax, fvs);
+            do_gafvs<float>(gr, nmax, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            do_gafvs<int>(gr, nmax, fvs);
+            do_gafvs<int>(gr, nmax, nlhs, plhs);
             break;
             
         default:
             mexErrMsgIdAndTxt("gafva:invalidarg",
                     "The edge weights should be double, single, or int32.");
-    }
-    
-    plhs[0] = iter_to_matlab_row(fvs.begin(), fvs.size(), vertex_to_mindex());
+    }    
 }
 
 
