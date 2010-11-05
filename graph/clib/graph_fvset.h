@@ -1,6 +1,6 @@
 /********************************************************************
  *  
- *  feedback_vertex_set.h
+ *  graph_fvset.h
  *
  *  The Feedback vertex set algorithm
  *
@@ -11,9 +11,11 @@
 #ifndef SMI_FEEDBACK_VERTEX_SET_H
 #define SMI_FEEDBACK_VERTEX_SET_H
 
+// #define SMI_FVSET_MATLAB_DEBUG
 
-#include "../../../graph/clib/graph_base.h"
-#include "../../../base/clib/heaps.h"
+
+#include "graph_base.h"
+#include "../../base/clib/heaps.h"
 
 #include <functional>
 #include <vector>
@@ -29,7 +31,7 @@ namespace smi
  * The dynamically pruned graph, which allows one remove a vertex
  * from it at a time, and maintains a heap with max-score.
  */
-template<typename TGraph>
+template<typename TGraph, typename TComp>
 class DynamicScorePruneGraph
 {
 public:
@@ -46,12 +48,13 @@ private:
     std::valarray<size_type> m_rdegs;       // the remaining degrees        
     
     heap_type m_heap;    
+    TComp m_scomp;
     
 public:
-    DynamicScorePruneGraph(const graph_type& g) 
+    DynamicScorePruneGraph(const graph_type& g, TComp scomp) 
     : m_graph(g)
     , m_nr(num_vertices(g)), m_ingraph(true, m_nr), m_rdegs(m_nr)
-    , m_heap(m_nr)
+    , m_heap(m_nr), m_scomp(scomp)
     {
         size_type n = m_nr;
         for (graph_size_t i = 0; i < n; ++i)
@@ -87,24 +90,50 @@ public:
         return m_heap.root_index();
     }    
     
+    score_type max_score() const
+    {
+        return m_heap.root_key();
+    }
+    
+    
     // graph manipulation
         
     void remove_vertex(vertex_t v)
     {
         if (in_graph(v))
         {
-            m_heap.delete_root();
+            #ifdef SMI_FVSET_MATLAB_DEBUG
+                mexPrintf("remove %d\n", v.i+1);
+            #endif            
+                                
+            // remove the vertex v from heap
+            if (v.i == m_heap.root_index())
+            {
+                m_heap.delete_root();
+            }
+            else
+            {
+                m_heap.set_key(v.i, m_heap.root_key() + 1);
+                m_heap.delete_root();
+            }
+            
+            // mark it as deleted
+            
+            m_ingraph[v.i] = false;
+            -- m_nr;                        
+            
+            // reduce degree & update score for all its remaining neighbors
             
             typename graph_type::adjacency_iterator ap, aend;
             for (boost::tie(ap, aend) = adjacent_vertices(v, m_graph); ap != aend; ++ap)
             {
                 vertex_t c = *ap;
                 if (in_graph(c)) 
+                {
                     -- m_rdegs[c.i];
+                    update_score(c);
+                }
             }
-            
-            m_ingraph[v.i] = false;
-            -- m_nr;
         }
     }
         
@@ -113,7 +142,7 @@ public:
     // this function going to examine their neighbors recursively
     template<typename TIter>
     void clean_graph_from(TIter vbegin, TIter vend)
-    {
+    {                        
         std::queue<vertex_t> Q;
         
         for (TIter vp = vbegin; vp != vend; ++vp)
@@ -123,8 +152,15 @@ public:
         
         while (!Q.empty())
         {
-            vertex_t v = Q.front(); // v should have been removed
+            vertex_t v = Q.front(); 
             Q.pop();  
+            
+            std::vector<vertex_t> cs;
+            cs.reserve(out_degree(v, m_graph));
+            
+            #ifdef SMI_FVSET_MATLAB_DEBUG
+                mexPrintf("pop %d\n", v.i+1);
+            #endif
             
             typename graph_type::adjacency_iterator ap, aend;
             for (boost::tie(ap, aend) = adjacent_vertices(v, m_graph); ap != aend; ++ap)
@@ -132,10 +168,23 @@ public:
                 vertex_t c = *ap;
                 if (in_graph(c) && degree(c) < 2)
                 {
-                    remove_vertex(c);
+                    cs.push_back(c);
                     Q.push(c);
+                    
+                    #ifdef SMI_FVSET_MATLAB_DEBUG
+                        mexPrintf("push %d\n", c.i+1);
+                    #endif
                 }
-            }                    
+            }
+            
+            if (!cs.empty())
+            {
+                for (std::vector<vertex_t>::const_iterator it = cs.begin(); 
+                    it != cs.end(); ++it)
+                {
+                    remove_vertex(*it);
+                }
+            }            
         }
     }        
                     
@@ -165,49 +214,35 @@ public:
     
     // score management
     
-    template<typename TComp>
-    score_type compute_score(vertex_t v, TComp scomp) const
+    score_type compute_score(vertex_t v) const
     {
-        return scomp(m_graph, &(m_ingraph[0]), v);
+        return m_scomp(m_graph, &(m_ingraph[0]), v);
     }
     
-    template<typename TComp>
-    void initialize_scores(TComp scomp)
+    void initialize_scores()
     {
         typename graph_type::vertex_iterator vp, vend;
-        
-        std::valarray<score_type> scores;        
+                
+        size_type n = num_vertices(m_graph);
+        std::valarray<score_type> scores(n);        
         for (boost::tie(vp, vend) = vertices(m_graph); !(vp == vend); ++vp)
         {
             vertex_t v = *vp;
-            scores[v.i] = compute_score<TComp>(v, scomp);            
+            scores[v.i] = compute_score(v);            
         }
-        
+                        
         const score_type *sbegin = &(scores[0]);
-        const score_type *send = sbegin + num_vertices(m_graph);        
+        const score_type *send = sbegin + n;        
         m_heap.make_heap(sbegin, send);
     }
-    
-        
-    template<typename TComp>
-    void update_score(vertex_t v, TComp scomp)
+                
+    void update_score(vertex_t v)
     {
         if (in_graph(v))
         {
-            score_type s = compute_score<TComp>(v, scomp);
+            score_type s = compute_score(v);
             m_heap.set_key(v.i, s);
         }        
-    }
-    
-    
-    template<typename TComp>
-    void update_neighbor_scores(vertex_t u, TComp scomp)
-    {
-        typename graph_type::adjacency_iterator ap, aend;
-        for (boost::tie(ap, aend) = adjacent_vertices(u, m_graph); ap != aend; ++ap)
-        {
-            update_score<TComp>(*ap, scomp);
-        }
     }
                 
     
@@ -223,7 +258,7 @@ struct fvs_deg_computer
     typedef TGraph graph_type;
     typedef typename TGraph::edge_weight_type score_type;
     
-    score_type operator() (const graph_type& g, const bool *in_graph, vertex_t v)
+    score_type operator() (const graph_type& g, const bool *in_graph, vertex_t v) const
     {
         typename graph_type::out_edge_iterator ep, eend;
         score_type s = score_type(0);
@@ -231,7 +266,9 @@ struct fvs_deg_computer
         for (boost::tie(ep, eend) = out_edges(v, g); ep != eend; ++ep)
         {                        
             edge_t e = *ep;
-            if (in_graph[v.i])
+            vertex_t c = target(e, g);
+            
+            if (in_graph[c.i])
             {
                 s += std::abs(g.get_weight(e));
             }
@@ -253,26 +290,40 @@ struct fvs_deg_computer
  *
  * @return the actual number of feedback vertices that have been extracted
  */
-template<typename TGraph, typename TComp, typename TInsertIter>
+template<typename TGraph, typename TComp, typename TVisitor>
 graph_size_t select_feedback_vertex(const TGraph& g, 
-        TComp scomp, smi::graph_size_t nmax, TInsertIter out_it)
+        TComp scomp, smi::graph_size_t nmax, TVisitor& vis)
 {
     // initialization
     
-    DynamicScorePruneGraph<TGraph> dspg(g);    
-    dspg.initialize_scores(scomp);        
+    #ifdef SMI_FVSET_MATLAB_DEBUG            
+        mexPrintf("initialization ......\n");
+    #endif
+        
+    DynamicScorePruneGraph<TGraph, TComp> dspg(g, scomp);    
+    dspg.initialize_scores();        
     dspg.clean_graph();
             
     // main loop
     
-    smi::graph_size_t n;
+    #ifdef SMI_FVSET_MATLAB_DEBUG            
+        mexPrintf("main loop ......\n");
+    #endif
+    
+    smi::graph_size_t n = 0;
+
     while (n < nmax && !dspg.empty())
-    {
+    {                
         vertex_t v = dspg.max_score_vertex();
-        *(out_it++) = v;
+        vis.select_vertex(v, dspg.max_score());
+        ++n;
+        
+        #ifdef SMI_FVSET_MATLAB_DEBUG
+            mexPrintf("select %d (score = %g)\n", v.i+1, dspg.max_score());
+        #endif                
         
         dspg.remove_vertex(v);
-        dspg.clean_graph_from(&v, (&v)+1);
+        dspg.clean_graph_from(&v, (&v)+1);                
     }
     
     return n;    
