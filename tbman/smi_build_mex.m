@@ -5,29 +5,31 @@ function smi_build_mex(varargin)
 %   smi_build_mex name1 name2 ...
 %
 
-% Created by Dahua Lin, on Apr 7, 2010
-%
 
 %% main
 
+mdls = smi_modules;
+
+bopts = {'-O'};
 
 % get environment 
 
-boost_home = getenv('BOOST_HOME');
-if isempty(boost_home)
-    error('smi_build_mex:enverror', ...
-        'Cannot find Boost C++ Library. Please add environment variable BOOST_HOME.');
+require_boost = ismember('graph', {mdls.name});
+
+if require_boost
+    boost_home = getenv('BOOST_HOME');
+    if isempty(boost_home)
+        error('smi_build_mex:enverror', ...
+            'Cannot find Boost C++ Library. Please add environment variable BOOST_HOME.');
+    end
+    
+    bopts = [bopts, {['-I' boost_home]}];
 end
 
 
-% read in the build list
+% get the list
 
-text = read_list('smi_mex_list.txt');
-
-% parse the list
-
-S = cellfun(@parse_entry, text);
-n = length(S);
+S = vertcat(mdls.mex);
 
 % filter the list
 if ~isempty(varargin)
@@ -38,12 +40,11 @@ if ~isempty(varargin)
             varargin{find(~tf, 1)});
     end
     S = S(si);
-    n = length(S);
 end
+n = length(S);
+
 
 % build 
-
-bopts = {['-I' boost_home], '-O'};
 
 rootdir = fileparts(fileparts(mfilename('fullpath')));
 
@@ -51,8 +52,8 @@ for i = 1 : n
     s = S(i);
     
     fprintf('Building %s ...\n', s.name);
-        
-    outdir = fullfile(rootdir, s.outdir);
+            
+    outdir = fullfile(rootdir, fileparts(s.sources{1}));
     sources = cellfun(@(s) fullfile(rootdir, s), s.sources, 'UniformOutput', false);
     
     args = [bopts, {'-outdir', outdir}, sources];
@@ -66,56 +67,7 @@ for i = 1 : n
 end
 
 
-
-
 %% parse function
-
-function text = read_list(filename)
-
-text = cell(10, 1);
-
-fid = fopen(filename);
-if fid < 0
-    error('smi_build_mex:ioerror', 'Failed to open %s', filename);
-end
-
-i = 0;
-while 1
-    line = fgetl(fid);
-    if ~ischar(line)
-        break;
-    end
-    
-    line = strtrim(line);
-    
-    if ~isempty(line) && line(1) ~= '#'    
-        i = i + 1;
-        if i > numel(text)
-            text{numel(text) * 2} = [];
-        end
-        text{i} = line;
-    end
-end
-
-text = text(1:i);
-fclose(fid);
-
-
-
-function ps = parse_entry(line)
-
-ts = regexp(line, '\s*:\s*', 'split');
-
-if numel(ts) ~= 2 || isempty(ts{1}) || isempty(ts{2})
-    error('smi_build_mex:parse_error', 'Invalid line %s', line);
-end
-
-name = ts{1};
-srcs = regexp(ts{2}, '\s+', 'split');
-
-ps.name = name;
-ps.sources = srcs;
-ps.outdir = fileparts(srcs{1});
 
 
 function s = joinstr(varargin)
