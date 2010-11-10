@@ -1,63 +1,20 @@
-function smi_add_path(op)
-%ADD_MLEARNLAB Adds paths of mlearnlab into MATLAB system
+function smi_add_path()
+% The function to add smitoolbox to MATLAB search paths
 %
-%   add_smitoolbox_path;
-%       It adds the path of all relevant directories of smitoolbox to
-%       MATLAB search paths (for current MATLAB sesssion). 
+%   smi_add_path;
 %
-%   add_smitoolbox_path save;
-%       It saves the paths and save them.
-%   
-
-%   History
-%   -------
-%       - Created by Dahua Lin, on Oct 4, 2008
-%       - Modified by Dahua Lin, on Apr 7, 2010
-%           - switch to the new toolbox: smitoolbox
-%           - add the option 'save'
+%   Note that this function does not save path permantly. To do so,
+%   one can call savepath.
 %
-
-%% verify input arguments
-
-if nargin >= 1
-    assert(ischar(op) && strcmpi(op, 'save'), ...
-        'add_smitoolbox_path:invalidarg', ...
-        'the only argument that can be input to this function is ''save''.');
-    
-    to_save_path = true;
-else
-    to_save_path = false;
-end
 
 %% main
 
-rootdir = fileparts(fileparts(mfilename('fullpath')));
+mdls = smi_modules;
 
-subdirs = { ...
-    'base/calc', ...
-    'base/clib', ...
-    'base/matrix', ...
-    'base/metrics', ...
-    'base/sample', ...
-    'classics/cluster', ...
-    'classics/subspace', ...
-    'graph/common', ...
-    'graph/mincut', ...
-    'graph/manifold', ...
-    'graph/grid', ...
-    'graph/spectral', ...
-    'optim', ...
-    'pmodels/common', ...
-    'pmodels/ddistr', ...
-    'pmodels/gauss', ...
-    'tbman'
-};
+rdir = fileparts(fileparts(mfilename('fullpath')));
 
-subpaths = cellfun(@(x) fullfile(rootdir, x), subdirs, 'UniformOutput', false);
-addpath(subpaths{:});
-    
-if to_save_path
-    savepath;
-end
+subpaths = ['tbman'; vertcat(mdls.subpaths)];
+fpaths = cellfun(@(p) fullfile(rdir, p), subpaths, 'UniformOutput', false);
 
+addpath(fpaths{:});
 
