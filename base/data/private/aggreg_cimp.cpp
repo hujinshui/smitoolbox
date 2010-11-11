@@ -50,20 +50,34 @@ void aggregate_rows(int m, int n, int K, const T *X, const int *I, T *R)
 {
     RFun rfun;
     
-    for (int i = 0; i < m; ++i)
+    if (n == 1)
     {
-        int k = I[i];
-        if (k >= 0 && k < K)
+        for (int i = 0; i < m; ++i)
         {
-            const T *x = X + i;
-            T *r = R + k;
-            
-            for (int j = 0; j < n; ++j)
+            int k = I[i];
+            if (k >= 0 && k < K)
             {
-                rfun(*r, *x);
+                rfun(R[k], X[i]);
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < m; ++i)
+        {
+            int k = I[i];
+            if (k >= 0 && k < K)
+            {
+                const T *x = X + i;
+                T *r = R + k;
+            
+                for (int j = 0; j < n; ++j)
+                {
+                    rfun(*r, *x);
                 
-                x += m;
-                r += K;
+                    x += m;
+                    r += K;
+                }
             }
         }
     }
@@ -75,17 +89,31 @@ void aggregate_cols(int m, int n, int K, const T *X, const int *I, T *R)
 {
     RFun rfun;
     
-    for (int i = 0; i < n; ++i)
+    if (m == 1)
     {
-        int k = I[i];
-        if (k >= 0 && k < K)
+        for (int i = 0; i < n; ++i)
         {
-            const T *x = X + i * m;
-            T *r = R + k * m;
-            
-            for (int j = 0; j < m; ++j)
+            int k = I[i];
+            if (k >= 0 && k < K)
             {
-                rfun(r[j], x[j]);
+                rfun(R[k], X[i]);
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < n; ++i) 
+        {
+            int k = I[i];
+            if (k >= 0 && k < K) 
+            {
+                const T *x = X + i * m;
+                T *r = R + k * m;
+                
+                for (int j = 0; j < m; ++j) 
+                {
+                    rfun(r[j], x[j]);
+                }
             }
         }
     }
