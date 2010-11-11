@@ -10,6 +10,9 @@
 %       where G{i} is the indices of entries in V whose values equal
 %       v0 + i - 1.
 %
+%   G = intgroup(K, V);
+%       This is equivalent to intgroup([1, K], V);
+%
 
 %   History
 %   -------
