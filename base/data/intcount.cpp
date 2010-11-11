@@ -1,6 +1,6 @@
 /********************************************************************
  *
- *  intcount_cimp.cpp
+ *  intcount.cpp
  *
  *  The C++ mex implementation of integer counting
  *
@@ -10,9 +10,28 @@
 
 #include <mex.h>
 
+template<typename T>
+void get_vs(const T *v, int ne, int& v0, int& v1)
+{
+    if (ne == 1)
+    {
+        v0 = 1;
+        v1 = (int)(*v);
+    }
+    else
+    {
+        v0 = (int)(v[0]);
+        v1 = (int)(v[1]);
+    }
+}
+
+
+
 inline void get_range(const mxArray *mxRgn, int& v0, int& v1)
 {
-    if (!(mxGetNumberOfElements(mxRgn) == 2 && !mxIsSparse(mxRgn)))
+    int ne = mxGetNumberOfElements(mxRgn);
+    
+    if (!( (ne == 1 || ne == 2) && !mxIsSparse(mxRgn)))
     {
         mexErrMsgIdAndTxt("intcount:invalidarg", 
                 "The range [v0 v1] should be a (non-sparse) pair.");
@@ -21,20 +40,17 @@ inline void get_range(const mxArray *mxRgn, int& v0, int& v1)
     if (mxIsDouble(mxRgn))
     {
         const double *v = (const double*)mxGetData(mxRgn);
-        v0 = (int)(v[0]);
-        v1 = (int)(v[1]);
+        get_vs(v, ne, v0, v1);
     }
     else if (mxIsSingle(mxRgn))
     {
         const float *v = (const float*)mxGetData(mxRgn);
-        v0 = (int)(v[0]);
-        v1 = (int)(v[1]);
+        get_vs(v, ne, v0, v1);
     }
     else if (mxIsInt32(mxRgn))
     {
         const int *v = (const int*)mxGetData(mxRgn);
-        v0 = v[0];
-        v1 = v[1];
+        get_vs(v, ne, v0, v1);
     }
     else
     {
