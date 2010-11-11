@@ -9,6 +9,9 @@
 %       In particular, c(i) counts the number of times that the value
 %       v0 + (i-1) occurs in V.
 %
+%   c = intcount(n, V);
+%       This is equivalent to intcount([1, n], V);
+%
 
 %   History
 %   -------
