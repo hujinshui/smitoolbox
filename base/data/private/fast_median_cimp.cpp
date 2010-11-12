@@ -82,7 +82,7 @@ inline T vec_median(const T *x, int n)
 
 
 template<typename T>
-T mat_median(const T *x, int m, int n, T *r)
+void mat_median(const T *x, int m, int n, T *r)
 {
     T *y = new T[m * n];
     ::memcpy(y, x, m * n * sizeof(T));
@@ -123,8 +123,8 @@ template<> mxArray* make_mat<float>(int m, int n)
 template<typename T>
 mxArray* do_median(const mxArray *mxX)
 {
-    int m = mxGetM(mxX);
-    int n = mxGetN(mxX);
+    int m = (int)mxGetM(mxX);
+    int n = (int)mxGetN(mxX);
     
     mxArray *mxR = 0;
     

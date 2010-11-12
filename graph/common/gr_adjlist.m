@@ -1,3 +1,31 @@
+classdef gr_adjlist < gr_edgelist
+    % The class to represent a graph using adjacency list
+    %
+    
+    % Created by Dahua Lin, on Nov 12, 2010
+    %
+    
+    
+    properties(GetAccess='public', SetAccess='private')
+        dty;    % direction type ('d': directed, 'u': undirected)
+        
+        o_ds;   % the out-degree of all nodes [n x 1 int32]
+        o_os;   % the section offset for all nodes [n x 1 int32 zero-based]
+        o_es;   % the concatenated outgoing edge array [m'x1 int32 zero-based]
+        o_ns;   % the concatenated outgoing neighbor array [m'x1 int32 zero-based]
+        
+        % for directed graph, m' = m, for undirected graph m' = 2m.
+    end
+    
+    
+    
+end
+
+
+
+
+
+
 function G = gr_adjlist(varargin)
 % Construct or verify an adjacency list representation of a graph
 %
