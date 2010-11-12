@@ -54,17 +54,17 @@ end
 sigma = feval([symatclassname '.randpdm'], d, m2);
 
 g_mp0 = gaussd.from_mp(mu, sigma);
-g_mp1 = gaussd.from_mp(mu, sigma, 'cp');
+g_mp1 = gaussd.from_mp(mu, sigma, 'ip');
 
-c1 = g_mp1.coef1;
-c2 = g_mp1.coef2;
-c0 = g_mp1.coef0;
+h = g_mp1.h;
+J = g_mp1.J;
+c0 = g_mp1.c0;
 
-g_cp0 = gaussd.from_cp(c1, c2, c0);
-g_cp1 = gaussd.from_cp(c1, c2, c0, 'mp');
+g_cp0 = gaussd.from_ip(h, J, c0);
+g_cp1 = gaussd.from_ip(h, J, c0, 'mp');
 
-g_cp0_a = gaussd.from_cp(c1, c2);
-g_cp1_a = gaussd.from_cp(c1, c2, [], 'mp');
+g_cp0_a = gaussd.from_ip(h, J);
+g_cp1_a = gaussd.from_ip(h, J, [], 'mp');
 
 % basic verification
 
@@ -77,16 +77,16 @@ basic_verify(g_cp1_a, d, m, true, true);
 
 verify_mp(g_mp0, mu, sigma);
 verify_mp(g_mp1, mu, sigma);
-verify_cp(g_cp0, c1, c2, c0);
-verify_cp(g_cp1, c1, c2, c0);
-verify_cp(g_cp0_a, c1, c2);
-verify_cp(g_cp1_a, c1, c2);
+verify_cp(g_cp0, h, J, c0);
+verify_cp(g_cp1, h, J, c0);
+verify_cp(g_cp0_a, h, J);
+verify_cp(g_cp1_a, h, J);
 
-devcheck('c0 consistency', g_cp0_a.coef0, c0, 1e-12);
-devcheck('c0 consistency', g_cp1_a.coef0, c0, 1e-12);
+devcheck('c0 consistency', g_cp0_a.c0, c0, 1e-12);
+devcheck('c0 consistency', g_cp1_a.c0, c0, 1e-12);
 
-devcheck('mu consistency', g_cp1.mean, mu, 1e-12);
-devcheck('sigma consistency', fullform(g_cp1.cov), fullform(sigma), 1e-12);
+devcheck('mu consistency', g_cp1.mu, mu, 1e-12);
+devcheck('sigma consistency', fullform(g_cp1.sigma), fullform(sigma), 1e-12);
 
 % Test evaluation
 test_eval(g_cp1);
@@ -99,12 +99,12 @@ function test_eval(g)
 d = g.dim;
 m = g.num;
 
-mu = g.mean;
+mu = g.mu;
 if isequal(mu, 0)
     mu = zeros(d, m);
 end
-ld = lndet(g.cov);
-T2 = fullform(g.coef2);
+ld = lndet(g.sigma);
+T2 = fullform(g.J);
 if ndims(T2) == 2 && m > 1
     T2 = repmat(T2, [1, 1, m]);
 end
@@ -135,20 +135,20 @@ end
 
 %% Auxiliary function
 
-function basic_verify(g, d, m, has_mp, has_cp)
+function basic_verify(g, d, m, has_mp, has_ip)
 
-assert(g.dim == d && g.num == m && g.has_mp == has_mp && g.has_cp == has_cp);
+assert(g.dim == d && g.num == m && g.has_mp == has_mp && g.has_ip == has_ip);
 
 function verify_mp(g, mu, sigma)
 
-assert(isequal(g.mean, mu) && isequal(fullform(g.cov), fullform(sigma)));
+assert(isequal(g.mu, mu) && isequal(fullform(g.sigma), fullform(sigma)));
 
-function verify_cp(g, c1, c2, c0)
+function verify_cp(g, h, J, c0)
 
-assert(isequal(g.coef1, c1) && isequal(fullform(g.coef2), fullform(c2)));
+assert(isequal(g.h, h) && isequal(fullform(g.J), fullform(J)));
 
 if nargin >= 4
-    assert(isequal(g.coef0, c0));
+    assert(isequal(g.c0, c0));
 end
 
 

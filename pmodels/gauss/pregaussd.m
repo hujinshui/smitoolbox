@@ -1,5 +1,5 @@
 classdef pregaussd
-    % The class to capture 1st and 2nd order canonical params of Gaussian
+    % The class to capture 1st and 2nd order information params of Gaussian
     %
     % This is a light-weight class basically for efficient computation
     % related to posterior Gaussian.
@@ -11,32 +11,32 @@ classdef pregaussd
     properties(GetAccess='public', SetAccess='private')
         dim;    % the space dimension
         num;    % the number of models contained in the object
-        coef1;  % the coefficient vector of the first order term
-        coef2;  % the coefficient matrix of the second order term
+        h;      % the potential vector
+        J;      % the information matrix
     end
     
     methods
         
-        function G = pregaussd(c1, c2)
+        function G = pregaussd(h, J)
             % Construct a pregaussd object
             %
-            %   G = pregaussd(c1, c2);
+            %   G = pregaussd(h, J);
             %
             
-            if ~(isfloat(c1) && ndims(c1) == 2)
-                error('pregaussd:invalidarg', 'c1 should be a numeric matrix.');
+            if ~(isfloat(h) && ndims(h) == 2)
+                error('pregaussd:invalidarg', 'h should be a numeric matrix.');
             end
             
-            [d, n] = size(c1);
+            [d, n] = size(h);
             
-            if ~(isobject(c2) && c2.d == d && (c2.n == n || c2.n == 1))
-                error('pregaussd:invalidarg', 'c2 is invalid.');
+            if ~(isobject(J) && J.d == d && (J.n == n || J.n == 1))
+                error('pregaussd:invalidarg', 'J is invalid.');
             end
             
             G.dim = d;
             G.num = n;
-            G.coef1 = c1;
-            G.coef2 = c2;
+            G.h = h;
+            G.J = J;
         end
         
         
@@ -48,9 +48,9 @@ classdef pregaussd
             %
             
             if nargin < 2
-                G1 = gaussd.from_cp(G.coef1, G.coef2);
+                G1 = gaussd.from_cp(G.h, G.J);
             else
-                G1 = gaussd.from_cp(G.coef1, G.coef2, [], ump);
+                G1 = gaussd.from_cp(G.h, G.J, [], ump);
             end                
         end
         
@@ -61,7 +61,7 @@ classdef pregaussd
             %   v = G.get_mean();
             %   
             
-            v = G.coef2 \ G.coef1;
+            v = G.J \ G.h;
         end
         
         
@@ -71,7 +71,7 @@ classdef pregaussd
             %   C = G.get_cov();
             %
             
-            C = inv(G.coef2);
+            C = inv(G.J);
         end
         
         
@@ -88,8 +88,8 @@ classdef pregaussd
                 error('pregaussd:invalidarg', 'G should contain only one distribution.');
             end
                                     
-            c1 = G.coef1;
-            c2 = G.coef2;
+            h_ = G.h;
+            J_ = G.J;
                                     
             if nargin < 3
                 X = randn(G.dim, n);
@@ -97,11 +97,11 @@ classdef pregaussd
                 X = rstream.randn(G.dim, n);
             end
             
-            C = inv(c2);
+            C = inv(J_);
             X = C.choltrans(X);
             
-            if ~isequal(c1, 0)
-                mu = C * c1; %#ok<MINV>
+            if ~isequal(h_, 0)
+                mu = C * h_; %#ok<MINV>
                 X = bsxfun(@plus, X, mu);
             end
         end

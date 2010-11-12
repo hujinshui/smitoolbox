@@ -1,41 +1,42 @@
 classdef gaussd
-    % The class to represent Gaussian distribution
+    % The class to represent Gaussian distribution(s)
     %
     %   Each object of this class can contain one or multiple Gaussian
     %   distributions. A Gaussian distribution can be parameterized by
-    %   either mean parameters or canonical parameters
+    %   either mean parameters or information parameters
     %
-    %   Mean parameters are
-    %   - mean:     the mean vector 
-    %   - cov:      the covariance matrix object
+    %   Mean parameters include
+    %   - mu:       the mean vector 
+    %   - sigma:    the covariance matrix object
     %
-    %   Canonical parameterization is given by 
-    %   - coef0:   the constant term
-    %   - coef1:   the coefficient vector of first order term
-    %   - coef2:   the coefficient matrix of second order term    
+    %   Information parameters include
+    %   - c0:      the constant term
+    %   - h:       the potential vector
+    %   - J:       the information matrix
     %  
     %   These two types of parameterization are related to each other
     %   as follows:
-    %   - coef2 = inv(cov)
-    %   - coef1 = inv(cov) * mu
-    %   - coef0 = mu' * inv(sigma) * mu 
+    %   - J = inv(sigma)
+    %   - h = inv(sigma) * mu
+    %   - c0 = mu' * inv(sigma) * mu 
     %   Or, equivalently,
-    %   - cov = inv(coef2)
-    %   - mean = cov * coef1
+    %   - sigma = inv(J)
+    %   - mu = inv(J) * h
     %
     %   For Gaussian distributions with zero mean, one can simply set
-    %   coef1 or mean to a scalar 0 despite the actual dimension of 
+    %   mu or h to a scalar 0, despite the actual dimension of 
     %   the space.
     %   
     %   Generally, the evaluation of Mahalanobis distance or probability
     %   density function, and the posterior computation relies on the
-    %   canonical parameters, while sampling relies on mean parameters.
+    %   information parameters, while sampling relies on mean parameters.
     %
     
     %   History
     %   -------
     %       - Created by Dahua Lin, on June 19, 2010
     %       - Modified by Dahua Lin, on Sep 15, 2010
+    %       - Modified by Dahua Lin, on Nov 12, 2010
     %           
     %
     
@@ -46,16 +47,16 @@ classdef gaussd
         dim;    % the dimension of the vector space
         num;    % the number of models contained in the object
                         
-        mean;   % the mean vector(s)
-        cov;    % the covariance matrix object
+        mu;     % the mean vector(s)
+        sigma;  % the covariance matrix object(s)
         
-        coef0;  % the constant term(s) in canonical parameters: mean' * inv(cov) * mean
-        coef1;  % the coefficient vector(s) of the linear term: inv(cov) * mean
-        coef2;  % the coefficient matrix object of the quadratic term: inv(cov)        
+        c0;     % the constant term(s) in information parameters
+        h;      % the potential vector
+        J;      % the information matrix       
         ldcov;  % the value of log(det(cov))
         
         has_mp = false; % whether the mean parameters are available
-        has_cp = false; % whether the canonical parameters are available
+        has_ip = false; % whether the information parameters are available
     end
     
     
@@ -63,7 +64,7 @@ classdef gaussd
     
     methods(Static)
         
-        function G = from_mp(mu, sigma, ucp)
+        function G = from_mp(mu, sigma, uip)
             % Create Gaussian distribution(s) from mean parameterization
             %
             %   G = gaussd.from_mp(mu, sigma);
@@ -79,8 +80,8 @@ classdef gaussd
             %                object of a symmetric matrix class.
             %                (udmat, dmat, gsymat, etc).
             %
-            %   G = gaussd.from_mp(mu, sigma, 'cp');
-            %       additionally derives the canonical parameters.
+            %   G = gaussd.from_mp(mu, sigma, 'ip');
+            %       additionally derives the information parameters.
             %                                    
             
             % verify input types
@@ -118,17 +119,17 @@ classdef gaussd
                 end
             end
             
-            % determine whether to use cp
+            % determine whether to use ip
             
             if nargin >= 3
-                if strcmp(ucp, 'cp')
-                    ucp = true;
+                if strcmp(uip, 'ip')
+                    uip = true;
                 else
                     error('gaussd:from_mp:invalidarg', ...
-                        'The 3rd argument should be ''cp''.');
+                        'The 3rd argument should be ''ip''.');
                 end
             else
-                ucp = false;
+                uip = false;
             end
             
             % construct Gaussian object
@@ -137,70 +138,68 @@ classdef gaussd
             
             G.dim = d;
             G.num = n;
-            G.mean = mu;
-            G.cov = sigma;
+            G.mu = mu;
+            G.sigma = sigma;
             G.has_mp = true;
                             
             % derive canonical parameters (if requested)
             
-            if ucp
-                c2 = inv(sigma);
+            if uip
+                Jm = inv(sigma);
                 ldc = lndet(sigma);
                 
                 if isequal(mu, 0)
-                    c1 = 0;
-                    c0 = 0;
+                    hv = 0;
+                    cv = 0;
                 else
                     if sn == 1
-                        c1 = c2 * mu; %#ok<MINV>
+                        hv = Jm * mu; %#ok<MINV>
                     else
-                        c1 = cmv(c2, mu);
+                        hv = cmv(Jm, mu);
                     end
-                    c0 = dot(c1, mu, 1);
+                    cv = dot(hv, mu, 1);
                 end
                 
-                G.coef0 = c0;
-                G.coef1 = c1;
-                G.coef2 = c2;
+                G.c0 = cv;
+                G.h = hv;
+                G.J = Jm;
                 G.ldcov = ldc;
-                G.has_cp = true;                
+                G.has_ip = true;                
             end
         end        
         
-        function G = from_cp(c1, c2, c0, ump)
-            % Create Gaussian distribution(s) from canonical parameters
+        
+        function G = from_ip(h, J, c0, ump)
+            % Create Gaussian distribution(s) from information parameters
             %
-            %   G = gaussd.from_cp(c1, c2);
-            %   G = gaussd.from_cp(c1, c2, c0);
+            %   G = gaussd.from_ip(h, J);
+            %   G = gaussd.from_ip(h, J, c0);
             %       creates an object to represent Gaussian distributions
-            %       using canonical parameterization.
+            %       using information parameterization.
             %
             %       Input:
-            %       - c1:   the coefficient of 1st order term [d x n matrix]
-            %               (inv(sigma) * mu).
-            %               For the models with zero means, c1 can be
-            %               simply input as a scalar 0.
-            %
-            %       - c2:   the coefficient of 2nd order term
-            %               (inv(sigma))
+            %       - h:    the potential vectors [d x n matrix]
+            %               For the models with zero means, h can be
+            %               simply input as a scalar 0.            
+            %       - J:    the information matrix object
             %       - c0:   the constant term. The function will compute
             %               c0 if it is not specified.
             %
-            %   G = gaussd.from_cp(c1, c2, [], 'mp');
-            %   G = gaussd.from_cp(c1, c2, c0, 'mp');
+            %   G = gaussd.from_ip(h, J, [], 'mp');
+            %   G = gaussd.from_ip(h, J, c0, 'mp');
             %       additionally derives the mean parameters.
             %
             
             % verify input types
             
-            if ~(isfloat(c1) && ndims(c1) == 2)
+            if ~(isfloat(h) && ndims(h) == 2)
                 error('gaussd:from_cp:invalidarg', ...
-                    'c1 should be a numeric matrix.');
+                    'h should be a numeric matrix.');
             end
             
-            if ~isobject(c2)
+            if ~isobject(J)
                 error('gaussd:from_cp:invalidarg', ...
-                    'c2 should be an object of symmetric matrix.');
+                    'J should be an object of symmetric matrix.');
             end
             
             if nargin < 3
@@ -220,20 +219,20 @@ classdef gaussd
             
             % determine d and n
             
-            if isequal(c1, 0)
-                d = c2.d;
-                n = c2.n;             
+            if isequal(h, 0)
+                d = J.d;
+                n = J.n;             
             else
-                [d, n] = size(c1);
-                if c2.d ~= d
+                [d, n] = size(h);
+                if J.d ~= d
                     error('gaussd:from_cp:invalidarg', ...
-                        'The dimension of c2 does not match that of c1.');
+                        'The dimension of J does not match that of h.');
                 end
                 
-                sn = c2.n;
+                sn = J.n;
                 if sn > 1 && sn ~= n
                     error('gaussd:from_cp:invalidarg', ...
-                        'The c2.n does not match size(c1, 2).');
+                        'The J.n does not match size(h, 2).');
                 end
             end
             
@@ -241,24 +240,24 @@ classdef gaussd
             % determine mu and sigma                       
             
             if ump                
-                sigma = inv(c2);
-                if isequal(c1, 0)
-                    mu = 0;
+                sigma_ = inv(J);
+                if isequal(h, 0)
+                    mu_ = 0;
                 else
                     if sn == 1
-                        mu = sigma * c1; %#ok<MINV>
+                        mu_ = sigma_ * h; %#ok<MINV>
                     else
-                        mu = cmv(sigma, c1);
+                        mu_ = cmv(sigma_, h);
                     end
                 end                
             else
-                if isequal(c1, 0)
-                    mu = 0;
+                if isequal(h, 0)
+                    mu_ = 0;
                 else
                     if sn == 1
-                        mu = c2 \ c1;
+                        mu_ = J \ h;
                     else
-                        mu = cdv(c2, c1);
+                        mu_ = cdv(J, h);
                     end
                 end
             end
@@ -271,14 +270,14 @@ classdef gaussd
                         'c0 should be a numeric vector of size 1 x n.');
                 end
             else                
-                if isequal(c1, 0)
+                if isequal(h, 0)
                     c0 = 0;
                 else
-                    c0 = dot(c1, mu, 1);
+                    c0 = dot(h, mu_, 1);
                 end
             end                      
             
-            ldc = -lndet(c2);
+            ldc = -lndet(J);
             
             % construct Gaussian object
             
@@ -286,16 +285,16 @@ classdef gaussd
             
             G.dim = d;
             G.num = n;
-            G.coef0 = c0;
-            G.coef1 = c1;
-            G.coef2 = c2;
+            G.c0 = c0;
+            G.h = h;
+            G.J = J;
             G.ldcov = ldc;
             
-            G.has_cp = true;
+            G.has_ip = true;
             
             if ump
-                G.mean = mu;
-                G.cov = sigma;
+                G.mu = mu_;
+                G.sigma = sigma_;
                 G.has_mp = true;
             end           
         end
@@ -323,46 +322,46 @@ classdef gaussd
             %   computation.
             %
             
-            if ~G.has_cp
+            if ~G.has_ip
                 error('gaussd:sqmahdist:nocp', 'Canonical parameters are required.');
             end
             
             % take parameters
             
-            c0 = G.coef0;
-            c1 = G.coef1;
-            c2 = G.coef2;
+            c0_ = G.c0;
+            h_ = G.h;
+            J_ = G.J;
             
             if nargin >= 3
-                c0 = c0(:, si);
-                if ~isequal(c1, 0)
-                    c1 = c1(:, si);
+                c0_ = c0_(:, si);
+                if ~isequal(h_, 0)
+                    h_ = h_(:, si);
                 end
-                if c2.n ~= 1
-                    c2 = c2.take(si);
+                if J_.n ~= 1
+                    J_ = J_.take(si);
                 end
             end                        
                 
             % compute 
             
-            t2 = quad(c2, X, X);
+            t2 = quad(J_, X, X);
             
-            if isequal(c1, 0)
+            if isequal(h_, 0)
                 D = t2;
             else
-                t1 = c1' * X;
+                t1 = h_' * X;
                 
-                n1 = size(c1, 2);
-                n2 = c2.n;
+                n1 = size(h_, 2);
+                n2 = J_.n;
                 if n1 == 1
-                    D = t2 - 2 * t1 + c0;
+                    D = t2 - 2 * t1 + c0_;
                 else
                     if n2 == 1
                         D = bsxfun(@minus, t2, 2 * t1);
                     else
                         D = t2 - 2 * t1;
                     end
-                    D = bsxfun(@plus, D, c0.');
+                    D = bsxfun(@plus, D, c0_.');
                 end
             end
         end
@@ -393,7 +392,7 @@ classdef gaussd
                 a0 = G.ldcov + G.dim * log(2 * pi);
             else
                 D = sqmahdist(G, X, si);
-                if G.coef2.n == 1
+                if G.J.n == 1
                     a0 = G.ldcov + G.dim * log(2 * pi);
                 else
                     a0 = G.ldcov(:, si) + G.dim * log(2 * pi);
@@ -435,46 +434,44 @@ classdef gaussd
             end            
         end                              
         
-        function pG = inject(G, c1a, c2a, i)
+        function pG = inject(G, ha, Ja, i)
             % Compute the posterior with injected observations
             %
-            %   pG = inject(G, c1a, c2a);
-            %   pG = inject(G, c1a, c2a, i);
+            %   pG = inject(G, ha, Ja);
+            %   pG = inject(G, ha, Ja, i);
             %       computes the posterior Gaussian distribution with 
-            %       the observations injected with c1a and c2a, which
-            %       are quantities to be added to coef1 and coef2
-            %       respectively.
+            %       the observations injected with ha and Ja, which
+            %       are quantities to be added to h and J respectively.            
             %
             
-            if ~G.has_cp
+            if ~G.has_ip
                 error('gaussd:inject:nocp', 'Canonical parameters are required.');
             end
             
-            c10 = G.coef1;
-            c20 = G.coef2;
+            h0 = G.h;
+            J0 = G.J;
             if ~isempty(i)
-                if ~isequal(c10, 0)
-                    c10 = c10(:, i);
+                if ~isequal(h0, 0)
+                    h0 = h0(:, i);
                 end
                 
-                if c20.n ~= 1
-                    c20 = c20.take(i);
+                if J0.n ~= 1
+                    J0 = J0.take(i);
                 end
             end
             
-            if isequal(c10, 0)
-                c1 = c1a;
+            if isequal(h0, 0)
+                h1 = ha;
             else
                 if size(c10, 2) == size(c1a, 2)
-                    c1 = c10 + c1a;
+                    h1 = h0 + ha;
                 else
-                    c1 = bsxfun(@plus, c10, c1a);
+                    h1 = bsxfun(@plus, h0, ha);
                 end
             end
             
-            c2 = c20 + c2a;     
-            
-            pG = pregaussd(c1, c2);
+            J1 = J0 + Ja;                 
+            pG = pregaussd(h1, J1);
         end
         
     end
