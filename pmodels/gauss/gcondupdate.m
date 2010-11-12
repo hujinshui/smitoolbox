@@ -1,4 +1,4 @@
-function [c1a, c2a] = gcondupdate(A, X, isigma, w)
+function [ha, Ja] = gcondupdate(A, X, isigma, w)
 % Compute the posterior update from Gaussian conditional distribution
 %
 %   This function is based on the conditional distribution formulated
@@ -11,8 +11,8 @@ function [c1a, c2a] = gcondupdate(A, X, isigma, w)
 %   the posterior update to the Gaussian prior of u, given observed
 %   samples x.
 %
-%   [c1a, c2a] = gcondupdate(A, X, isigma);
-%   [c1a, c2a] = gcondupdate(A, X, isigma, w);
+%   [ha, Ja] = gcondupdate(A, X, isigma);
+%   [ha, Ja] = gcondupdate(A, X, isigma, w);
 %       computes the posterior update as introduced above. Here, A
 %       is the transform matrix. For formulation (1), A should be input
 %       as an empty array.
@@ -24,12 +24,12 @@ function [c1a, c2a] = gcondupdate(A, X, isigma, w)
 %       w. Here, w can be either a row vector of size 1 x n, or a 
 %       scalar. If w is omitted, all samples are with a weight 1.
 %
-%       In the output, c1a and c2a are respectively the updates to 
-%       1st and 2nd order coefficients. The formulas to compute c1a
-%       and c2a are given below:
+%       In the output, ha and Ja are respectively the updates to 
+%       potential vectors and information matrix. The formulas to 
+%       compute c1a and c2a are given below:
 %
-%       c1a = sum_i w_i * A' * isigma * x_i;
-%       c2a = sum_i w_i * A' * isigma * A;
+%       ha = sum_i w_i * A' * isigma * x_i;
+%       Ja = sum_i w_i * A' * isigma * A;
 %
 
 %   History
@@ -74,21 +74,21 @@ end
 
 if isscalar(w)
     if w == 1
-        c1a = isigma * sum(X, 2);
-        c2a = isigma .* n;
+        ha = isigma * sum(X, 2);
+        Ja = isigma .* n;
     else
-        c1a = isigma * (sum(X, 2) * w);
-        c2a = isigma .* (n * w);
+        ha = isigma * (sum(X, 2) * w);
+        Ja = isigma .* (n * w);
     end
 else
-    c1a = isigma * (X * w');
-    c2a = isigma .* sum(w);
+    ha = isigma * (X * w');
+    Ja = isigma .* sum(w);
 end
 
 
 if ~isempty(A)    
-    c1a = A' * c1a;
-    c2a = gsymat(A' * (c2a * A));
+    ha = A' * ha;
+    Ja = gsymat(A' * (Ja * A));
 end
    
 
