@@ -5,10 +5,10 @@ classdef gr_edgelist
     % Created by Dahua Lin, on Nov 12, 2010
     %
     
-    properties(GetAccess='public', SetAccess='private')        
-        dty;    % the direction type ('d': directed, 'u': undirected)
-        nv;     % the number of vertices
-        ne;     % the number of edges
+    properties(GetAccess='public', SetAccess='protected')        
+        dtype;      % the direction type ('d': directed, 'u': undirected)
+        nv = 0;     % the number of vertices
+        ne = 0;     % the number of edges
         
         es;     % the source vertices of all edges [ne x 1 int32 zero-based]
         et;     % the target vertices of all edges [ne x 1 int32 zero-based]
@@ -25,7 +25,7 @@ classdef gr_edgelist
             %   s = G.is_directed;
             %
             
-            b = G.dty == 'd';
+            b = G.dtype == 'd';
         end        
         
         function s = source_vs(G)
@@ -83,16 +83,17 @@ classdef gr_edgelist
     end
     
         
-    methods
+    methods(Static)
     
         %% Constructor
         
-        function G = gr_edgelist(dty, varargin)
-            % Construct a graph object with edge list
+        function G = from_amat(dty, A)
+            % Construct a graph object from affinity matrix
             %
-            %   G = gr_edgelist('d', A);
-            %   G = gr_edgelist('u', A);
-            %       constructs an edge list graph from an adjacency matrix.
+            %   G = gr_edgelist.from_amat('d', A);
+            %   G = gr_edgelist.from_amat('u', A);
+            %       constructs an edge list graph from an adjacency 
+            %       matrix.
             %
             %       The first argument indicates whether the graph is
             %       directed ('d'), or undirected ('u').
@@ -105,10 +106,60 @@ classdef gr_edgelist
             %       For undirected graph, only those edges (s, t) with 
             %       s < t are preserved.
             %
-            %   G = gr_edgelist(dty, n, [s, t]);
-            %   G = gr_edgelist(dty, n, [s, t, w]);
-            %   G = gr_edgelist(dty, n, s, t);
-            %   G = gr_edgelist(dty, n, s, t, w);
+            
+            % verify input
+            
+            if ~(ischar(dty) && isscalar(dty) && (dty == 'u' || dty == 'd'))
+                error('gr_edgelist:invalidarg', 'dty is invalid.');
+            end
+            
+            n = size(A, 1);
+            if ~(isnumeric(A) && ndims(A) == 2 && n == size(A,2))
+                error('gr_edgelist:invalidarg', ...
+                    'A should be a square numeric matrix.');
+            end
+            
+            % extract edges
+            
+            if isnumeric(A)
+                [s, t, w] = find(A);
+            else
+                [s, t] = find(A);
+                w = [];
+            end
+            
+            if dty == 'u'
+                se = find(s < t);
+                s = s(se);
+                t = t(se);
+                
+                if ~isempty(w)
+                    w = w(se);
+                end
+            end
+            
+            m = numel(s);
+            
+            % construct object
+            
+            G = gr_edgelist();
+            G.dtype = dty;
+            G.nv = n;
+            G.ne = m;
+            G.es = int32(s) - 1;
+            G.et = int32(t) - 1;
+            G.ew = w;            
+            
+        end
+        
+        
+        function G = from_edges(dty, n, varargin)
+            % Construct a graph object from given edges
+            %
+            %   G = gr_edgelist.from_edges(dty, n, [s, t]);
+            %   G = gr_edgelist.from_edges(dty, n, [s, t, w]);
+            %   G = gr_edgelist.from_edges(dty, n, s, t);
+            %   G = gr_edgelist.from_edges(dty, n, s, t, w);
             %       constructs an edge list graph from explicitly given
             %       edges. 
             %
@@ -117,87 +168,61 @@ classdef gr_edgelist
             %
             %       Here, s, t are source and target node indices, and 
             %       w are corresponding edge weights.
-            % 
+            %
             
-            % verify dty
+            % verify input
             
             if ~(ischar(dty) && isscalar(dty) && (dty == 'u' || dty == 'd'))
                 error('gr_edgelist:invalidarg', 'dty is invalid.');
             end
-
-            % do construction
+            if ~(isnumeric(n) && isscalar(n) && n >= 0)
+                error('gr_edgelist:invalidarg', ...
+                    'n should be a non-negative scalar.');
+            end
+            n = double(n);
             
-            if nargin == 2 % from affinity matrix
+            % check edges
+            
+            if nargin == 3
                 
-                A = varargin{1};                
-                n = size(A, 1);
-                if ~(isnumeric(A) && ndims(A) == 2 && n == size(A,2))
-                    error('gr_edgelist:invalidarg', ...
-                        'A should be a square numeric matrix.');
-                end
-                
-                if isnumeric(A)
-                    [s, t, w] = find(A);
-                else
-                    [s, t] = find(A);
-                    w = [];
-                end
-                
-                if dty == 'u'
-                    se = find(s < t);
-                    s = s(se);
-                    t = t(se);
-                    
-                    if ~isempty(w)
-                        w = w(se);
-                    end
-                end
-                
-                m = numel(s);   
-                
-            elseif nargin == 3 % from edge array
-                
-                n = varargin{1};
-                E = varargin{2};
-                
-                if ~(isnumeric(n) && isscalar(n) && n >= 0)
-                    error('gr_edgelist:invalidarg', ...
-                        'n should be a non-negative scalar.');
-                end
-                n = double(n);
-                
+                E = varargin{1};
                 if ~(ndims(E) == 2 && isnumeric(E))
                     error('gr_edgelist:invalidarg', ...
                         'The 2nd argument should be a numeric matrix.');
                 end
-                
-                m = size(E, 1);
-                
-                if size(E,2) == 2
+                                
+                if isempty(E)
+                    m = 0;
+                    s = [];
+                    t = [];
+                    w = [];
+                    
+                elseif size(E,2) == 2
+                    m = size(E, 1);
                     s = E(:,1);
                     t = E(:,2);
                     w = [];
                     
                 elseif size(E,2) == 3
+                    m = size(E, 1);
                     s = E(:,1);
                     t = E(:,2);
-                    w = E(:,3);
+                    w = E(:,3);                                        
                     
                 else
                     error('gr_edgelist:invalidarg', ...
                         'The 2nd argument should have 2 or 3 columns.');
-                end
+                end                
                 
-            elseif nargin == 4 || nargin == 5 % from vertex lists
+            elseif nargin == 4 || nargin == 5
                 
-                n = varargin{1};
-                s = varargin{2};
-                t = varargin{3};
+                s = varargin{1};
+                t = varargin{2};
                 
                 if nargin < 5
                     w = [];
                 else
-                    w = varargin{4};
+                    w = varargin{3};
                 end
                 
                 if ~(isnumeric(n) && isscalar(n) && n >= 0)
@@ -207,11 +232,11 @@ classdef gr_edgelist
                 n = double(n);                
                 
                 % verify s , t, and w
-                if ~(isnumeric(s) && isreal(s) && isvector(s))
+                if ~(isnumeric(s) && isreal(s) && (isvector(s) || isempty(s)))
                     error('gr_edgelist:invalidarg', 's should be a real vector.');
                 end
                 
-                if ~(isnumeric(t) && isreal(t) && isvector(t))
+                if ~(isnumeric(t) && isreal(t) && (isvector(t) || isempty(t)))
                     error('gr_edgelist:invalidarg', 't should be a real vector.');
                 end
                 
@@ -233,21 +258,29 @@ classdef gr_edgelist
                     if size(w,2) > 1; w = w.'; end
                 end
                 
+                
             else
                 error('gr_edgelist:invalidarg', ...
                     'The number of input arguments are invalid.');
-            end            
+            end
             
-            G.dty = dty;
+            
+            % construct object
+            
+            G = gr_edgelist();
+            G.dtype = dty;
             G.nv = n;
             G.ne = m;
             G.es = int32(s) - 1;
             G.et = int32(t) - 1;
-            G.ew = w;
-                        
+            G.ew = w;  
+            
         end
+    end
+            
         
-        
+    
+    methods
         %% Info dump
         
         function dump(G)
@@ -259,10 +292,14 @@ classdef gr_edgelist
             n = G.nv;
             m = G.ne;
             
-            fprintf('Edge List: \n');
+            if G.is_directed
+                fprintf('Directed Edge List: \n');
+            else
+                fprintf('Undirected Edge List: \n');
+            end
             fprintf('------------------------\n');
             fprintf('    # nodes = %d\n', n);
-            fprintf('    # edges = %d\n', m);
+            fprintf('    # edges = %d\n', m);            
             fprintf('\n');
                         
             fprintf('  edges: \n');
@@ -283,8 +320,23 @@ classdef gr_edgelist
         end
         
         
-    end
-    
+        %% convert to adjlist
+        
+        function Ga = to_adjlist(G)
+            % convert to adjacency list
+            %
+            %   G.to_adjlist();
+            %
+            
+            if ~isa(G, 'gr_adjlist')
+                Ga = gr_adjlist.from_base(G);
+            else
+                Ga = G;
+            end
+        end
+        
+        
+    end    
     
 end
 
