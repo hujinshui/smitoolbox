@@ -6,7 +6,7 @@ function [vs, preds, ford] = gr_dfs(G, seeds)
 %   [vs, preds, ford] = gr_dfs(G, seeds);
 %
 %       performs depth-first-search traversal along the graph G.
-%       G can be an affinity matrix or a mgraph struct.
+%       G should be an object of class gr_adjlist.
 %
 %       seeds is an array comprised of the indices of seed nodes.
 %       The search will be conducted as follows. It uses seeds(1)
@@ -24,7 +24,9 @@ function [vs, preds, ford] = gr_dfs(G, seeds)
 
 %% verify input
 
-G = gr_adjlist(G);
+if ~isa(G, 'gr_adjlist')
+    error('gr_dfs:invalidarg', 'G should be a gr_adjlist object.');
+end
 
 if ~(isnumeric(seeds) && ~issparse(seeds))
     error('gr_dfs:invalidarg', 'seeds should be a non-sparse numeric array.');

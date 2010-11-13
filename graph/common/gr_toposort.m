@@ -14,7 +14,10 @@ function vs = gr_toposort(G)
 
 %% verify input
 
-G = gr_adjlist(G, 'd');
+if ~(isa(G, 'gr_adjlist') && G.is_directed)
+    error('gr_toposort:invalidarg', 'G should be a (directed) gr_adjlist object.');
+end
+
 
 %% main
 

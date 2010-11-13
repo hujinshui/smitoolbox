@@ -6,7 +6,7 @@ function [vs, parents, dists] = gr_bfs(G, seeds)
 %   [vs, parents, dists] = gr_bfs(G, seeds);
 %
 %       performs breadth-first-search traversal along the graph G, which
-%       should be an adjlist.
+%       should be a gr_adjlist object.
 %
 %       seeds is an array comprised of the indices of seed nodes, which
 %       are all discovered initially.
@@ -22,8 +22,10 @@ function [vs, parents, dists] = gr_bfs(G, seeds)
 
 %% verify input
 
-G = gr_adjlist(G);
-
+if ~isa(G, 'gr_adjlist')
+    error('gr_bfs:invalidarg', 'G should be a gr_adjlist object.');
+end
+    
 if ~(isnumeric(seeds) && ~issparse(seeds))
     error('gr_bfs:invalidarg', 'seeds should be a non-sparse numeric array.');
 end

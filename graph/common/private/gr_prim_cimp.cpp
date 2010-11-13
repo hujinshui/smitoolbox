@@ -44,25 +44,25 @@ struct PrimRecord
        
     mxArray *vertices_to_matlab() const
     {
-        return iter_to_matlab_column(++vertices.begin(), vertices.size()-1, 
+        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1, 
                 vertex_to_mindex());        
     }
     
     mxArray *edges_to_matlab() const
     {
-        return iter_to_matlab_column(++vertices.begin(), vertices.size()-1,
+        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
                 unary_chain(vertex_to_index(), arr_map(edge_map), vertex_to_mindex()) );                
     } 
     
     mxArray *parents_to_matlab() const
     {
-        return iter_to_matlab_column(++vertices.begin(), vertices.size()-1,
+        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
                 unary_chain(vertex_to_index(), arr_map(parent_map), vertex_to_mindex()) );                
     }    
     
     mxArray *eweights_to_matlab() const
     {
-        return iter_to_matlab_column(++vertices.begin(), vertices.size()-1,
+        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
                 unary_chain(vertex_to_index(), arr_map(eweight_map)) );                
     }         
     

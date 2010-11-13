@@ -33,59 +33,59 @@ struct matlab_graph_repr
     
     bool has_weight() const
     {
-        return !mG.get_field("w").is_empty();
+        return !mG.get_property("ew").is_empty();
     }
     
     mxClassID weight_class() const
     {
-        return mG.get_field("w").class_id();
+        return mG.get_property("ew").class_id();
     }
     
     graph_size_t n() const
     {
-        return (graph_size_t)mG.get_field("n").get_double_scalar();
+        return (graph_size_t)mG.get_property("nv").get_double_scalar();
     }
     
     graph_size_t m() const
     {
-        return (graph_size_t)mG.get_field("m").get_double_scalar();
+        return (graph_size_t)mG.get_property("ne").get_double_scalar();
     }
     
     const vertex_t* s() const
     {
-        return mG.get_field("s").get_data<vertex_t>();
+        return mG.get_property("es").get_data<vertex_t>();
     }
     
     const vertex_t *t() const
     {
-        return mG.get_field("t").get_data<vertex_t>();
+        return mG.get_property("et").get_data<vertex_t>();
     }
     
     template<typename TWeight>
     const TWeight *w() const
     {
-        MArray mx = mG.get_field("w");
+        MArray mx = mG.get_property("ew");
         return mx.get_data<TWeight>();
     }
     
     const graph_size_t *o_degs() const
     {
-        return mG.get_field("o_ds").get_data<graph_size_t>();
+        return mG.get_property("o_ds").get_data<graph_size_t>();
     }
     
     const graph_size_t *o_offsets() const
     {
-        return mG.get_field("o_os").get_data<graph_size_t>();
+        return mG.get_property("o_os").get_data<graph_size_t>();
     }
     
     const edge_t *o_edges() const
     {
-        return mG.get_field("o_es").get_data<edge_t>();
+        return mG.get_property("o_es").get_data<edge_t>();
     }
     
     const vertex_t *o_neighbors() const
     {
-        return mG.get_field("o_ns").get_data<vertex_t>();
+        return mG.get_property("o_ns").get_data<vertex_t>();
     }
     
 
