@@ -13,6 +13,7 @@ function laplacesm1d_demo(x0, noise_mag, gker)
 %   -------
 %       - Created by Dahua Lin, on Sep 19, 2010
 %       - Modified by Dahua Lin, on Nov 2, 2010
+%       - Modified by Dahua Lin, on Nov 13, 2010
 %
 
 %% verify input
@@ -44,7 +45,7 @@ x = x0 + randn(size(x0)) * noise_mag;
 % construct MRF
 
 [s,t,w] = gridgraph1d(n, gker);
-g = gr_adjlist('u', n, s, t, w);
+g = gr_adjlist.from_edges('u', n, s, t, w);
 a = 1;
 
 % do smooth

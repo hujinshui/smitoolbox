@@ -6,8 +6,8 @@ function [h, coords] = gr_plot(g, coords, varargin)
 %   h = gr_plot(g, coords, ...);
 %       plots the graph g. 
 %
-%       In input, g is a struct in form of gr_edgelist (including
-%       gr_adjlist), or an affinity matrix. 
+%       In input, g can be either an object of class gr_edgelist, or
+%       an affinity matrix.
 %
 %       coords is an n x 2 or n x 3 array that gives the coordinates of 
 %       the graph (in 2D or 3D space). If coord is 2 or 3, then the
@@ -23,14 +23,29 @@ function [h, coords] = gr_plot(g, coords, varargin)
 %
 
 
-% Created by Dahua Lin, on Nov 5, 2012
-%
+%   History
+%   -------
+%       - Created by Dahua Lin, on Nov 5, 2010
+%       - Modified by Dahua Lin, on Nov 13, 2010
+%           - use new graph class
 
 
 %% verify input arguments
+   
+if isa(g, 'gr_edgelist')
+    n = g.nv;
+elseif (isnumeric(g) || islogical(g))
+    if ~(ndims(g) == 2 && size(g,1) == size(g,2))
+        error('gr_plot:invalidarg', ...
+            'The affinity matrix should be a square matrix.');
+    end
+    n = size(g,1);
+else
+    error('gr_plot:invalidarg', ...
+        'g should be either a gr_edgelist object or an affinity matrix.');
+end
 
-g = gr_edgelist(g);
-
+   
 if isscalar(coords)
     d = coords;
     if ~(isequal(d, 2) || isequal(d, 3))
@@ -38,7 +53,8 @@ if isscalar(coords)
     end
     coords = [];
 else
-    if ~(isnumeric(coords) && ndims(coords) == 2 && (size(coords,2) == 2 || size(coords,2) == 3))
+    if ~(isnumeric(coords) && ndims(coords) == 2 && ...
+            size(coords,1) == n && (size(coords,2) == 2 || size(coords,2) == 3))
         error('gr_plot:invalidarg', ...
             'coords should be an n x 2 or n x 3 numeric matrix.');
     end
@@ -62,8 +78,8 @@ end
 
 % generate plot
 
-s = g.s + 1;
-t = g.t + 1;
+s = g.source_vs;
+t = g.target_vs;
 
 if d == 2
     x = gen_coord_seq(coords(:, 1), s, t);

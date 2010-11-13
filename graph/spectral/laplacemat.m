@@ -1,28 +1,34 @@
 function L = laplacemat(g, a)
 % Compute the Laplacian matrix of a graph
 %
-%   L = laplacemat(g);
-%   L = laplacemat(g, a);
-%       computes the Laplacian matrix, which is defined as follows:
+%   L = laplacemat(G);
+%   L = laplacemat(G, a);
+%       Computes the (regularized) Laplacian matrix for graph G. 
 %
-%           L = diag(d + a) - W.
+%       Suppose A is the affinity matrix of G, and d is the vector
+%       of weighted degrees. Then the Laplacian matrix is defined
+%       as follows:
 %
-%       Here, W the affinity matrix of the graph.
+%           L = diag(d + a) - A;
 %
-%       In the input, g can be a gr_edgelist (including gr_adjlist) 
-%       struct, or an affinity matrix; a can be in either of the following 
-%       form:
-%       - a vector of length n
-%       - a scalar
-%       - omited or empty, when a is 0.
+%       Input arguments:
+%       
+%         - The graph G can be either an affinity matrix, or a object 
+%           of class gr_edgelist (or its sub class).
 %
-%       The returned matrix L will be a sparse matrix when g is 
-%       a sparse matrix or a graph struct, or a dense matrix when
-%       g is a dense matrix.
+%         - The regularization coefficient a can be in either of the 
+%           following forms:
+%               - a vector of length n
+%               - a scalar
+%               - omited or empty, when a is 0.
+%
+%       The returned matrix L will be a sparse matrix when G is 
+%       a sparse matrix or a gr_edgelist object, or a dense matrix 
+%       when G is a dense matrix.
 %
 %   Remarks
 %   -------
-%       - The caller should ensure that g is an undirected graph
+%       - The caller should ensure that G is an undirected graph
 %         (when input as a graph struct) or a symmetric matrix
 %         (when input as an affinity matrix).
 %
@@ -35,12 +41,14 @@ function L = laplacemat(g, a)
 %       - Created by Dahua Lin, on Apr 17, 2010
 %       - Modified by Dahua Lin, on Nov 2, 2010
 %           - support new graph structs.
+%       - Modified by Dahua Lin, on Nov 13, 2010
+%           - based on new graph class
 %
 
 %% verify input arguments
 
-if isstruct(g)
-    W = edgelist_to_adjmat(g, 'u');    
+if isa(g, 'gr_edgelist') && g.dtype == 'u'
+    W = g.to_amat();
 elseif isnumeric(g)
     W = g;   
     if ~(isfloat(W) && isreal(W) && ndims(W) == 2 && size(W,1) == size(W,2))

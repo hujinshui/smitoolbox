@@ -1,4 +1,4 @@
-function x = laplacesm(g, a, y)
+function x = laplacesm(G, a, y)
 % Performs Laplacian smooth based on a Gaussian MRF
 %
 %   The problem formulation is to minimize the following objective
@@ -9,14 +9,19 @@ function x = laplacesm(g, a, y)
 %
 %   x = laplacesm(g, a, y);
 %       solves the problem above using (regularized) Laplacian matrix.
-%       In input, g is a weighted graph (in form of either graph struct
-%       or affinity matrix), and a is a vector of regularization 
-%       coefficients of length n. 
+%       
+%       Inputs:
+%       - G:    the input graph, in form of either an object of class
+%               gr_edgelist, or an affinity matrix
+%       - a:    the regularization coefficients, in form of either
+%               a scalar or a vector of length n.
+%       - y:    the observation, which can be either a column vector of 
+%               length n, or multiple column vectors arranged into an 
+%               n x K matrix. 
 %
-%       Y should can be a column vector of length n, or multiple
-%       column vectors arranged into an n x K matrix. In the output,
-%       X is a matrix of the same size, and X(:,k) corresponds to
-%       the solution based on Y(:,k).
+%       Output:
+%       - x:    a matrix of the same size as y (n x K), x(:,k) corresponds 
+%               to the solution based on y(:,k).
 %
 
 %   History
@@ -24,13 +29,15 @@ function x = laplacesm(g, a, y)
 %       - Created by Dahua Lin, on Apr 17, 2010
 %       - Modified by Dahua Lin, on Nov 2, 2010
 %           - based on new graph struct
+%       - Modified by Dahua Lin, on Nov 13, 2010
+%           - based on new graph class
 %
 
 
 %% main
 
-L = laplacemat(g, a);  % this will verify the validity of g and a
-if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == g.n)
+L = laplacemat(G, a);  % this will verify the validity of g and a
+if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == G.nv)
     error('laplacesm:invalidarg', 'The size of y is invalid.');
 end
 
