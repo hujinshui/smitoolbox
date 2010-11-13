@@ -133,14 +133,14 @@ classdef gr_adjlist < gr_edgelist
             % build neighborhood 
             
             if ~isempty(s)            
-                [s, es] = sort(s);
+                [s_, es] = sort(s);
                 ns = t(es);
                 
-                p = valueseg(s);
-                pds = [diff(p); numel(s)-p(end)+1];
+                p = valueseg(s_);
+                pds = [diff(p); numel(s_)-p(end)+1];
                 
                 ds = zeros(n, 1);
-                ds(s(p)+1) = pds;
+                ds(s_(p)+1) = pds;
                 
                 os = [0; cumsum(ds(1:end-1))];
                 

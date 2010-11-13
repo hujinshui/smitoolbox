@@ -13,10 +13,9 @@ function es = gr_kruskal_mst(G)
 
 %% verify input
 
-G = gr_adjlist(G, 'u');
-
-if isempty(G.w)
-    error('gr_kruskal_mst:invalidarg', 'G should be a weighted graph');
+if ~(isa(G, 'gr_adjlist') && ~G.is_directed && G.is_weighted)
+    error('gr_kruskal_mst:invalidarg', ...
+        'G should be a (undirected & weighted) gr_adjlist object.');
 end
 
 

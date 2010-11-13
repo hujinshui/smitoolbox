@@ -18,13 +18,11 @@ function [vs, dists, preds] = gr_dijkstra(G, s)
 
 %% verify input
 
-G = gr_adjlist(G);
-
-if isempty(G.w)
-    error('gr_dijkstra:invalidarg', 'G should be a weighted graph.');
+if ~(isa(G, 'gr_adjlist') && G.is_weighted)
+    error('gr_dijkstra:invalidarg', 'G should be a (weighted) gr_adjlist object.');
 end
 
-if ~(isnumeric(s) && isscalar(s) && s >= 1 && s <= G.n)
+if ~(isnumeric(s) && isscalar(s) && s >= 1 && s <= G.nv)
     error('gr_dijkstra:invalidarg', 's should be an integer scalar in [1, n]');
 end
 

@@ -251,6 +251,16 @@ public:
     {
         return MArray(mxGetCell(mxA, i));
     }     
+    
+    MArray get_property(int i, const char *propname) const
+    {
+        return MArray(mxGetProperty(mxA, i, propname));
+    }
+    
+    MArray get_property(const char *propname) const
+    {
+        return MArray(mxGetProperty(mxA, 0, propname));
+    }
         
 private:
     const mxArray *mxA;

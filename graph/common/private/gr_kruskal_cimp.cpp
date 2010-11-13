@@ -44,7 +44,7 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
     boost::kruskal_minimum_spanning_tree(g, std::back_inserter(mst_edges), 
             vertex_index_map(vertex_index_dmap()).rank_map(rmap).predecessor_map(pmap));
     
-    plhs[0] = iter_to_matlab_column(mst_edges.begin(), mst_edges.size(),
+    plhs[0] = iter_to_matlab_row(mst_edges.begin(), mst_edges.size(),
             edge_to_mindex());   
 }
 

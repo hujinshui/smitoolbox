@@ -17,7 +17,10 @@ function [vs, parents, edges, tf] = gr_bfs_trees(G, seeds)
 
 %% verify input
 
-G = gr_adjlist(G, 'u');
+if ~(isa(G, 'gr_adjlist') && ~G.is_directed)
+    error('gr_bfs_trees:invalidarg', ...
+        'G should be a (undirected) gr_adjlist object.');
+end
 
 if nargin < 2
     seeds = 1 : G.n;
