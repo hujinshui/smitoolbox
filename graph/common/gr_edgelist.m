@@ -336,6 +336,73 @@ classdef gr_edgelist
         end
         
         
+        %% convert to adjmat
+        
+        function A = to_amat(G, op)
+            % Converts an edge list to an adjacency matrix
+            %
+            %   A = to_amat(G);
+            %   A = to_amat(G, 'full');          
+            %
+            %       The function creates an n x n matrix A, with
+            %       A(G.s(i), G.t(i)) = G.w(i) (for weighted graph) or 
+            %       true (for unweighed graph). If dtype is 'u', then
+            %       A(G.t(i), G.s(i)) are also set to the same value.
+            %       All other entries in A are set to zero.
+            %
+            %       By default, a sparse matrix is created. If ones wants 
+            %       to create a full matrix, then set the 2nd argument 
+            %       to 'full'.
+            %
+                        
+            n = G.nv;
+            
+            add_re = ~isa(G, 'gr_adjlist') && G.dtype == 'u';
+            use_full = nargin >= 2 && strcmp(op, 'full');
+
+            if use_full
+                
+                s = G.es;
+                t = G.et;
+                w = G.ew;
+                
+                if isempty(w)
+                    A = false(n, n);
+                    A(s + t * n + 1) = 1;
+                    if add_re
+                        A(t + s * n + 1) = 1;
+                    end
+                else
+                    A = zeros(n, n, class(w));
+                    A(s + t * n + 1) = w;
+                    if add_re
+                        A(t + s * n + 1) = w;
+                    end
+                end
+                
+            else
+                
+                s = double(G.es+1);
+                t = double(G.et+1);
+                w = G.ew;
+                
+                if ~add_re
+                    if isempty(w)
+                        A = sparse(s, t, true, n, n);
+                    else
+                        A = sparse(s, t, double(w), n, n);
+                    end
+                else
+                    if isempty(w)
+                        A = sparse([s; t], [t; s], true, n, n);
+                    else
+                        A = sparse([s; t], [t; s], double([w; w]), n, n);
+                    end
+                end
+            end
+        end
+        
+        
     end    
     
 end
