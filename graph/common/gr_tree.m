@@ -61,6 +61,26 @@ classdef gr_tree
             
             cs = T.chds(T.ofs(i)+(1:T.nchs(i))) + 1;
         end
+        
+        
+        function b = is_root(T, i)
+            % Test whether a vertex is a root vertex
+            %
+            %   T.is_root(i);
+            %
+            
+            b = T.pas(i) < 0;
+        end
+        
+        
+        function b = is_leaf(T, i)
+            % Test whether a vertex is a leaf vertex
+            %
+            %   T.is_leaf(i);
+            %
+            
+            b = T.nchs(i) == 0;
+        end
                         
     end
     

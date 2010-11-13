@@ -6,7 +6,7 @@ function [L, cutv] = mincut_kolmogorov(G, src_ws, sink_ws)
 %       implementation.
 %
 %       Input:
-%       - G:        the undirected graph (in a form convertible to gr_edgelist)
+%       - G:        the undirected graph (a undirected gr_edgelist object)
 %       - src_ws:   the edge weights of each vertex to source
 %       - sink_ws:  the edge weights of each vertex to sink
 %
@@ -21,18 +21,17 @@ function [L, cutv] = mincut_kolmogorov(G, src_ws, sink_ws)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Oct 15, 2010
+%       - Modified by Dahua Lin, on Nov 13, 2010
+%           - use new graph class
 %
 
 %% verify input arguments
 
-G = gr_edgelist(G);
-
-if isempty(G.w);
+if ~(isa(G, 'gr_edgelist') && G.dtype == 'u' && G.is_weighted)
     error('mincut_kolmogorov:invalidarg', ...
-        'G should be a weighted graph.');
+        'G should be an object of gr_edgelist (weighted & undirected).');
 end
-
-n = G.n;
+n = G.nv;
 
 if ~(isvector(src_ws) && numel(src_ws) == n && isnumeric(src_ws))
     error('mincut_kolmogorov:invalidarg', ...
@@ -47,7 +46,7 @@ end
 if issparse(src_ws);  src_ws = full(src_ws); end
 if issparse(sink_ws); sink_ws = full(sink_ws); end
 
-wc = class(G.w);
+wc = class(G.ew);
 if ~isa(src_ws, wc); src_ws = cast(src_ws, wc); end
 if ~isa(sink_ws, wc); sink_ws = cast(sink_ws, wc); end
 

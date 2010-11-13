@@ -23,7 +23,7 @@ if nargin < 3
     k0 = 0;
 end
 
-L = laplacemat(g);
+L = laplacemat(g, 1e-10);
 [X, D] = eigs(L, d+k0, 'sm'); %#ok<NASGU>
 
 if k0 > 0
