@@ -1,5 +1,5 @@
-classdef gaussgm
-    % The class to represent a Gaussian generative model
+classdef gaussgm_gp
+    % The class to represent a Gaussian generative model with Gauss prior
     %
     %   The model is formalized as follows:
     %
@@ -23,13 +23,14 @@ classdef gaussgm
         A;          % the transform matrix 
                     % (can be empty, if the transform is identity)
                     
-        isigma;     % the inverse covariance of measurement noise        
+        isigma;     % the inverse covariance of measurement noise    
+        gnoise;     % the Gaussian noise distribution
     end
     
     
     methods
         
-        function obj = gaussgm(prior, A, isigma)
+        function obj = gaussgm_gp(prior, A, isigma)
             % Constructs the Gaussian generative model
             %
             %   obj = gaussgm(prior, A, isigma);
@@ -87,7 +88,60 @@ classdef gaussgm
             
             obj.prior = prior;
             obj.A = A;
-            obj.isigma = isigma;            
+            obj.isigma = isigma;    
+            obj.gnoise = gaussd.from_ip(0, isigma, 0, 'mp');
+        end
+        
+        
+        function LP = logpri(obj, thetas)
+            % Compute the log-prior of parameters
+            %
+            %   LP = obj.logpri(thetas);
+            %
+            
+            LP = obj.prior.logpdf(thetas);            
+        end
+            
+        
+        function Gs = param_models(obj, thetas)
+            % Get Gaussian models with given parameters
+            %
+            %   Gs = obj.param_models(thetas);
+            %       gets the Gaussian distribution models with given
+            %       parameters
+            %
+            
+            pd = obj.pdim;
+            if ~(isfloat(thetas) && ndims(thetas) == 2 && size(thetas,1) == pd)
+                error('gaussgm:loglik:invalidarg', ...
+                    'params should be a pdim x m numeric matrix.');
+            end
+            
+            A_ = obj.A;
+            if isempty(A_)
+                Y = thetas;
+            else
+                Y = A_ * thetas;
+            end
+                        
+            Gs = gaussd.from_ip(J * Y, J);            
+        end        
+        
+        
+        function LL = loglik(obj, thetas, X)
+            % Compute log-likelihood
+            %
+            %   LL = obj.loglik(params, X);
+            %       computes the log-likelihood at observed samples
+            %       given by X with respect to the model parameters
+            %       given by parameters.
+            %
+            %       Suppose there are m parameters, and n samples, then
+            %       LL will be a matrix of size m x n.
+            %
+            
+            Gs = obj.param_models(thetas);
+            LL = Gs.logpdf(X);
         end
         
         
@@ -171,3 +225,4 @@ classdef gaussgm
         end
     end
 end 
+

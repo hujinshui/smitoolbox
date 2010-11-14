@@ -97,7 +97,7 @@ public:
     }    
     
     
-    index_type add(const T& v)
+    void add(const T& v)
     {
         m_entries.push_back(entry_t(v));
         ++ m_size;

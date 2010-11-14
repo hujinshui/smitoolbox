@@ -18,7 +18,7 @@ prior = gaussd.from_mp(0, gsymat(eye(2) * 1e+6), 'ip');
 sigma = udmat(2, 0.1);
 noise = gaussd.from_mp(0, sigma);
 
-gm = gaussgm(prior, A, inv(sigma));
+gm = gaussgm_gp(prior, A, inv(sigma));
 
 %% generate data
 
