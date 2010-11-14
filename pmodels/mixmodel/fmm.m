@@ -36,24 +36,41 @@ classdef fmm
                 error('fmm:invalidarg', 'gm should be an object.');
             end
             
-            if ~(isfloat(params) && ndims(params) == 2)
-                error('fmm:invalidarg', 'params should be a numeric matrix.');
+            K = gm.check_params(params);
+            if K <= 0
+                error('fmm:invalidarg', 'the params are invalid.');
             end
             
             if ~(isfloat(ws) && ndims(ws) == 2 && size(ws,1) == 1)
                 error('fmm:invalidarg', 'ws should be a row vector.');
             end
-            
-            K = size(params, 2);
+                       
             if K ~= size(ws, 2)
                 error('fmm:invalidarg', ...
-                    'The size of params and that of ws are inconsistent.');
+                    'The length of ws should equal the number of components.');
             end
             
             obj.gm = gm;
             obj.params = params;
             obj.ncomps = K;
-            obj.priws = ws;            
+            obj.priws = ws;
+        end
+        
+        
+        function lp = logpdf(obj, X)
+            % Compute the log pdf (of the mixed distribution) at given samples
+            %
+            %   lp = obj.logpdf(X);
+            %       
+            %       Suppose there are n samples, then lp will be 
+            %       a row vector of size 1 x n.
+            %
+                                 
+            LL = obj.gm.loglik(obj.params, X);            
+            maxL = max(LL, [], 1);
+            DL = bsxfun(@minus, LL, maxL);
+            
+            lp = maxL + log(obj.priws * exp(DL));                        
         end
     
     end
