@@ -48,9 +48,9 @@ classdef pregaussd
             %
             
             if nargin < 2
-                G1 = gaussd.from_cp(G.h, G.J);
+                G1 = gaussd.from_ip(G.h, G.J);
             else
-                G1 = gaussd.from_cp(G.h, G.J, [], ump);
+                G1 = gaussd.from_ip(G.h, G.J, [], ump);
             end                
         end
         
