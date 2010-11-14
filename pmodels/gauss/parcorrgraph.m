@@ -34,7 +34,7 @@ s = s(se);
 t = t(se);
 w = - w(se);
 
-g = gr_adjlist('u', n, s, t, w);
+g = gr_adjlist.from_edges('u', n, s, t, w);
 
 
 

@@ -19,8 +19,7 @@ function [fvs, scores] = gafvs(cg, nmax)
 
 %% verify input arguments
 
-if ~(isstruct(cg) && isfield(cg, 'tag') && strcmp(cg.tag, 'gr_adjlist') ...
-        && strcmp(cg.dty, 'u') && ~isempty(cg.w))
+if ~(isa(cg, 'gr_adjlist') && cg.is_weighted && ~cg.is_directed)
     error('gafvs:invalidarg', 'cg should be an undirected gr_adjlist struct.');
 end
 
