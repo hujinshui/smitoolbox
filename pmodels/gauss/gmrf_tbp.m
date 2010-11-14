@@ -78,7 +78,7 @@ classdef gmrf_tbp < handle
             n = gm.nnodes;
             parents = zeros(n, 1);
             parents(vs) = ps;
-            T = gr_tree(parents);
+            T = gr_tree.from_parents(parents);
             
             % prepare data structure for results
             
@@ -126,7 +126,7 @@ classdef gmrf_tbp < handle
         function initialize_hs(obj, hs)
             % Initialize relevant data structure for inferring hs
             
-            n = obj.tree.n;
+            n = obj.tree.nv;
             if ~(iscell(hs) && isvector(hs) && numel(hs) == n)
                 error('gmrf_tbp:invalidarg', ...
                     'hs should be a cell vector with n cells.');
@@ -179,30 +179,28 @@ classdef gmrf_tbp < handle
             
             % for each node in a bottom-up order (rev topological order)
             for i = n : -1 : 1
-                c = vs(i);
+                v = vs(i);
                 
-                % collect messages from the children of c to c
-                nc = T.ncs(c);                
-                J = Js_{c};
-                if nc > 0
-                    cs = T.cs(T.os(c)+(1:nc)) + 1;
-                    if nc == 1
+                % collect messages from the children of v to v 
+                J = Js_{v};
+                if ~T.is_leaf(v)
+                    cs = T.children_of(v);
+                    if numel(cs) == 1
                         J = J + obj.up_Js{cs};
                     else
                         J = J + sum(cat(3, obj.up_Js{cs}), 3);
                     end
                 end
-                obj.r_Js{c} = J;
+                obj.r_Js{v} = J;
                 
                 % set messages to parent (if not root)
-                p = T.ps(c) + 1;
-                if p > 0
-                    Jpc = obj.Rs{c};
-                    L = Jpc / J;
-                    uJ = -(L * Jpc');
+                if ~T.is_root(v)
+                    Jpv = obj.Rs{v};
+                    L = Jpv / J;
+                    uJ = -(L * Jpv');
                     
-                    obj.up_Ls{c} = L;
-                    obj.up_Js{c} = uJ;
+                    obj.up_Ls{v} = L;
+                    obj.up_Js{v} = uJ;
                 end                
             end                        
         end
@@ -220,26 +218,24 @@ classdef gmrf_tbp < handle
             
             % for each node in a bottom-up order (rev topological order)
             for i = n : -1 : 1
-                c = vs(i);
+                v = vs(i);
                 
-                % collect messages from the children of c to c
-                h = hs_{c};
-                nc = T.ncs(c);
-                if nc > 0
-                    cs = T.cs(T.os(c) + (1:nc)) + 1;
-                    if nc == 1
+                % collect messages from the children of v to v
+                h = hs_{v};
+                if ~T.is_leaf(v)
+                    cs = T.children_of(v);
+                    if numel(cs) == 1
                         h = h + obj.up_hs{cs};
                     else
                         h = h + sum(cat(3, obj.up_hs{cs}), 3);
                     end
                 end
-                obj.r_hs{c} = h;
+                obj.r_hs{v} = h;
                 
                 % set messages to parent (if not root)
-                p = T.ps(c) + 1;
-                if p > 0
-                    L = uLs{c};
-                    obj.up_hs{c} = -L * h;
+                if ~T.is_root(v)
+                    L = uLs{v};
+                    obj.up_hs{v} = -L * h;
                 end
             end            
         end
@@ -262,18 +258,16 @@ classdef gmrf_tbp < handle
                 
                 % incorporate top-down message from parent of p to p
                 J = obj.r_Js{p};
-                pp = T.ps(p) + 1;
-                if pp > 0
+                if ~T.is_root(p)
                     J = J + obj.dn_Js{p};
                     obj.r_Js{p} = J;
                 end
                 
                 % set messages to children (if not leaf)
-                nc = T.ncs(p);
-                if nc > 0
-                    cs = T.cs(T.os(p)+(1:nc)) + 1;
-                    for j = 1 : nc
-                        c = cs(j);
+                if ~T.is_leaf(p)
+                    cs = T.children_of(p);
+                    cs = cs(:).';
+                    for c = cs                        
                         Jpc = Rs_{c};
                         L = ((J - uJs{c}) \ Jpc)';
                         dJ = -L * Jpc;
@@ -302,18 +296,16 @@ classdef gmrf_tbp < handle
                 
                 % incorporate top-down message from parent of p to p
                 h = obj.r_hs{p};
-                pp = T.ps(p) + 1;
-                if pp > 0
+                if ~T.is_root(p)
                     h = h + obj.dn_hs{p};
                     obj.r_hs{p} = h;
                 end
                 
                 % set messages to children (if not leaf)
-                nc = T.ncs(p);
-                if nc > 0
-                    cs = T.cs(T.os(p)+(1:nc)) + 1;
-                    for j = 1 : nc
-                        c = cs(j);
+                if ~T.is_leaf(p)
+                    cs = T.children_of(p);
+                    cs = cs(:).';
+                    for c = cs                       
                         L = dLs{c};
                         
                         dh = -L * (h - uhs{c});

@@ -124,7 +124,7 @@ classdef galbp < handle
                 
                 % do parallel update
                 
-                Jr = Jd + labelsum(mJ, n, t);
+                Jr = Jd + aggreg(mJ, n, t, 'sum');
                 L = w ./ (Jr(s) - mJ(re));
                 mJ = -L .* w;                
                 
@@ -204,7 +204,7 @@ classdef galbp < handle
                 
                 % do parallel update
                 
-                hr = h + labelsum(mh, n, t);
+                hr = h + aggreg(mh, n, t, 'sum');
                 mh = -L .* (hr(s) - mh(re)); 
                 
                 % compare updates and determine convergence

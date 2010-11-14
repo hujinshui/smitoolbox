@@ -83,7 +83,7 @@ classdef gaussmrf
             
             % build graph and extend Rs
             
-            G = gr_adjlist('u', n, edges);
+            G = gr_adjlist.from_edges('u', n, edges);
                         
             Rs{2 * m} = [];            
             for k = 1 : m
@@ -116,8 +116,8 @@ classdef gaussmrf
             ibase = [0; cumsum(ds(1:end-1))];
             
             n = obj.nnodes;
-            srcs = obj.graph.s;
-            tars = obj.graph.t;
+            srcs = obj.graph.source_vs;
+            tars = obj.graph.target_vs;
             m = length(srcs);
             
             Js_ = obj.Js;
@@ -136,8 +136,8 @@ classdef gaussmrf
             end
             
             for k = 1 : m
-                s = srcs(k) + 1;
-                t = tars(k) + 1;                
+                s = srcs(k);
+                t = tars(k);                
                 [i, j, w] = find(Rs_{k});
                 if size(i, 2) > 1
                     i = i.';

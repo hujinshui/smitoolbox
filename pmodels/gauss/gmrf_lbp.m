@@ -47,26 +47,24 @@ classdef gmrf_lbp < handle
             % set graph and neighbor hood structure
             
             g = gm.graph;
-            n = g.n;
-            ne = g.m;
+            n = g.nv;
+            ne = g.ne;
             
             nbs = cell(n, 1);
             oes = cell(n, 1);
             ies = cell(n, 1);
             
             for i = 1 : n
-                d = g.o_ds(i);
-                if d > 0
-                    b = g.o_os(i);
-                    v = g.o_ns(b + (1:d));
-                    oe = g.o_es(b + (1:d));
+                d = g.out_degree_of(i);
+                if d > 0                    
+                    [v, oe] = g.out_neighbors_of(i);
                     ie = zeros(size(oe), 'int32');
-                    ie(oe < ne) = oe(oe < ne) + ne;
-                    ie(oe >= ne) = oe(oe >= ne) - ne;
+                    ie(oe <= ne) = oe(oe <= ne) + ne;
+                    ie(oe > ne) = oe(oe > ne) - ne;
                     
-                    nbs{i} = v' + 1;
-                    oes{i} = oe' + 1;
-                    ies{i} = ie' + 1;
+                    nbs{i} = v';
+                    oes{i} = oe';
+                    ies{i} = ie';
                 end
             end
             
@@ -89,8 +87,8 @@ classdef gmrf_lbp < handle
             
             % initialize messages
             
-            s = g.s + 1;
-            t = g.t + 1;
+            s = g.source_vs;
+            t = g.target_vs;
             
             m = numel(s);
             mLs = cell(m, 1);
@@ -265,7 +263,7 @@ classdef gmrf_lbp < handle
             obj.r_hs = cell(n, 1);
                         
             g = obj.graph;
-            t = g.t + 1;
+            t = g.target_vs;
             m = numel(t);
             
             mhs = cell(m, 1);
