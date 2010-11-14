@@ -318,12 +318,13 @@ classdef gaussd
             %       samples in X and the centers of the Gaussian 
             %       distributions selected by indices si.
             %
-            %   Note that canonical parameters are required for the 
+            %   Note that information parameters are required for the 
             %   computation.
             %
             
             if ~G.has_ip
-                error('gaussd:sqmahdist:nocp', 'Canonical parameters are required.');
+                error('gaussd:sqmahdist:nocp', ...
+                    'Information parameters are required.');
             end
             
             % take parameters
@@ -445,12 +446,12 @@ classdef gaussd
             %
             
             if ~G.has_ip
-                error('gaussd:inject:nocp', 'Canonical parameters are required.');
+                error('gaussd:inject:nocp', 'Information parameters are required.');
             end
             
             h0 = G.h;
             J0 = G.J;
-            if ~isempty(i)
+            if nargin >= 4
                 if ~isequal(h0, 0)
                     h0 = h0(:, i);
                 end
@@ -473,6 +474,71 @@ classdef gaussd
             J1 = J0 + Ja;                 
             pG = pregaussd(h1, J1);
         end
+        
+        
+        function X = sample(G, n, rstream)
+            % Samples from the Gaussian distribution
+            %
+            %   X = G.sample(n);
+            %   X = G.sample(n, rstream);
+            %
+            %   Note that this function only works when num == 1
+            %
+            
+            if ~G.has_mp
+                error('gaussd:sample:invalidarg', ...
+                    'Mean parameters are required.');
+            end
+            
+            if nargin < 3
+                X = randn(G.dim, n);
+            else
+                X = randn(rstream, G.dim, n);
+            end
+            
+            X = G.sigma.choltrans(X);
+            
+            if ~isequal(G.mu, 0)
+                X = bsxfun(@plus, X, G.mu);
+            end            
+        end
+        
+        
+        function plot_ellipse(G, r, varargin)
+            % Plot ellipse representing the Gaussian models
+            %            
+            %   plot_ellipse(G, r, ...);
+            %
+            %       This function only works when dim == 2.
+            %       
+            
+            if ~(G.has_mp && G.dim == 2)
+                error('gaussd:plot_ellipse:invalidarg', ...
+                    'The model should have G.has_mp and G.dim == 2.');
+            end            
+            
+            mu_ = G.mu;
+            sigma_ = G.sigma;
+            
+            for i = 1 : G.num
+                
+                if sigma_.n == 1
+                    C = sigma_;
+                else
+                    C = sigma_.take(i);
+                end                
+                u = mu_(:, i);                                
+                
+                ns = 500;
+                t = linspace(0, 2*pi, ns);
+                x = bsxfun(@plus, C.choltrans([cos(t); sin(t)]) * r, u);
+                
+                hold on;
+                plot(x(1,:), x(2,:), varargin{:});                
+            end
+            
+        end
+        
         
     end
         
