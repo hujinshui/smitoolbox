@@ -222,15 +222,15 @@ while status.niters < opts.MaxIter
         status.changeQ = Linfdiff(Q, prev_Q);
         status.converged = ...
             abs(status.changeF) < opts.TolFun && ...
-            status.changeQ < opts.TolQ;
-        
-        if status.converged
-            break;
-        end
+            status.changeQ < opts.TolQ;                
     end       
     
     if opts.Display >= DISP_ITER
         iter_display(status);    
+    end
+    
+    if status.converged            
+        break;
     end
        
     % M-step

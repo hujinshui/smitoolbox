@@ -25,6 +25,50 @@ end
 
 %% core functions
 
+function test_fmm_on_gaussgm(K, n)
+
+% model config
+
+d = 2;
+gm = gaussgm(d);
+gm.cov_type = 'full';
+gm.tie_cov = false;
+
+mu = 5 * randn(d, K);
+C0 = zeros(d, d, K);
+for k = 1 : K   
+    R = orth(randn(d,d));
+    cc = R * diag([1 0.3]) * R';
+    C0(:,:,k) = (cc + cc') * 0.5;    
+end
+
+% data
+
+X = cell(1, K);
+for k = 1 : K
+    cg = gaussd.from_mp(mu(:,k), gsymat(C0(:,:,k)));
+    X{k} = cg.sample(n);
+end
+X = [X{:}];
+
+% estimate
+
+FM = fmm_em(gm, X, K);
+
+% visualize
+
+figure;
+plot(X(1,:), X(2,:), 'b+', 'MarkerSize', 5);
+
+models = FM.params;
+hold on;
+plot_ellipse(models, 1, 'r-', 'LineWidth', 2);
+plot_ellipse(models, 3, 'r-', 'LineWidth', 1);
+
+axis equal;
+
+
+
 function test_fmm_on_gaussgm_gp(K, n)
 
 % model config
@@ -58,3 +102,4 @@ plot_ellipse(models, 1, 'r-', 'LineWidth', 2);
 plot_ellipse(models, 3, 'r-', 'LineWidth', 1);
 
 axis equal;
+

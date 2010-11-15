@@ -98,7 +98,7 @@ classdef gaussgm_gp
             %
             %   n = obj.check_parameters(params);
             %       if params is a valid parameter matrix, it returns
-            %       the number of params in X, otherwise it returns -1.
+            %       the number of params, otherwise it returns -1.
             %
             
             pd = obj.pdim;
