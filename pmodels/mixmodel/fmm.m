@@ -36,7 +36,7 @@ classdef fmm
                 error('fmm:invalidarg', 'gm should be an object.');
             end
             
-            K = gm.check_params(params);
+            K = gm.check_parameters(params);
             if K <= 0
                 error('fmm:invalidarg', 'the params are invalid.');
             end

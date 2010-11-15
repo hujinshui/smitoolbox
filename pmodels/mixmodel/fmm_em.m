@@ -90,12 +90,19 @@ if isnumeric(init) && isscalar(init)
     end
     init = [];
 else
-    K = gm.check_params(init);
+    K = gm.check_parameters(init);
     if K <= 0
         error('fmm_em:invalidarg', ...
             'The initial guess of parameters is invalid.');
     end
 end
+
+
+% some constants
+
+DISP_NOTIFY = 1;
+DISP_FINAL = 2;
+DISP_ITER = 3;
 
 opts = struct( ...
     'InitQ', [], ...
@@ -104,7 +111,7 @@ opts = struct( ...
     'TolQ', 1e-5, ...
     'Weights', 1, ...
     'PriCount', 0, ...
-    'Display', 'iter', ...
+    'Display', DISP_ITER, ...
     'InlierConf', 1, ...
     'OutlierLogP', 0);
 
@@ -114,12 +121,6 @@ if ~isempty(varargin)
 end
 
 use_robust = opts.InlierConf < 1;
-
-% some constants
-
-DISP_NOTIFY = 1;
-DISP_FINAL = 2;
-DISP_ITER = 3;
 
 
 %% main
@@ -139,7 +140,7 @@ stopTimer = tic;  % start timing
 % perform initialization
 
 if isempty(init)
-    params = initialize_params(K, opts.InitQ);
+    params = initialize_params(gm, X, n, K, opts.InitQ, opts.Weights);
 else
     params = init;
 end
@@ -150,12 +151,14 @@ else
     Pi = (opts.PriCount + 1) / (sum(opts.PriCount) + K);
 end
 
+rho = [];
 if use_robust    
     l_in = log(opts.InlierConf);
     l_out = log(1 - opts.InlierConf);
     ev_out = constmat(1, n, opts.OutlierLogP) + l_out;
+    rho = ones(1, n);
 end
-rho = [];
+
 
 ws = opts.Weights;
 
@@ -196,16 +199,19 @@ while status.niters < opts.MaxIter
     % Evaluate objective
         
     W = make_w(Q, ws, rho); 
-    objv = sum(dot(W, Ev, 1)) + sum_w(ddentropy(Q), ws);
-    if ~isequal(Q.PriCount, 0)
-        objv = objv + safedot(Q.PriCount, log(Pi));
+    objv = sum(gm.logpri(params)) ...
+        + sum(dot(W, Ev, 1)) ...
+        + sum_w(ddentropy(Q), ws);
+    
+    if ~isequal(opts.PriCount, 0)
+        objv = objv + safedot(opts.PriCount, log(Pi));
     end
     if use_robust
         objv = objv ...
             + opts.OutlierLogP * sum_w((1 - rho), ws) ...
             + l_in * sum_w(rho, ws) ...
             + l_out * sum_w(1 - rho, ws) ...
-            + sum_w(ddentropy([rho; 1 - rho], ws));
+            + sum_w(ddentropy([rho; 1 - rho]), ws);
     end        
     status.objv = objv;
     
@@ -248,13 +254,34 @@ end
 
 %% Output
 
-FM = fmm(gm, params, Pi);
+FM = fmm(gm, params, Pi.');
 if use_robust
     Q = bsxfun(@times, rho, Q);
 end
    
     
 %% Auxiliary functions
+
+
+function W = make_w(Q, ws, rho)
+
+if isempty(ws)
+    wm = rho;
+else
+    if isempty(rho)
+        wm = ws;
+    else
+        wm = ws .* rho;
+    end
+end
+
+if isempty(wm)
+    W = Q;
+else
+    W = bsxfun(@times, Q, wm);
+end
+
+
 
 function s = sum_w(x, w)
 
@@ -263,6 +290,27 @@ if isscalar(w)
 else
     s = dot(x, w);
 end
+
+
+
+function params = initialize_params(gm, X, n, K, initQ, ws)
+    
+if isempty(initQ)
+    initQ = rand(K, n);
+    initQ = bsxfun(@times, initQ, 1 ./ sum(initQ, 1));
+end
+
+if isequal(ws, 1)
+    wQ = initQ;
+elseif isscalar(ws)
+    wQ = ws * initQ;
+else
+    wQ = bsxfun(@times, initQ, ws);
+end
+
+params = gm.estimate_map(X, wQ);
+
+
 
 
 function opts = check_options(opts, K, n)
@@ -308,15 +356,16 @@ end
 if size(pc, 2) > 1; opts.PriCount = pc.'; end
 
 dp = opts.Display;
-if ~(ischar(dp))
-    error('fmm_em:invalidopt', ...
-        'Display should be a string.');
+if ~(isnumeric(dp) && isscalar(dp))
+    if ~(ischar(dp))
+        error('fmm_em:invalidopt', 'Display should be a string.');
+    end
+    [b, dpi] = ismember(dp, {'off', 'notify', 'final', 'iter'});
+    if ~b
+        error('fmm_em:invalidopt', 'The value of Display is invalid.');
+    end
+    opts.Display = dpi - 1;
 end
-[b, dpi] = ismember(dp, {'off', 'notify', 'final', 'iter'});
-if ~b
-    error('fmm_em:invalidopt', 'The value of Display is invalid.');
-end
-opts.Display = dpi - 1;
 
 inc = opts.InlierConf;
 if ~(isscalar(inc) && isfloat(inc) && isreal(inc) && inc > 0 && inc <= 1)
@@ -330,12 +379,14 @@ if ~(isscalar(olp) && isfloat(olp) && isreal(olp))
         'OutlierLogP should be a real scalar.');
 end
 
+
+
 %% Display functions
 
 function iter_display(s)
 
 if s.niters == 0
-    fprintf('# Iter        objv     objv.ch     Q.ch\n');
+    fprintf('# Iter        objv      objv.ch         Q.ch\n');
     fprintf('-------------------------------------------------------\n');
 end
 
@@ -348,8 +399,8 @@ function final_display(s)
 
 fprintf('Terminates with %d iterations (%f secs): ', s.niters, s.elapsed);
 if s.converged
-    fprintf('converged.');
+    fprintf('converged.\n');
 else
-    fprintf('NOT converged !');
+    fprintf('NOT converged !\n');
 end
     
