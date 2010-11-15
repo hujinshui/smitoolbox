@@ -93,6 +93,50 @@ classdef gaussgm_gp
         end
         
         
+        function n = check_parameters(obj, params)
+            % Check validity of parameters and return the number
+            %
+            %   n = obj.check_parameters(params);
+            %       if params is a valid parameter matrix, it returns
+            %       the number of params in X, otherwise it returns -1.
+            %
+            
+            pd = obj.pdim;
+            if isfloat(params) && ndims(params) == 2 && size(params,1) == pd
+                n = size(params, 2);
+            else
+                n = -1;
+            end
+            
+        end
+        
+        
+        function n = check_observations(obj, X)
+            % Check validity of observations and return the number
+            %
+            %   n = obj.check_observations(X);
+            %       if X is a valid observation matrix, it returns
+            %       the number of samples in X, otherwise it returns -1.
+            %
+            
+            xd = obj.xdim;
+            if isfloat(X) && ndims(X) == 2 && size(X,1) == xd
+                n = size(X,2);
+            else
+                n = -1;
+            end
+            
+        end
+
+        
+    end
+        
+        
+    
+        
+    methods
+                
+        
         function LP = logpri(obj, thetas)
             % Compute the log-prior of parameters
             %
@@ -103,12 +147,16 @@ classdef gaussgm_gp
         end
             
         
-        function Gs = param_models(obj, thetas)
+        function Gs = param_models(obj, thetas, ump)
             % Get Gaussian models with given parameters
             %
             %   Gs = obj.param_models(thetas);
             %       gets the Gaussian distribution models with given
             %       parameters
+            %
+            %   Gs = obj.param_models(thetas, 'mp');
+            %       gets the Gaussian distribution models with given
+            %       parameters (together with mean parameters)
             %
             
             pd = obj.pdim;
@@ -117,14 +165,21 @@ classdef gaussgm_gp
                     'params should be a pdim x m numeric matrix.');
             end
             
+            J = obj.isigma;
+            
             A_ = obj.A;
             if isempty(A_)
-                Y = thetas;
+                mu = thetas;
             else
-                Y = A_ * thetas;
+                mu = A_ * thetas;
             end
                         
-            Gs = gaussd.from_ip(J * Y, J);            
+            if nargin < 3
+                Gs = gaussd.from_ip(J * mu, J);
+            else
+                Gs = gaussd.from_ip(J * mu, J, [], ump);
+            end
+                
         end        
         
         
@@ -188,14 +243,77 @@ classdef gaussgm_gp
             %       parameters based on observed data given in X.            
             %       The observed samples can be weighted by w.
             %
+            %       w can be a 1 x n row vector or a K x n matrix.                               
             %       In output, theta is a column vector of size pdim x 1,
+            %       or size pdim x K.
             %
                         
             if nargin < 3
                 w = 1;
             end
-            theta = obj.get_posterior(X, w).get_mean();
+            
+            K = size(w, 1);
+            if K == 1
+                theta = obj.get_posterior(X, w).get_mean();
+            else                
+                theta = zeros(obj.pdim, K);
+                for k = 1 : K
+                    theta(:, k) = obj.get_posterior(X, w(k,:)).get_mean();
+                end
+            end
         end                        
+        
+        
+        function thetas = pri_sample(obj, n, rstream)
+            % Sample parameters from prior distribution
+            %
+            %   thetas = obj.pri_sample(n);
+            %   thetas = obj.pri_sample(n, rstream);
+            %
+            %       draw n parameters from prior distribution.
+            %       
+            
+            if nargin < 3
+                thetas = obj.prior.sample(n);
+            else
+                thetas = obj.prior.sample(n, rstream);
+            end
+            
+        end
+        
+        
+        function X = sample(obj, theta, n, rstream)
+            % Sample observations with given parameter
+            %
+            %   X = obj.sample(theta, n);
+            %   X = obj.sample(theta, n, rstream);
+            %
+            %       draw n samples from the likelihood model with
+            %       parameter given by theta. 
+            %
+            
+            pd = obj.pdim;
+            if ~(isfloat(theta) && isequal(size(theta), [pd 1]))
+                error('gaussgm_gp:sample:invalidarg', ...
+                    'theta should be a column vector of size pd x 1.');
+            end
+            
+            A_ = obj.A;
+            if isempty(A_)
+                mu = theta;
+            else
+                mu = A_ * theta;
+            end
+            
+            if nargin < 4
+                e = obj.gnoise.sample(n);
+            else
+                e = obj.gnoise.sample(n, rstream);
+            end
+            X = bsxfun(@plus, mu, e);            
+            
+        end
+        
         
     
         function Y = pos_sample(obj, X, w, n, rstream)
