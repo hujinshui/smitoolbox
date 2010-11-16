@@ -332,7 +332,11 @@ classdef gaussgm_gp
             %       from which the random numbers are generated.
             %
             
-            pos = obj.get_posterior(X, w);
+            if isempty(X)
+                pos = obj.prior;
+            else
+                pos = obj.get_posterior(X, w);
+            end
             
             if nargin < 5
                 Y = pos.sample(n);
