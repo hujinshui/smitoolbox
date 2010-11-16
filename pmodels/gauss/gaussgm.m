@@ -8,7 +8,9 @@ classdef gaussgm
     %     without prior. This is useful in cooperating with fmm.
     %
     
-    % Created by Dahua Lin, on Nov 14, 2010
+    %   History
+    %   -------
+    %       - Created by Dahua Lin, on Nov 14, 2010
     %
     
     
