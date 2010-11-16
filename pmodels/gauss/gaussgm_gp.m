@@ -332,6 +332,14 @@ classdef gaussgm_gp
             %       from which the random numbers are generated.
             %
             
+            if nargin < 3
+                w = 1;
+            end
+            
+            if nargin < 4
+                n = 1;
+            end            
+            
             if isempty(X)
                 pos = obj.prior;
             else
