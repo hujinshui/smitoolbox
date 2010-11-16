@@ -368,10 +368,10 @@ classdef gaussgm_gp
             if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim)
                 error('gaussgm:invalidarg', ...
                     'X should be an d x n numeric matrix.');
-            end                        
-            if nargin < 4
-                n = 1;
             end
+            if nargin < 3; w = 1; end
+            if nargin < 4; k = []; end
+            if nargin < 5; n = 1; end
             
             % do sampling
             
