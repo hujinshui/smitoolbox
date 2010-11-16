@@ -7,7 +7,7 @@ classdef dmat
     %   - Created by Dahua Lin, on June 18, 2010
     %
     
-    properties(GetAccess='public', SetAccess='private')       
+    properties      
         d;      % the dimension (the matrix is of size d x d)
         n;      % the number of matrices contained in the object
         
@@ -392,6 +392,31 @@ classdef dmat
         end    
         
         
+        function R = qtrans(A, B)
+            % Compute quadratic transform B * A * B'
+            %
+            %   R = qtrans(A, B);
+            %
+            %       Here, B can be a p x d matrix, and the function
+            %       returns a p x p matrix: B * A * B'
+            %       
+            %       Note that this function only works when n == 1.
+            %       The result is guaranteed to be symmetric.
+            %
+            
+            if A.n ~= 1
+                error('dmat:invalidarg', 'A must be a single-matrix object.');
+            end
+            
+            if size(B, 2) ~= A.d
+                error('dmat:invalidarg', 'The dimension of B is invalid.');
+            end            
+            
+            R = B * bsxfun(@times, A.dv, B');
+            R = 0.5 * (R + R');            
+        end
+        
+        
         %% Cholesky decomposition
         
         function Y = choltrans(A, X)
@@ -401,7 +426,7 @@ classdef dmat
             %     
             
             if A.n ~= 1
-                error('dmat:invalidarg', 'A must be an single-matrix object.');
+                error('dmat:invalidarg', 'A must be a single-matrix object.');
             end
             
             Y = bsxfun(@times, sqrt(A.dv), X);
