@@ -87,8 +87,9 @@ end
 
 
 if ~isempty(A)    
-    ha = A' * ha;
-    Ja = gsymat(A' * (Ja * A));
+    At = A';
+    ha = At * ha;
+    Ja = gsymat(qtrans(Ja, At));
 end
    
 

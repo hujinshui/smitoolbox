@@ -555,14 +555,19 @@ classdef gaussd
     methods
         
         
-        function pG = inject(G, ha, Ja, i)
+        function [h1, J1] = inject(G, ha, Ja, i)
             % Compute the posterior with injected observations
             %
-            %   pG = inject(G, ha, Ja);
-            %   pG = inject(G, ha, Ja, i);
-            %       computes the posterior Gaussian distribution with 
-            %       the observations injected with ha and Ja, which
-            %       are quantities to be added to h and J respectively.            
+            %   [h1, J1] = inject(G, ha, Ja);
+            %   [h1, J1] = inject(G, ha, Ja, i);
+            %       computes the information parameters of the posterior 
+            %       Gaussian distribution with the observations 
+            %       injected with ha and Ja, which are quantities to be 
+            %       added to h and J respectively.            
+            %
+            %       The output h1 and J1 are respectively the potential
+            %       vector and information matrix of the posterior
+            %       Gaussian distribution.
             %
             
             if ~G.has_ip
@@ -571,7 +576,7 @@ classdef gaussd
             
             h0 = G.h;
             J0 = G.J;
-            if nargin >= 4
+            if nargin >= 4 || ~isempty(i)
                 if ~isequal(h0, 0)
                     h0 = h0(:, i);
                 end
@@ -591,18 +596,106 @@ classdef gaussd
                 end
             end
             
-            J1 = J0 + Ja;                 
-            pG = pregaussd(h1, J1);
+            J1 = J0 + Ja; 
         end
         
         
-        function X = sample(G, n, rstream)
+        function Gpos = posterior(G, ha, Ja, i, ump)
+            % Compute the posterior Gaussian distribution
+            %
+            %   Gpos = posterior(G, ha, Ja);
+            %   Gpos = posterior(G, ha, Ja, i);
+            %       Gets the posterior Gaussian given the observations
+            %       summarized by ha and Ja, which are to be injected
+            %       to the information parameters of the prior.
+            %       
+            %       By default, the returned object is with only
+            %       information parameters.                        
+            %   
+            %   Gpos = posterior(G, ha, Ja, [], 'mp');
+            %   Gpos = posterior(G, ha, Ja, i, 'mp');                  
+            %       Returns the posterior distribution object with
+            %       both information parameters together with
+            %       mean parameters.
+            %
+            
+            if nargin < 4 || isempty(i)
+                [h1, J1] = inject(G, ha, Ja);
+            else
+                [h1, J1] = inject(G, ha, Ja, []);
+            end
+            
+            if nargin < 5
+                Gpos = gaussd.from_ip(h1, J1);
+            else
+                Gpos = gaussd.from_ip(h1, J1, [], ump);
+            end                        
+        end
+        
+        
+        function [M, C] = pos_mean(G, ha, Ja, i)
+            % Compute the mean parameters of posterior distribution
+            %
+            %   M = G.posterior_mean(G, ha, Ja);
+            %   M = G.posterior_mean(G, ha, Ja, i);
+            %
+            %       solves the mean of the posterior Gaussian distribution.
+            %       
+            %   [M, C] = G.posterior_mean(G, ha, Ja);
+            %   [M, C] = G.posterior_mean(G, ha, Ja, i);
+            %
+            %       additionally returns the covariance object.
+            %
+            
+            if nargin < 4 || isempty(i)
+                [h1, J1] = inject(G, ha, Ja);
+            else
+                [h1, J1] = inject(G, ha, Ja, []);
+            end
+            
+            if nargout < 2
+                M = cdv(J1, h1);
+            else
+                C = inv(J1);
+                M = cmv(C, h1);
+            end            
+        end
+
+        
+        function X = sample(G, n, i, rstream)
             % Samples from the Gaussian distribution
             %
-            %   X = G.sample(n);
-            %   X = G.sample(n, rstream);
+            %   X = G.sample();                                
+            %       draws a sample from the Gaussian distribution G.
+            %       
+            %       If G contains m distributions, then it draws
+            %       m samples in total, one from each distribution.
+            %       In particular, X will be a d x m matrix, and
+            %       X(:,k) is from the k-th distribution.
             %
-            %   Note that this function only works when num == 1
+            %   X = G.sample(n);
+            %       draws n samples from each distribution. 
+            %   
+            %       If there are m distributions in G, then the columns 
+            %       in X(:,1:m) are from the 1st distribution, and
+            %       X(:, m+1:2*m) are from the 2nd, and so on.            
+            %
+            %   X = G.sample(n, i);
+            %       draws n samples from the i-th distribution.
+            %
+            %       Here, i can be a vector. For example, if i is [2, 3], 
+            %       then the function draws n samples from the 2nd 
+            %       distribution, and then draws n samples from the
+            %       3rd one.
+            %
+            %       When i is a vector, then n can be a vector of the 
+            %       same size. In this case, it draws n(j) samples from
+            %       the i(j)-th distribution.
+            %
+            %   X = G.sample(n, [], rstream);
+            %   X = G.sample(n, i, rstream);
+            %       one can further specifies the random number stream
+            %       to be used in the sampling.            
             %
             
             if ~G.has_mp
@@ -610,19 +703,45 @@ classdef gaussd
                     'Mean parameters are required.');
             end
             
-            if nargin < 3
-                X = randn(G.dim, n);
-            else
-                X = randn(rstream, G.dim, n);
-            end
+            if nargin < 2; n = 1; end
+            if nargin < 3; i = []; end
+            if nargin < 4; rstream = []; end
             
-            X = G.sigma.choltrans(X);
-            
-            if ~isequal(G.mu, 0)
-                X = bsxfun(@plus, X, G.mu);
-            end            
+            X = gsample(G.mu, G.sigma, n, i, rstream);         
         end
         
+        
+        function X = pos_sample(G, ha, Ja, n, i, rstream)
+            % Samples from posterior distribution                  
+            %
+            %   X = G.pos_sample(ha, Ja);
+            %   X = G.pos_sample(ha, Ja, n, i);             
+            %   X = G.pos_sample(ha, Ja, n, [], rstream);
+            %   X = G.pos_sample(ha, Ja, n, i, rstream);
+            %
+            %       draws a sample from the posterior distribution 
+            %       conditioned on the observations injected through
+            %       ha and Ja (addends to the potential vector and
+            %       information matrix).                        
+            %
+            %       please refer to the help of the sample method for 
+            %       details of what different syntax means.
+            %
+
+            if nargin < 4; n = 1; end
+            if nargin < 5; i = []; end
+            if nargin < 6; rstream = []; end
+                        
+            [M, C] = inject(G, ha, Ja, i);
+            X = gsample(M, C, n, [], rstream);
+        end
+        
+    end
+    
+    
+    methods
+        
+        %% Visualization
         
         function plot_ellipse(G, r, varargin)
             % Plot ellipse representing the Gaussian models

@@ -33,7 +33,7 @@ y = bsxfun(@minus, x, b);
 pos = gm.get_posterior(y).to_gaussd('mp');
 emap = gm.estimate_map(y);
 
-sp = gm.pos_sample(y, 1, 20);
+sp = gm.pos_sample(y, 1, [], 50);
 
 
 %% visualize
@@ -45,14 +45,12 @@ hold on;
 plot(sp(1,:), sp(2,:), 'm+', 'MarkerSize', 5);
 
 hold on;
-plot(emap(1,:), emap(2,:), 'm+', 'MarkerSize', 10);
+plot(emap(1,:), emap(2,:), 'b+', 'MarkerSize', 10);
 
 hold on;
-plot(theta(1), theta(2), 'r.');
+plot(theta(1), theta(2), 'r.', 'MarkerSize', 20);
 
 plot_ellipse(pos, 1, 'm-');
 plot_ellipse(pos, 3, 'm-');
-
-
 
 axis equal;
