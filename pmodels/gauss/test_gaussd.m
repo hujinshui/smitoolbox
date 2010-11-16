@@ -133,6 +133,18 @@ elseif d == 2
 end
 
 
+X1 = randn(d, m);
+M1 = 1 : m;
+
+L10 = logpdf(g, X1);
+L11 = logpdf_map(g, X1, M1);
+L12 = logpdf_map(g, repmat(X1, 1, m), exelem(1:m, 1, m));
+
+devcheck('logpdf_map_1', L11(:), diag(L10), 1e-10 * max(abs(L10(:))));
+devcheck('logpdf_map_2', L12, L10.', 1e-10 * max(abs(L10(:))));
+
+
+
 %% Auxiliary function
 
 function basic_verify(g, d, m, has_mp, has_ip)
