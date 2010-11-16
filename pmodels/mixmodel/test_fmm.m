@@ -80,7 +80,7 @@ gm = gaussgm_gp(prior, [], noise_J);
 
 % data
 
-thetas = gm.pri_sample(K);
+thetas = gm.prior.sample(K);
 X = cell(1, K);
 for k = 1 : K
     X{k} = gm.sample(thetas(:,k), n);

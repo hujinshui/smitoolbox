@@ -3,12 +3,12 @@ classdef gaussgm_gp
     %
     %   The model is formalized as follows:
     %
-    %       theta ~ N(mu0, sigma0);  (prior of parameters)  
+    %       theta ~ N(mu_pri, sigma_pri);  (prior of parameters)  
     %
     %       x ~ N(theta, sigma);  (generation of observation)
     %       or
     %       x ~ N(A * theta, sigma);
-    %
+    %   
     
     % Created by Dahua Lin, on Nov 13, 2010
     %
@@ -17,9 +17,8 @@ classdef gaussgm_gp
         
         pdim;       % the parameter dimension
         xdim;       % the observation dimension
-        
-        prior;      % the prior Gaussian model
-        
+                
+        prior;      % the prior Gaussian model         
         A;          % the transform matrix 
                     % (can be empty, if the transform is identity)
                     
@@ -34,20 +33,23 @@ classdef gaussgm_gp
             % Constructs the Gaussian generative model
             %
             %   obj = gaussgm(prior, A, isigma);
+            %
             %       constructs a Gaussian generative model as 
             %       formalized above.
             %       
             %       Inputs:
             %       - prior:    a gaussd object (prior.has_ip == true)
-            %                   to represent the prior of parameters
+            %                   to represent the prior of parameters.
+            %
             %       - A:        the generative transform, which 
             %                   can be either empty or a matrix
+            %
             %       - isigma:   the inverse covariance of measurement
             %                   noise (can be a scalar, matrix, or
             %                   matrix object).
             %
             
-            if ~(isa(prior, 'gaussd') && prior.has_ip && prior.num == 1)
+            if ~(isa(prior, 'gaussd') && prior.has_ip)
                 error('gaussgm:invalidarg', ...
                     'prior should be a gaussd object with information parameters.');
             end
@@ -81,7 +83,7 @@ classdef gaussgm_gp
                 end
             else
                 error('gaussgm:invalidarg', 'isigma is invalid.');
-            end
+            end                        
                 
             obj.pdim = pd;
             obj.xdim = xd;
@@ -129,6 +131,15 @@ classdef gaussgm_gp
         end
 
         
+        function S = select_observations(obj, X, s) %#ok<MANU>
+            % Select a subset of observations
+            %
+            %   S = obj.select_observations(X, s);
+            %
+            
+            S = X(:, s);
+        end
+        
     end
         
         
@@ -137,13 +148,24 @@ classdef gaussgm_gp
     methods
                 
         
-        function LP = logpri(obj, thetas)
+        function LP = logpri(obj, thetas, pri_map)
             % Compute the log-prior of parameters
             %
             %   LP = obj.logpri(thetas);
+            %   LP = obj.logpri(thetas, pri_map);
             %
             
-            LP = obj.prior.logpdf(thetas);            
+            pri = obj.prior;
+            if nargin < 3
+                if pri.num ~= 1
+                    error('gaussgm_gp:invalidarg', ...
+                        'pri_map is required when there are multi-priors.');
+                end                
+                LP = pri.logpdf(thetas);                 
+            else
+                LP = pri.logpdf_map(thetas, pri_map);
+            end
+            
         end
             
         
@@ -200,17 +222,20 @@ classdef gaussgm_gp
         end
         
         
-        function P = get_posterior(obj, X, w)
+        function P = get_posterior(obj, X, w, k)
             % Get the posterior distribution of parameters
             %
             %   P = obj.get_posterior(X, w);
+            %   P = obj.get_posterior(X, w, k);
             %       
             %       computes the posterior distribution of parameters
-            %       based on observed data given in X. The observed
-            %       samples can be weighted by w.
+            %       based on observed data given in X, with respect to
+            %       the k-th prior. (When multi-prior exist, k must be
+            %       explicitly given).
             %
-            %       If there are n samples, then X should be a matrix
-            %       of size xdim x n. 
+            %       The observed samples can be weighted by w. If there 
+            %       are n samples, then X should be a matrix of size 
+            %       xdim x n. 
             %
             %       In weighted case, w should be a row vector of size
             %       1 x n.
@@ -225,19 +250,29 @@ classdef gaussgm_gp
             
             if nargin < 3
                 w = 1;
-            end                
-
+            end                      
             [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
-            P = obj.prior.inject(ha, Ja);
+            
+            pri = obj.prior;
+            if nargin < 4
+                if pri.num ~= 1
+                    error('gaussgm:get_posterior:invalidarg', ...
+                        'When there are multi priors, k must be specified.');
+                end
+                P = pri.inject(ha, Ja);
+            else                                                       
+                P = pri.inject(ha, Ja, k);
+            end
             
         end
                 
         
-        function theta = estimate_map(obj, X, w)
+        function theta = estimate_map(obj, X, w, pri_map)
             % Performs MAP estimation of parameter
             %
             %   theta = obj.infer(X);
             %   theta = obj.infer(X, w);
+            %   theta = obj.infer(X, w, pri_map);
             %
             %       solves the maximum-a-posteriori estimation of
             %       parameters based on observed data given in X.            
@@ -247,40 +282,42 @@ classdef gaussgm_gp
             %       In output, theta is a column vector of size pdim x 1,
             %       or size pdim x K.
             %
+            %       If there are multiple priors, pri_map must be
+            %       given.
+            %
                         
             if nargin < 3
                 w = 1;
             end
-            
-            K = size(w, 1);
-            if K == 1
-                theta = obj.get_posterior(X, w).get_mean();
-            else                
-                theta = zeros(obj.pdim, K);
-                for k = 1 : K
-                    theta(:, k) = obj.get_posterior(X, w(k,:)).get_mean();
+                                                
+            K = size(w, 1);            
+            if nargin < 4
+                if obj.prior.num ~= 1
+                    error('gaussgm:estimate_map:invalidarg', ...
+                        'pri_map is required when there are multi-priors.');
+                end
+                if K == 1
+                    theta = obj.get_posterior(X, w).get_mean();
+                else                
+                    theta = zeros(obj.pdim, K);
+                    for k = 1 : K
+                        theta(:, k) = obj.get_posterior(X, w(k,:)).get_mean();
+                    end
+                end
+            else
+                if K == 1
+                    theta = obj.get_posterior(X, w, pri_map).get_mean();
+                else
+                    theta = zeros(obj.pdim, K);
+                    for k = 1 : K
+                        theta(:, k) = ...
+                            obj.get_posterior(X, w(k,:), pri_map(k)).get_mean();
+                    end
                 end
             end
+            
         end                        
-        
-        
-        function thetas = pri_sample(obj, n, rstream)
-            % Sample parameters from prior distribution
-            %
-            %   thetas = obj.pri_sample(n);
-            %   thetas = obj.pri_sample(n, rstream);
-            %
-            %       draw n parameters from prior distribution.
-            %       
-            
-            if nargin < 3
-                thetas = obj.prior.sample(n);
-            else
-                thetas = obj.prior.sample(n, rstream);
-            end
-            
-        end
-        
+                       
         
         function X = sample(obj, theta, n, rstream)
             % Sample observations with given parameter
@@ -316,34 +353,47 @@ classdef gaussgm_gp
         
         
     
-        function Y = pos_sample(obj, X, w, n, rstream)
+        function Y = pos_sample(obj, X, w, k, n)
             % Sampling from posterior distribution of parameters
             %
-            %   Y = obj.pos_sample(X, w, n);
+            %   Y = obj.pos_sample(X, w, [], n);
+            %   Y = obj.pos_sample(X, w, k, n);
             %
             %       draw n samples from the posterior distribution
             %       of parameters given (weighted) observations in X.
             %       One can input w as a scalar, when all observations
             %       have the same weight.
             %
-            %   Y = obj.pos_sample(X, w, n, rstream);
             %
-            %       additionally specifies the random number stream
-            %       from which the random numbers are generated.
-            %
+            
+            % verify arguments
             
             if nargin < 3
                 w = 1;
             end
             
             if nargin < 4
+                k = [];
+            end
+            if isempty(k)
+                if obj.prior.num ~= 1
+                    error('gaussgm:pos_sample:invalidarg', ...
+                        'When there are multi priors, k must be specified.');
+                end
+            end
+            
+            if nargin < 5
                 n = 1;
-            end            
+            end                        
+            
+            % do sampling
             
             if isempty(X)
                 pos = obj.prior;
-            else
+            elseif isempty(k)
                 pos = obj.get_posterior(X, w);
+            else
+                pos = obj.get_posterior(X, w, k);
             end
             
             if nargin < 5

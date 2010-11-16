@@ -313,7 +313,7 @@ classdef gaussd
             %       samples in X and the Gaussian centers (with respect
             %       to the corresponding covariance matrices).
             %
-            %   D = sqmahdist(G, X);
+            %   D = sqmahdist(G, X, si);
             %       computes the squared Mahalanobis distances between the
             %       samples in X and the centers of the Gaussian 
             %       distributions selected by indices si.
@@ -350,7 +350,11 @@ classdef gaussd
             if isequal(h_, 0)
                 D = t2;
             else
-                t1 = h_' * X;
+                if isequal(h_, 0)
+                    t1 = 0;
+                else
+                    t1 = h_' * X;
+                end
                 
                 n1 = size(h_, 2);
                 n2 = J_.n;
@@ -366,6 +370,74 @@ classdef gaussd
                 end
             end
         end
+        
+        
+        function D = sqmahdist_map(G, X, M)
+            % Compute the squared Mahalanobis distances to remapped centers
+            %
+            %   D = G.sqmahdist_remap(X, M);
+            %       
+            %       Suppose X comprises n samples, then M should be
+            %       a vector of 1 x n, and the output D is also a
+            %       vector of size 1 x n.
+            %
+            %       D(i) equals the squared Mahalanobis distance between
+            %       X(:,i) the the M(i)-th center of the object.
+            %
+            
+            if ~G.has_ip
+                error('gaussd:sqmahdist_remap:nocp', ...
+                    'Information parameters are required.');
+            end
+            
+            nx = size(X, 2);
+            if nx ~= size(M, 2)
+                error('gaussd:sqmahdist_remap:invalidarg', ...
+                    'The sizes of X and M are inconsistent.');
+            end            
+            
+            % take parameters
+            
+            c0_ = G.c0;
+            h_ = G.h;
+            J_ = G.J;
+            
+            % compute
+            
+            if isequal(h_, 0)
+                t1 = 0;
+            else
+                t1 = dot(h_(:, M), X, 1);
+            end
+            
+            if J_.n == 1
+                t2 = quad(J_, X, X);                
+            else                
+                K = J_.n;
+                t2 = zeros(1, nx);
+                
+                if nx <= 2 * K
+                    for i = 1 : nx
+                        cx = X(:, i);
+                        t2(i) = quad(J_.take(M(i)), cx, cx);
+                    end
+                else
+                    gs = intgroup(K, M);                
+                    for k = 1 : K
+                        cg = gs{k};
+                        cX = X(:,cg);
+                        t2(cg) = quad(J_.take(k), cX, cX);
+                    end
+                end
+            end
+            
+            if ~isscalar(c0_)
+                c0_ = c0_(M);
+            end
+            
+            D = t2 - 2 * t1 + c0_;
+        end
+        
         
         
         function L = logpdf(G, X, si)
@@ -408,19 +480,43 @@ classdef gaussd
         end
         
         
-        function L = pdf(G, X, si)
+        function L = logpdf_map(G, X, M)
+            % Compute log-pdf of samples with respect to mapped Gaussians
+            %
+            %   L = logpdf_map(G, X, M);
+            %       
+            %       Suppose X comprises n samples, then M should be
+            %       a vector of 1 x n, and the output D is also a
+            %       vector of size 1 x n.
+            %
+            %       L(i) equals the log-pdf of X(:,i) with respect to
+            %       the M(i)-the Gaussian contained in G.
+            %
+            
+            D = sqmahdist_map(G, X, M);
+            if G.J.n == 1
+                a0 = G.ldcov + G.dim * log(2 * pi);
+            else
+                a0 = G.ldcov(M) + G.dim * log(2 * pi);
+            end
+            
+            L = -0.5 * (D + a0);
+        end
+                        
+        
+        function P = pdf(G, X, si)
             % Compute the probability density function
             %                        
-            %   L = pdf(G, X)
+            %   P = pdf(G, X)
             %       compute probability density function at the samples 
             %       given by columns of X.
             %
             %       Let m be the number of distributions contained in G,
             %       and n be the number of samples in X. Then L will be
-            %       a matrix of size m x n, with L(i, j) being the pdf
+            %       a matrix of size m x n, with P(i, j) being the pdf
             %       value at X(:,j) w.r.t the j-th Gaussian.
             %
-            %   L = pdf(G, X, si);
+            %   P = pdf(G, X, si);
             %       compute the probability density with respect to the 
             %       models selected by the index vector si.
             %
@@ -429,11 +525,35 @@ classdef gaussd
             %
             
             if nargin < 3
-                L = exp(logpdf(G, X));
+                P = exp(logpdf(G, X));
             else
-                L = exp(logpdf(G, X, si));
+                P = exp(logpdf(G, X, si));
             end            
         end                              
+        
+        
+        function P = pdf_map(G, X, M)
+            % Compute pdf of samples with respect to mapped Gaussians
+            %
+            %   P = logpdf_map(G, X, M);
+            %       
+            %       Suppose X comprises n samples, then M should be
+            %       a vector of 1 x n, and the output D is also a
+            %       vector of size 1 x n.
+            %
+            %       P(i) equals the pdf of X(:,i) with respect to
+            %       the M(i)-the Gaussian contained in G.
+            %
+            
+            P = logpdf_map(G, X, M);
+        end
+    end
+    
+    
+    %% Inference and Sampling
+    
+    methods
+        
         
         function pG = inject(G, ha, Ja, i)
             % Compute the posterior with injected observations
