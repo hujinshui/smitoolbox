@@ -576,7 +576,7 @@ classdef gaussd
             
             h0 = G.h;
             J0 = G.J;
-            if nargin >= 4 || ~isempty(i)
+            if nargin >= 4 && ~isempty(i)
                 if ~isequal(h0, 0)
                     h0 = h0(:, i);
                 end
@@ -622,7 +622,7 @@ classdef gaussd
             if nargin < 4 || isempty(i)
                 [h1, J1] = inject(G, ha, Ja);
             else
-                [h1, J1] = inject(G, ha, Ja, []);
+                [h1, J1] = inject(G, ha, Ja, i);
             end
             
             if nargin < 5
@@ -650,7 +650,7 @@ classdef gaussd
             if nargin < 4 || isempty(i)
                 [h1, J1] = inject(G, ha, Ja);
             else
-                [h1, J1] = inject(G, ha, Ja, []);
+                [h1, J1] = inject(G, ha, Ja, i);
             end
             
             if nargout < 2
@@ -732,7 +732,7 @@ classdef gaussd
             if nargin < 5; i = []; end
             if nargin < 6; rstream = []; end
                         
-            [M, C] = inject(G, ha, Ja, i);
+            [M, C] = pos_mean(G, ha, Ja, i);
             X = gsample(M, C, n, [], rstream);
         end
         

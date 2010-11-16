@@ -34,6 +34,8 @@ classdef gaussgm_gp
     
     methods
         
+        %% Construction and Basic manipulation
+        
         function obj = gaussgm_gp(prior, A, isigma)
             % Constructs the Gaussian generative model
             %
@@ -146,34 +148,6 @@ classdef gaussgm_gp
             S = X(:, s);
         end
         
-    end
-        
-        
-    
-        
-    methods
-                
-        
-        function LP = logpri(obj, thetas, pri_map)
-            % Compute the log-prior of parameters
-            %
-            %   LP = obj.logpri(thetas);
-            %   LP = obj.logpri(thetas, pri_map);
-            %
-            
-            pri = obj.prior;
-            if nargin < 3
-                if pri.num ~= 1
-                    error('gaussgm_gp:invalidarg', ...
-                        'pri_map is required when there are multi-priors.');
-                end                
-                LP = pri.logpdf(thetas);                 
-            else
-                LP = pri.logpdf_map(thetas, pri_map);
-            end
-            
-        end
-            
         
         function Gs = param_models(obj, thetas, ump)
             % Get Gaussian models with given parameters
@@ -208,8 +182,35 @@ classdef gaussgm_gp
                 Gs = gaussd.from_ip(J * mu, J, [], ump);
             end
                 
-        end        
+        end  
+    end
         
+        
+    
+        
+    methods
+        
+        %% Evaluation, Inference, Estimation & Sampling
+                        
+        function LP = logpri(obj, thetas, pri_map)
+            % Compute the log-prior of parameters
+            %
+            %   LP = obj.logpri(thetas);
+            %   LP = obj.logpri(thetas, pri_map);
+            %
+            
+            pri = obj.prior;
+            if nargin < 3
+                if pri.num ~= 1
+                    error('gaussgm_gp:invalidarg', ...
+                        'pri_map is required when there are multi-priors.');
+                end                
+                LP = pri.logpdf(thetas);                 
+            else
+                LP = pri.logpdf_map(thetas, pri_map);
+            end
+            
+        end            
         
         function LL = loglik(obj, thetas, X)
             % Compute log-likelihood
@@ -228,11 +229,12 @@ classdef gaussgm_gp
         end
         
         
-        function P = get_posterior(obj, X, w, k)
+        function P = get_posterior(obj, X, w, k, ump)
             % Get the posterior distribution of parameters
             %
             %   P = obj.get_posterior(X, w);
             %   P = obj.get_posterior(X, w, k);
+            %   P = obj.get_posterior(X, w, k, 'mp');
             %       
             %       computes the posterior distribution of parameters
             %       based on observed data given in X, with respect to
@@ -244,9 +246,7 @@ classdef gaussgm_gp
             %       xdim x n. 
             %
             %       In weighted case, w should be a row vector of size
-            %       1 x n.
-            %
-            %       In output, P is a pregaussd object.
+            %       1 x n.            
             %
             
             if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim)
@@ -261,15 +261,20 @@ classdef gaussgm_gp
             
             pri = obj.prior;
             if nargin < 4
+                k = [];
+            end                        
+            if isempty(k)    
                 if pri.num ~= 1
                     error('gaussgm:get_posterior:invalidarg', ...
                         'When there are multi priors, k must be specified.');
-                end
-                P = pri.inject(ha, Ja);
-            else                                                       
-                P = pri.inject(ha, Ja, k);
+                end                
             end
             
+            if nargin < 5
+                P = pri.posterior(ha, Ja, k);                
+            else
+                P = pri.posterior(ha, Ja, k, ump);
+            end            
         end
                 
         
@@ -288,40 +293,32 @@ classdef gaussgm_gp
             %       In output, theta is a column vector of size pdim x 1,
             %       or size pdim x K.
             %
-            %       If there are multiple priors, pri_map must be
-            %       given.
             %
-                        
+                 
+            
+            if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim)
+                error('gaussgm:invalidarg', ...
+                    'X should be an d x n numeric matrix.');
+            end
+            
             if nargin < 3
                 w = 1;
             end
-                                                
-            K = size(w, 1);            
             if nargin < 4
-                if obj.prior.num ~= 1
-                    error('gaussgm:estimate_map:invalidarg', ...
-                        'pri_map is required when there are multi-priors.');
-                end
-                if K == 1
-                    theta = obj.get_posterior(X, w).get_mean();
-                else                
-                    theta = zeros(obj.pdim, K);
-                    for k = 1 : K
-                        theta(:, k) = obj.get_posterior(X, w(k,:)).get_mean();
-                    end
-                end
-            else
-                if K == 1
-                    theta = obj.get_posterior(X, w, pri_map).get_mean();
-                else
-                    theta = zeros(obj.pdim, K);
-                    for k = 1 : K
-                        theta(:, k) = ...
-                            obj.get_posterior(X, w(k,:), pri_map(k)).get_mean();
-                    end
-                end
+                pri_map = [];
             end
             
+            K = size(w, 1);
+            if K == 1            
+                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+                theta = obj.prior.pos_mean(ha, Ja, pri_map);
+            else
+                theta = zeros(obj.pdim, K);
+                for k = 1 : K
+                    [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w(k,:));
+                    theta(:,k) = obj.prior.pos_mean(ha, Ja, pri_map);
+                end
+            end            
         end                        
                        
         
@@ -368,32 +365,18 @@ classdef gaussgm_gp
             %
             
             % verify arguments
-            
-            if nargin < 4
-                k = [];
-            end
-            if isempty(k)
-                if obj.prior.num ~= 1
-                    error('gaussgm:pos_sample:invalidarg', ...
-                        'When there are multi priors, k must be specified.');
-                end
-            end
-            
-            if nargin < 5
-                n = 1;
+            if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim)
+                error('gaussgm:invalidarg', ...
+                    'X should be an d x n numeric matrix.');
             end                        
+            if nargin < 4
+                n = 1;
+            end
             
             % do sampling
             
-            if isempty(X)
-                pos = obj.prior;
-            elseif isempty(k)
-                pos = obj.get_posterior(X, w);
-            else
-                pos = obj.get_posterior(X, w, k);
-            end
-            
-            Y = pos.sample(n);            
+            [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+            Y = obj.prior.pos_sample(ha, Ja, n, k);                                      
         end
         
     end

@@ -30,7 +30,7 @@ x = bsxfun(@plus, A * theta + b, noise.sample(n));
 
 y = bsxfun(@minus, x, b);
 
-pos = gm.get_posterior(y).to_gaussd('mp');
+pos = gm.get_posterior(y, 1, [], 'mp');
 emap = gm.estimate_map(y);
 
 sp = gm.pos_sample(y, 1, [], 50);
@@ -39,9 +39,7 @@ sp = gm.pos_sample(y, 1, [], 50);
 %% visualize
 
 figure;
-% plot(x(1,:), x(2,:), 'b+', 'MarkerSize', 5);
 
-hold on;
 plot(sp(1,:), sp(2,:), 'm+', 'MarkerSize', 5);
 
 hold on;
