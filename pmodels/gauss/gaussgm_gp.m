@@ -10,7 +10,11 @@ classdef gaussgm_gp
     %       x ~ N(A * theta, sigma);
     %   
     
-    % Created by Dahua Lin, on Nov 13, 2010
+    %   History
+    %   -------
+    %       - Created by Dahua Lin, on Nov 13, 2010
+    %       - Modified by Dahua Lin, on Nov 15, 2010
+    %           - supports multi-prior.
     %
     
     properties(GetAccess='public', SetAccess='private')
@@ -18,6 +22,7 @@ classdef gaussgm_gp
         pdim;       % the parameter dimension
         xdim;       % the observation dimension
                 
+        num_priors; % the number of prior distributions
         prior;      % the prior Gaussian model         
         A;          % the transform matrix 
                     % (can be empty, if the transform is identity)
@@ -89,6 +94,7 @@ classdef gaussgm_gp
             obj.xdim = xd;
             
             obj.prior = prior;
+            obj.num_priors = prior.num;
             obj.A = A;
             obj.isigma = isigma;    
             obj.gnoise = gaussd.from_ip(0, isigma, 0, 'mp');
@@ -319,11 +325,10 @@ classdef gaussgm_gp
         end                        
                        
         
-        function X = sample(obj, theta, n, rstream)
+        function X = sample(obj, theta, n)
             % Sample observations with given parameter
             %
             %   X = obj.sample(theta, n);
-            %   X = obj.sample(theta, n, rstream);
             %
             %       draw n samples from the likelihood model with
             %       parameter given by theta. 
@@ -341,12 +346,8 @@ classdef gaussgm_gp
             else
                 mu = A_ * theta;
             end
-            
-            if nargin < 4
-                e = obj.gnoise.sample(n);
-            else
-                e = obj.gnoise.sample(n, rstream);
-            end
+
+            e = obj.gnoise.sample(n);
             X = bsxfun(@plus, mu, e);            
             
         end
@@ -367,10 +368,6 @@ classdef gaussgm_gp
             %
             
             % verify arguments
-            
-            if nargin < 3
-                w = 1;
-            end
             
             if nargin < 4
                 k = [];
@@ -396,13 +393,9 @@ classdef gaussgm_gp
                 pos = obj.get_posterior(X, w, k);
             end
             
-            if nargin < 5
-                Y = pos.sample(n);
-            else
-                Y = pos.sample(n, rstream);
-            end
-            
+            Y = pos.sample(n);            
         end
+        
     end
 end 
 
