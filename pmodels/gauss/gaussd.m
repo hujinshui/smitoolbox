@@ -589,7 +589,7 @@ classdef gaussd
             if isequal(h0, 0)
                 h1 = ha;
             else
-                if size(c10, 2) == size(c1a, 2)
+                if size(h0, 2) == size(ha, 2)
                     h1 = h0 + ha;
                 else
                     h1 = bsxfun(@plus, h0, ha);

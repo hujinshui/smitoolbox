@@ -351,11 +351,11 @@ classdef gaussgm_gp
         
         
     
-        function Y = pos_sample(obj, X, w, k, n)
+        function Y = pos_sample(obj, X, w, n, k)
             % Sampling from posterior distribution of parameters
             %
-            %   Y = obj.pos_sample(X, w, [], n);
-            %   Y = obj.pos_sample(X, w, k, n);
+            %   Y = obj.pos_sample(X, w, n);
+            %   Y = obj.pos_sample(X, w, n, k);
             %
             %       draw n samples from the posterior distribution
             %       of parameters given (weighted) observations in X.
@@ -365,18 +365,22 @@ classdef gaussgm_gp
             %
             
             % verify arguments
-            if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim)
+            if ~(isempty(X) || (isfloat(X) && ndims(X) == 2 && size(X,1) == obj.xdim))
                 error('gaussgm:invalidarg', ...
-                    'X should be an d x n numeric matrix.');
+                    'X should be empty or an d x n numeric matrix.');
             end
             if nargin < 3; w = 1; end
-            if nargin < 4; k = []; end
-            if nargin < 5; n = 1; end
+            if nargin < 4; n = 1; end
+            if nargin < 5; k = []; end            
             
             % do sampling
             
-            [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
-            Y = obj.prior.pos_sample(ha, Ja, n, k);                                      
+            if ~isempty(X)
+                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+                Y = obj.prior.pos_sample(ha, Ja, n, k);
+            else
+                Y = obj.prior.sample(n, k);
+            end
         end
         
     end
