@@ -29,6 +29,9 @@ classdef gaussgm_gp
                     
         isigma;     % the inverse covariance of measurement noise    
         gnoise;     % the Gaussian noise distribution
+        
+        Amu;        % A * mu_pri;
+        elogp_dec;  % 0.5 * tr( sigma^{-1} (A sigma_pri A') )
     end
     
     
@@ -100,6 +103,27 @@ classdef gaussgm_gp
             obj.A = A;
             obj.isigma = isigma;    
             obj.gnoise = gaussd.from_ip(0, isigma, 0, 'mp');
+            
+            if prior.num == 1
+                mu_pri = prior.mu;            
+                if isequal(mu_pri, 0)
+                    obj.Amu = 0;
+                else
+                    if isempty(A)
+                        obj.Amu = mu_pri;
+                    else
+                        obj.Amu = A * mu_pri;
+                    end
+                end
+               
+                if isempty(A)
+                    ASA = fullform(prior.sigma);
+                else
+                    ASA = qtrans(prior.sigma, A);
+                end
+                obj.elogp_dec = 0.5 * trace(isigma * ASA);
+            end
+            
         end
         
         
@@ -227,6 +251,22 @@ classdef gaussgm_gp
             Gs = obj.param_models(thetas);
             LL = Gs.logpdf(X);
         end
+        
+        
+        function LL = Eloglik(obj, X)
+            % Compute expected log-likelihood
+            %
+            %   LL = obj.Eloglik(X);
+            %
+            
+            if obj.prior.num ~= 1
+                error('gaussgm_gp:invalidarg', ...
+                    'Eloglik can only be used when prior.num == 1.');
+            end
+            
+            LL = loglik(obj, obj.Amu, X) - obj.elogp_dec;
+        end
+        
         
         
         function P = get_posterior(obj, X, w, k, ump)
