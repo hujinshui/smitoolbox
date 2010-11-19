@@ -273,7 +273,11 @@ classdef gaussgm_gp
             %       given in X with respect to the prior specified by k.
             %
             
-            LM = obj.gmargin.logpdf(X, k);
+            if nargin < 3
+                LM = obj.gmargin.logpdf(X);
+            else
+                LM = obj.gmargin.logpdf(X, k);
+            end
         end
         
         
