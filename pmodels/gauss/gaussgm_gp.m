@@ -104,18 +104,19 @@ classdef gaussgm_gp
             obj.isigma = isigma;    
             obj.gnoise = gaussd.from_ip(0, isigma, 0, 'mp');
             
-            if prior.num == 1
-                mu_pri = prior.mu;            
-                if isequal(mu_pri, 0)
-                    obj.Amu = 0;
+            
+            mu_pri = prior.mu;            
+            if isequal(mu_pri, 0)
+                obj.Amu = 0;
+            else
+                if isempty(A)
+                    obj.Amu = mu_pri;
                 else
-                    if isempty(A)
-                        obj.Amu = mu_pri;
-                    else
-                        obj.Amu = A * mu_pri;
-                    end
+                    obj.Amu = A * mu_pri;
                 end
-               
+            end
+                                       
+            if prior.num == 1
                 if isempty(A)
                     ASA = fullform(prior.sigma);
                 else
@@ -264,13 +265,12 @@ classdef gaussgm_gp
             %
             %   LL = obj.Eloglik(X);
             %
-            
-            if obj.prior.num ~= 1
-                error('gaussgm_gp:invalidarg', ...
-                    'Eloglik can only be used when prior.num == 1.');
+                        
+            if obj.prior.num == 1
+                LL = loglik(obj, obj.Amu, X) - obj.elogp_dec;
+            else
+                LL = loglik(obj, obj.Amu, X);
             end
-            
-            LL = loglik(obj, obj.Amu, X) - obj.elogp_dec;
         end
         
         
@@ -395,6 +395,19 @@ classdef gaussgm_gp
             
         end
         
+        
+        function Y = pri_sample(obj, n, k)
+            % Draw samples from the parameter priors
+            %
+            %   Y = obj.pri_sample(n, k);
+            %
+            
+            if nargin < 3
+                k = [];
+            end
+            
+            Y = obj.prior.sample(n, k);
+        end
         
     
         function Y = pos_sample(obj, X, w, n, k)
