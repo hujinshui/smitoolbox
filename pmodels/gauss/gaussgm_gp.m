@@ -27,11 +27,11 @@ classdef gaussgm_gp
         A;          % the transform matrix 
                     % (can be empty, if the transform is identity)
                     
-        isigma;     % the inverse covariance of measurement noise    
+        sigma_x;    % the covariance of measurement noise   
+        isigma_x;   % the inverse of sigma_x
         gnoise;     % the Gaussian noise distribution
         
-        Amu;        % A * mu_pri;
-        elogp_dec;  % 0.5 * tr( sigma^{-1} (A sigma_pri A') )
+        gmargin;    % the marginal Gaussian distribution
     end
     
     
@@ -39,10 +39,10 @@ classdef gaussgm_gp
         
         %% Construction and Basic manipulation
         
-        function obj = gaussgm_gp(prior, A, isigma)
+        function obj = gaussgm_gp(prior, A, sigma_x)
             % Constructs the Gaussian generative model
             %
-            %   obj = gaussgm(prior, A, isigma);
+            %   obj = gaussgm(prior, A, sigma);
             %
             %       constructs a Gaussian generative model as 
             %       formalized above.
@@ -54,9 +54,8 @@ classdef gaussgm_gp
             %       - A:        the generative transform, which 
             %                   can be either empty or a matrix
             %
-            %       - isigma:   the inverse covariance of measurement
-            %                   noise (can be a scalar, matrix, or
-            %                   matrix object).
+            %       - sigma:    the covariance of measurement noise 
+            %                   (can be a scalar, matrix, or matrix object).
             %
             
             if ~(isa(prior, 'gaussd') && prior.has_ip)
@@ -77,22 +76,22 @@ classdef gaussgm_gp
                 xd = size(A,1);
             end
             
-            if isfloat(isigma)
-                if isscalar(isigma)
-                    isigma = udmat(xd, isigma);
+            if isfloat(sigma_x)
+                if isscalar(sigma_x)
+                    sigma_x = udmat(xd, sigma_x);
                 else
-                    if ~isequal(size(isigma), [xd xd])
+                    if ~isequal(size(sigma_x), [xd xd])
                         error('gaussgm:invalidarg', ...
-                            'The size of isigma is invalid.');
+                            'The size of sigma_x is invalid.');
                     end
-                    isigma = gsymat(isigma);
+                    sigma_x = gsymat(sigma_x);
                 end
-            elseif isobject(isigma)
-                if ~(isigma.d == xd && isigma.n == 1)
-                    error('gaussgm:invalidarg', 'isigma is invalid.');
+            elseif isobject(sigma_x)
+                if ~(sigma_x.d == xd && sigma_x.n == 1)
+                    error('gaussgm:invalidarg', 'sigma_x is invalid.');
                 end
             else
-                error('gaussgm:invalidarg', 'isigma is invalid.');
+                error('gaussgm:invalidarg', 'sigma_x is invalid.');
             end                        
                 
             obj.pdim = pd;
@@ -101,30 +100,31 @@ classdef gaussgm_gp
             obj.prior = prior;
             obj.num_priors = prior.num;
             obj.A = A;
-            obj.isigma = isigma;    
-            obj.gnoise = gaussd.from_ip(0, isigma, 0, 'mp');
+            obj.sigma_x = sigma_x;    
+            obj.isigma_x = inv(sigma_x);
+            obj.gnoise = gaussd.from_ip(0, obj.isigma_x, 0, 'mp');
             
+            % compute marginal
             
-            mu_pri = prior.mu;            
+            mu_pri = prior.mu;
             if isequal(mu_pri, 0)
-                obj.Amu = 0;
+                Amu = 0;
             else
-                if isempty(A)
-                    obj.Amu = mu_pri;
+                if isempty(A);
+                    Amu = mu_pri;
                 else
-                    obj.Amu = A * mu_pri;
+                    Amu = A * mu_pri;
                 end
-            end
-                                       
-            if prior.num == 1
-                if isempty(A)
-                    ASA = fullform(prior.sigma);
-                else
-                    ASA = qtrans(prior.sigma, A);
-                end
-                obj.elogp_dec = 0.5 * trace(isigma * ASA);
             end
             
+            if isempty(A)
+                mg_sigma = prior.sigma + sigma_x;
+            else                                
+                ASA = gsymat(qtrans(prior.sigma, A));                                    
+                mg_sigma = ASA + sigma_x;
+            end
+            
+            obj.gmargin = gaussd.from_mp(Amu, mg_sigma, 'ip');            
         end
         
         
@@ -193,7 +193,7 @@ classdef gaussgm_gp
                     'thetas should be a pdim x m numeric matrix.');
             end
             
-            J = obj.isigma;
+            J = obj.isigma_x;
             
             A_ = obj.A;
             if isequal(thetas, 0)
@@ -243,6 +243,7 @@ classdef gaussgm_gp
             
         end            
         
+        
         function LL = loglik(obj, thetas, X)
             % Compute log-likelihood
             %
@@ -260,17 +261,19 @@ classdef gaussgm_gp
         end
         
         
-        function LL = Eloglik(obj, X)
-            % Compute expected log-likelihood
+        function LM = logmargin(obj, X, k)
+            % Compute log-marginal-likelihood
             %
-            %   LL = obj.Eloglik(X);
+            %   LM = obj.logmargin(X);
+            %       computes the log marginal likelihood of the samples
+            %       given in X with respect to all priors.
             %
-                        
-            if obj.prior.num == 1
-                LL = loglik(obj, obj.Amu, X) - obj.elogp_dec;
-            else
-                LL = loglik(obj, obj.Amu, X);
-            end
+            %   LM = obj.logmargin(X, k);
+            %       computes the log marginal likelihood of the samples
+            %       given in X with respect to the prior specified by k.
+            %
+            
+            LM = obj.gmargin.logpdf(X, k);
         end
         
         
@@ -303,7 +306,7 @@ classdef gaussgm_gp
             if nargin < 3
                 w = 1;
             end                      
-            [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+            [ha, Ja] = gcondupdate(obj.A, X, obj.isigma_x, w);
             
             pri = obj.prior;
             if nargin < 4
@@ -356,12 +359,12 @@ classdef gaussgm_gp
             
             K = size(w, 1);
             if K == 1            
-                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma_x, w);
                 theta = obj.prior.pos_mean(ha, Ja, pri_map);
             else
                 theta = zeros(obj.pdim, K);
                 for k = 1 : K
-                    [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w(k,:));
+                    [ha, Ja] = gcondupdate(obj.A, X, obj.isigma_x, w(k,:));
                     theta(:,k) = obj.prior.pos_mean(ha, Ja, pri_map);
                 end
             end            
@@ -435,7 +438,7 @@ classdef gaussgm_gp
             % do sampling
             
             if ~isempty(X)
-                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma, w);
+                [ha, Ja] = gcondupdate(obj.A, X, obj.isigma_x, w);
                 Y = obj.prior.pos_sample(ha, Ja, n, k);
             else
                 Y = obj.prior.sample(n, k);

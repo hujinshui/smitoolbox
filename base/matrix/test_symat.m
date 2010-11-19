@@ -38,7 +38,7 @@ test_character(classname, ds, ns);
 
 test_quad(classname, ds, ns);
 
-test_qtrans(classname, ds);
+test_qtrans(classname, ds, ns);
 
 test_choltrans(classname, ds);
 
@@ -348,26 +348,35 @@ for d = ds
 end
 
 
-function test_qtrans(classname, ds)
+function test_qtrans(classname, ds, ns)
 % Test the computation of quadratic transform
 
 disp('Test qtrans ...');
 
 p = 8;
 
-n = 1;
 for d = ds       
-    fprintf('\tfor d = %d\n', d);
-    
-    A = randpdmat(classname, d, n);
-    B = rand(p, d);
-    
-    R = qtrans(A, B);
-    assert(isnumeric(R) && isequal(size(R), [p, p]));
-    
-    R0 = B * fullform(A) * B';
-    
-    checkdev('qtrans', R, R0, 1e-13);
+    for n = ns
+        fprintf('\tfor d = %d, n = %d\n', d, n);
+        
+        A = randpdmat(classname, d, n);
+        B = rand(p, d);
+        
+        R = qtrans(A, B);
+        if n == 1
+            assert(isfloat(R) && isequal(size(R), [p, p]));
+        else
+            assert(isfloat(R) && isequal(size(R), [p, p, n]));
+        end
+        
+        M = fullform(A);
+        R0 = zeros(p, p, n);
+        for i = 1 : n
+            R0(:,:,i) = B * M(:,:,i) * B';
+        end
+        
+        checkdev('qtrans', R, R0, 1e-13);
+    end
 end
 
 

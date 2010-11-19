@@ -398,22 +398,27 @@ classdef dmat
             %   R = qtrans(A, B);
             %
             %       Here, B can be a p x d matrix, and the function
-            %       returns a p x p matrix: B * A * B'
-            %       
-            %       Note that this function only works when n == 1.
-            %       The result is guaranteed to be symmetric.
+            %       returns a p x p matrix: B * A * B'            
             %
-            
-            if A.n ~= 1
-                error('dmat:invalidarg', 'A must be a single-matrix object.');
-            end
             
             if size(B, 2) ~= A.d
                 error('dmat:invalidarg', 'The dimension of B is invalid.');
             end            
             
-            R = B * bsxfun(@times, A.dv, B');
-            R = 0.5 * (R + R');            
+            n_ = A.n;
+            
+            if n_ == 1
+                R = B * bsxfun(@times, A.dv, B');
+                R = 0.5 * (R + R');            
+            else
+                dv_ = A.dv;
+                p = size(B, 1);
+                R = zeros(p, p, n_, class(B(1) * dv_(1)));
+                for i = 1 : n_
+                    cR = B * bsxfun(@times, dv_(:,i), B');
+                    R(:,:,i) = 0.5 * (cR + cR');
+                end
+            end
         end
         
         

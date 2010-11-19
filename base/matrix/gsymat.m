@@ -80,11 +80,12 @@ classdef gsymat
             %
             
             if A.d == B.d
+                BM = fullform(B);
                 if A.n == B.n
-                    C = gsymat(A.M + B.M); 
+                    C = gsymat(A.M + BM);
                 else
-                    C = gsymat(bsxfun(@plus, A.M, B.M));
-                end
+                    C = gsymat(bsxfun(@plus, A.M, BM));
+                end                
             else
                 error('MATLAB:dimagree', ...
                     'Matrix dimensions must agree.');
@@ -449,22 +450,26 @@ classdef gsymat
             %   R = qtrans(A, B);
             %
             %       Here, B can be a p x d matrix, and the function
-            %       returns a p x p matrix: B * A * B'
-            %       
-            %       Note that this function only works when n == 1.
-            %       The result is guaranteed to be symmetric.
+            %       returns a p x p matrix: B * A * B'            
             %
-            
-            if A.n ~= 1
-                error('gsymat:invalidarg', 'A must be a single-matrix object.');
-            end
             
             if size(B, 2) ~= A.d
                 error('gsymat:invalidarg', 'The dimension of B is invalid.');
             end            
             
-            R = B * A.M * B';
-            R = 0.5 * (R + R');            
+            n_ = A.n;
+            if n_ == 1
+                R = B * A.M * B';
+                R = 0.5 * (R + R'); 
+            else
+                p = size(B,1);
+                M_ = A.M;
+                R = zeros(p, p, n_, class(B(1) * M_(1)));                
+                for i = 1 : n_
+                    cR = B * M_(:,:,i) * B';
+                    R(:,:,i) = 0.5 * (cR + cR');
+                end
+            end
         end
         
         
