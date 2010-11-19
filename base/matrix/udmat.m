@@ -387,21 +387,20 @@ classdef udmat
             %   R = qtrans(A, B);
             %
             %       Here, B can be a p x d matrix, and the function
-            %       returns a p x p matrix: B * A * B'
-            %       
-            %       Note that this function only works when n == 1.
-            %       The result is guaranteed to be symmetric.
+            %       returns a p x p matrix: B * A * B'            
             %
-            
-            if A.n ~= 1
-                error('udmat:invalidarg', 'A must be a single-matrix object.');
-            end
-            
+                        
             if size(B, 2) ~= A.d
                 error('dmat:invalidarg', 'The dimension of B is invalid.');
             end
             
-            R = A.dv * (B * B');
+            n_ = A.n;
+            C = B * B';
+            if n_ == 1
+                R = A.dv * C;
+            else
+                R = bsxfun(@times, reshape(A.dv, 1, 1, n_), C);
+            end
         end
         
         

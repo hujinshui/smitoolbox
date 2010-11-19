@@ -439,24 +439,26 @@ classdef symat2
             %   R = qtrans(A, B);
             %
             %       Here, B can be a p x d matrix, and the function
-            %       returns a p x p matrix: B * A * B'
-            %       
-            %       Note that this function only works when n == 1.
-            %       The result is guaranteed to be symmetric.
+            %       returns a p x p matrix: B * A * B'            
             %
-            
-            if A.n ~= 1
-                error('dmat:invalidarg', 'A must be a single-matrix object.');
-            end
             
             if size(B, 2) ~= A.d
                 error('dmat:invalidarg', 'The dimension of B is invalid.');
             end            
-            
-            V = A.v;
-            M = [V(1) V(2); V(2) V(3)];
-            R = B * M * B';
-            R = 0.5 * (R + R');
+                        
+            M = fullform(A);
+            n_ = A.n;
+            if n_ == 1
+                R = B * M * B';
+                R = 0.5 * (R + R');
+            else
+                p = size(B,1);
+                R = zeros(p, p, n_, class(B(1) * M(1)));
+                for i = 1 : n_
+                    cR = B * M(:,:,i) * B';
+                    R(:,:,i) = 0.5 * (cR + cR');
+                end
+            end
         end
         
         

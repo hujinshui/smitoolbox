@@ -18,7 +18,7 @@ prior = gaussd.from_mp(0, gsymat(eye(2) * 1e+6), 'ip');
 sigma = udmat(2, 0.1);
 noise = gaussd.from_mp(0, sigma);
 
-gm = gaussgm_gp(prior, A, inv(sigma));
+gm = gaussgm_gp(prior, A, sigma);
 
 %% generate data
 
@@ -33,7 +33,7 @@ y = bsxfun(@minus, x, b);
 pos = gm.get_posterior(y, 1, [], 'mp');
 emap = gm.estimate_map(y);
 
-sp = gm.pos_sample(y, 1, [], 50);
+sp = gm.pos_sample(y, 1, 50);
 
 
 %% visualize
