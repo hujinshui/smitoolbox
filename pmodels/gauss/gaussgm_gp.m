@@ -186,24 +186,30 @@ classdef gaussgm_gp
             %
             
             pd = obj.pdim;
-            if ~(isfloat(thetas) && ndims(thetas) == 2 && size(thetas,1) == pd)
+            if ~(isfloat(thetas) && ...
+                    (isequal(thetas, 0) || ndims(thetas) == 2 && size(thetas,1) == pd))
                 error('gaussgm:loglik:invalidarg', ...
-                    'params should be a pdim x m numeric matrix.');
+                    'thetas should be a pdim x m numeric matrix.');
             end
             
             J = obj.isigma;
             
             A_ = obj.A;
-            if isempty(A_)
-                mu = thetas;
+            if isequal(thetas, 0)
+                Jmu = 0;
             else
-                mu = A_ * thetas;
+                if isempty(A_)
+                    mu = thetas;
+                else
+                    mu = A_ * thetas;
+                end
+                Jmu = J * mu;
             end
                         
             if nargin < 3
-                Gs = gaussd.from_ip(J * mu, J);
+                Gs = gaussd.from_ip(Jmu, J);
             else
-                Gs = gaussd.from_ip(J * mu, J, [], ump);
+                Gs = gaussd.from_ip(Jmu, J, [], ump);
             end
                 
         end  
