@@ -46,7 +46,6 @@ if op == 'c' || op == 'd'
         R = sum(D .^2, 1);
     else
         R = bsxfun(@plus, bsxfun(@plus, (-2) * X' * Y, sum(Y.^2, 1)), sum(X.^2, 1)');        
-        R = max(R, 0);  % neg values may appear due to finite-precision computation
     end
     
     if op == 'd'
