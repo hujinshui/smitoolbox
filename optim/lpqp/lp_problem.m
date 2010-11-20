@@ -1,4 +1,4 @@
-function S = lp_problem(c, A, b, Aeq, beq, l, u, x0)
+function S = lp_problem(c, A, b, Aeq, beq, l, u)
 % Constructs a struct to represent a generic Linear programming problem
 %
 %   A Linear programming problem is formulated as:
@@ -12,7 +12,6 @@ function S = lp_problem(c, A, b, Aeq, beq, l, u, x0)
 %   S = lp_problem(c, A, b);
 %   S = lp_problem(c, A, b, Aeq, beq); 
 %   S = lp_problem(c, A, b, Aeq, beq, l, u);
-%   S = lp_problem(c, A, b, Aeq, beq, l, u, x0);
 %       constructs the problem.
 %
 %       Input arguments:
@@ -24,13 +23,12 @@ function S = lp_problem(c, A, b, Aeq, beq, l, u, x0)
 %       - beq:  the right hand side values of the equalities
 %       - l:    the lower bound of the solution entries
 %       - u:    the upper bound of the solution entries
-%       - x0:   the initial guess of the solution.
 %
 %       Note that when some contraints are not used, the corresponding
 %       inputs can be omitted or set to empty.
 %
 %       The output is a struct, which has a field type = 'lp', and the
-%       following fields: c, A, bl, bu, Aeq, beq, l, u, and x0.
+%       following fields: d, c, A, bl, bu, Aeq, beq, l, u.
 %
 %   Remarks
 %   -------
@@ -62,7 +60,7 @@ end
 d = length(c);
 
 % constraints
-[A, bu, bl] = check_lin_iec(d, A, b, 'lp_problem');
+[A, bl, bu] = check_lin_iec(d, A, b, 'lp_problem');
 
 if nargin >= 4
     [Aeq, beq] = check_lin_eqc(d, Aeq, beq, 'lp_problem');
@@ -83,32 +81,15 @@ else
     u = [];
 end
 
-% initial solution
-
-if nargin >= 8 && ~isempty(x0)
-    if ~(isnumeric(x0) && isvector(x0) && isreal(x0) && length(x0) == d)
-        error('lp_problem:invalidarg', ...
-            'x0 should be a real vector of length d when not-empty.');
-    end
-    if ~isa(x0, 'double')
-        x0 = double(x0);
-    end
-    if size(x0, 2) > 2
-        x0 = x0.';
-    end
-else
-    x0 = [];
-end
-
     
 % output
 
 S = struct( ...
     'type', 'lp', ...
+    'd', d, ...
     'c', c, ...
     'A', A, 'bl', bl, 'bu', bu, ...
     'Aeq', Aeq, 'beq', beq, ...
-    'l', l, 'u', u, ...
-    'x0', x0);
+    'l', l, 'u', u);
 
 
