@@ -1,4 +1,4 @@
-classdef pca_std < subspace_base
+classdef pca_std
 % The class for Standard Principal Component Analysis (PCA)
 %   
 %   PCA is a model to derive a linear representation in lower 
@@ -9,10 +9,15 @@ classdef pca_std < subspace_base
 %   -------
 %       - Created by Dahua Lin, on May 30, 2008
 %       - Modified by Dahua Lin, on Jun 6, 2008
-%           - the new class is now derived from the subspace_base class
+%       - Modified by Dahua Lin, on Nov 20, 2010
 %
 
-    properties(GetAccess = 'public', SetAccess = 'private')       
+    properties(GetAccess = 'public', SetAccess = 'private')        
+        in_dim;             % the dimensionality of input space (d)
+        out_dim;            % the dimensionality of output space (q) 
+        basis;              % the basis matrix (a d x q orthonormal matrix)
+        center;             % the center in the input space
+                
         vars;       % the variance along each principal dimension (q x 1)
         residue;    % the residual varianace of discarded subspace (scalar)        
     end
@@ -48,40 +53,57 @@ classdef pca_std < subspace_base
     methods        
         % construction
         
-        function obj = pca_std(B, xa, vars, residue)
+        function obj = pca_std(B, x0, vars, residue)
             % constructs a PCA model with required information
             %
-            %   obj = pca_std(B, xa, vars, residue)
+            %   obj = pca_std(B, x0, vars, residue)
             %       constructs and returns a PCA model, with the following
             %       information:
             %           - B:    the basis matrix (d x q)
-            %           - xa:   the anchor(center) vector in input space
+            %           - x0:   the center vector in input space (d x 1)
             %           - vars: the variances of principal dimensions (q x 1)
             %           - residue: the residue variance
             %
             
-            q = size(B, 2);
+            if ~(isfloat(B) && ndims(B) == 2)
+                error('pca_std:invalidarg', 'B should be a matrix.');
+            end
             
-            assert(isfloat(vars) && size(vars,1) == q && size(vars,2) == 1, ...
-                'pca_std:invalidarg', ...
-                'vars should be a numeric vector of size q x 1.');
+            [d, q] = size(B);
             
-            assert(isfloat(residue) && isscalar(residue), ...
-                'pca_std:invalidarg', ...
-                'residue should be a numeric scalar.');
+            if q > d
+                error('pca_std:invalidarg', ...
+                    'The dimension of subspace should not exceed that of the input space.');
+            end
             
-            assert(all(diff(vars) <= 0), 'pca_std:varsnotsorted', ...
-                'The vars should be sorted in descending order.');
+            if ~(isfloat(x0) && isequal(size(x0), [d 1]))
+                error('pca_std:invalidarg', ...
+                    'x0 should be a numeric vector of size d x 1.');
+            end                        
+            
+            if ~(isfloat(vars) && isequal(size(vars), [q 1]))
+                error('pca_std:invalidarg', ...
+                    'vars should be a numeric vector of size q x 1.');
+            end
+            
+            if ~(isfloat(residue) && isscalar(residue))
+                error('pca_std:invalidarg', ...
+                    'residue should be a numeric scalar.');
+            end
                                   
-            obj = obj@subspace_base(B, xa);                        
         
+            obj.in_dim = d;
+            obj.out_dim = q; 
+            obj.basis = B;
+            obj.center = x0;
+            
             obj.vars = vars;
             obj.residue = residue;        
         end
         
         
         function sobj = select(obj, inds)
-            % creates a subspace model with selected subset of dimensions
+            % creates a PCA model with selected subset of dimensions
             %
             %   sobj = obj.select(inds);
             %       creates a subspace with subset of dimensions specifed
@@ -129,12 +151,15 @@ classdef pca_std < subspace_base
             %       smaller than r * vars(1) are discarded.
             %
             
-            assert(ischar(criterion), 'pca_std:get_truncated_dim:invalidarg', ...
-                'criterion should be a striing.');
+            if ~ischar(criterion)
+                error('pca_std:get_truncated_dim:invalidarg', ...
+                    'criterion should be a striing.');
+            end
             
-            assert(isnumeric(v) && isscalar(v), ...
-                'pca_std:get_truncated_dim:invalidarg', ...
+            if ~(isnumeric(v) && isscalar(v))
+                error('pca_std:get_truncated_dim:invalidarg', ...
                 'The criterion value v should be a numeric scalar.');
+            end
             
             switch criterion
                 case 'dim'
@@ -197,7 +222,92 @@ classdef pca_std < subspace_base
             
         end                        
         
+        
+        function Y = transform(obj, X, s)
+            % projects the input vectors into the subspace
+            %
+            %   Y = obj.transform(X);
+            %       transforms the input vectors by projecting them into
+            %       the subspace as
+            %           y = B' * (x - center)
+            %
+            %       X should be a d x n matrix with each column being
+            %       an input vector, where d == in_dim, and n is the 
+            %       number of vectors. And, Y will be a q x n matrix 
+            %       with its columns being the output vectors.
+            %
+            %   Y = obj.transform(X, s);
+            %       conducts partial projection, in which the vectors
+            %       are projected to a subspace spanned by the subset
+            %       of basis indexed by s, as
+            %           y = B(:, s)' * (x - center)
+            %       
+            %       X should be a d x n matrix as in full projection,
+            %       while the output Y will be a q' x n matrix, with
+            %       q' equaling the number of basis selected by s.
+            %
+            %       s can be any form of indexing supported by MATLAB,
+            %       including integer array or logical array.
+            %
+                    
+            x0 = obj.center;
+            if ~all(x0 == 0)
+                X = bsxfun(@minus, X, x0);
+            end
+            
+            if nargin == 2
+                Y = obj.basis' * X;
+            else
+                Y = obj.basis(:, s)' * X;
+            end            
+            
+        end
+        
+        
+        function X = reconstruct(obj, Y, s)
+            % reconstructs the vector in input space
+            %
+            %   X = obj.reconstruct(Y);
+            %       reconstructs the vectors in the input space from
+            %       the transformed vectors using backward transform,
+            %       which uses the values in the transformed vectors
+            %       as coefficient of linear combination of basis, as
+            %           x = B * y + x_anchor
+            %
+            %       Y should be a q x n matrix with each column being
+            %       a transformed vector in the subspace, while in the
+            %       output, X will be a d x n matrix. Here, d and q
+            %       respectively denote in_dim and out_dim, and n is the
+            %       number of vectors.
+            %
+            %   X = obj.reconstruct(Y, s);
+            %       reconstructs the vectors in the input space from
+            %       part of the transformed vectors. Only a subset of
+            %       basis is utilized, as
+            %           x = B(:, s) * y + center
+            %
+            %       In partial reconstruction, Y should be a q' x n 
+            %       matrix, where q' is the number of the dimensions
+            %       selected by the indexing array s. While, in the
+            %       output, X remains a d x n matrix.
+            %
+            
+            if nargin == 2
+                X = obj.basis * Y;
+            else
+                X = obj.basis(:, s) * Y;
+            end
+            
+            x0 = obj.center;
+            if ~all(x0 == 0);
+                X = bsxfun(@plus, X, x0);
+            end                
+            
+        end         
+        
     end
+    
+    
     
     
     methods(Static)
@@ -302,7 +412,7 @@ classdef pca_std < subspace_base
             ratio = [];
             tol = [];
             weights = [];
-            center = [];            
+            x0 = [];            
             
             if ~isempty(varargin)
                 
@@ -321,8 +431,10 @@ classdef pca_std < subspace_base
                     
                     switch name
                         case 'method'
-                            assert(ischar(v), 'pca_std:invalidoption', ...
+                            if ~ischar(v)
+                                error('pca_std:invalidoption', ...
                                 'The method option value should be a string.');
+                            end
                             
                             switch v
                                 case {'auto', 'std', 'svd', 'trans'}
@@ -333,45 +445,42 @@ classdef pca_std < subspace_base
                             end
                             
                         case 'maxdim'
-                            assert(isnumeric(v) && isscalar(v) && ...
-                                v == fix(v) && v >= 1 && v <= dim_ub, ...
-                                'pca_std:invalidoption', ...
-                                'The maxdim should be an integer in the range [1, min(d, n-1)].');
-                            
+                            if ~(isnumeric(v) && isscalar(v) && ...
+                                v == fix(v) && v >= 1 && v <= dim_ub)
+                                error('pca_std:invalidoption', ...
+                                    'The maxdim should be an integer in the range [1, min(d, n-1)].');
+                            end                            
                             maxdim = v;
                             
                         case 'ratio'
-                            assert(isnumeric(v) && isscalar(v) && v > 0 && v < 1, ...
-                                'pca_std:invalidoption', ...
-                                'The ratio should be a scalar with 0 < r < 1.');
-                            
+                            if ~(isnumeric(v) && isscalar(v) && v > 0 && v < 1)                                
+                                error('pca_std:invalidoption', ...
+                                    'The ratio should be a scalar with 0 < r < 1.');
+                            end                            
                             ratio = v;
                             
                         case 'tol'
-                            assert(isnumeric(v) && isscalar(v) && v > 0 && v < 1, ...
-                                'pca_std:invalidoption', ...
-                                'The tol value should be a scalar with 0 < t < 1.');
-                            
+                            if ~(isnumeric(v) && isscalar(v) && v > 0 && v < 1)
+                                error('pca_std:invalidoption', ...
+                                    'The tol value should be a scalar with 0 < t < 1.');
+                            end                            
                             tol = v;
                             
                         case 'weights'                            
-                            assert(isfloat(v) && ndims(v) == 2 && ...
-                                size(v,1) == 1 && size(v,2) == n, ...
-                                'pca_std:invalidoption', ...
-                                'The weights should be a 1 x n numeric vector.');
-                            
-                            assert(all(v >= 0), 'pca_std:invalidoption', ...
-                                'The weights should be all non-negative.');
-                            
+                            if ~(isfloat(v) && ndims(v) == 2 && ...
+                                size(v,1) == 1 && size(v,2) == n)
+                                error('pca_std:invalidoption', ...
+                                    'The weights should be a 1 x n numeric vector.');
+                            end                            
                             weights = v;
                                 
                         case 'center'
-                            assert(isequal(v, 0) || ( isfloat(center) && ...
-                                ndims(v) == 2 && size(v,1) == d && size(v,2) == 1), ...
-                                'pca_std:invalidoption', ...
-                                'The center should be either 0 or d x 1 numeric vector.');
-                            
-                            center = v;
+                            if ~(isequal(v, 0) || ( isfloat(v) && ...
+                                ndims(v) == 2 && size(v,1) == d && size(v,2) == 1))
+                                error('pca_std:invalidoption', ...
+                                    'The center should be either 0 or d x 1 numeric vector.');
+                            end                            
+                            x0 = v;
                             
                         otherwise
                             error('pca_std:invalidoption', ...
@@ -386,16 +495,16 @@ classdef pca_std < subspace_base
             %% pre-process samples
             
             % shift-center
-            if isempty(center)
+            if isempty(x0)
                 if isempty(weights)
-                    center = sum(X, 2) / n;
+                    x0 = sum(X, 2) / n;
                 else
-                    center = X * (weights' / sum(weights));
+                    x0 = X * (weights' / sum(weights));
                 end
             end
             
-            if ~all(center == 0)
-                X = bsxfun(@minus, X, center);
+            if ~all(x0 == 0)
+                X = bsxfun(@minus, X, x0);
             end                                                            
             
             % weight samples
@@ -504,17 +613,11 @@ classdef pca_std < subspace_base
                         
             % output
             
-            obj = pca_std(U, center, svars, sres);            
+            obj = pca_std(U, x0, svars, sres);            
             
         end
         
     end
 
 end 
-
-
-
-
-
-
 
