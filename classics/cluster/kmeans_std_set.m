@@ -1,10 +1,10 @@
-function S = kmeans_ex_set(S0, varargin)
-% Set options for kmeans_ex function.
+function S = kmeans_std_set(S0, varargin)
+% Set options for kmeans_std function.
 %
-%   S = kmeans_ex_set;
+%   S = kmeans_std_set;
 %       returns the default option struct.
 %
-%   S = kmeans_ex_set(S0, 'name1', value1, 'name2', value2, ...);
+%   S = kmeans_std_set(S0, 'name1', value1, 'name2', value2, ...);
 %       Verifies input options and constructs an option struct for 
 %       kmeans_ex_set.
 %
@@ -16,7 +16,7 @@ function S = kmeans_ex_set(S0, varargin)
 
 %   History
 %   -------
-%       - Created by Dahua Lin, on SEp 27, 2010
+%       - Created by Dahua Lin, on Sep 27, 2010
 %
 
 %% main
@@ -25,23 +25,22 @@ function S = kmeans_ex_set(S0, varargin)
 
 if nargin < 1 || isempty(S0)    
     S = struct( ...
-        'tag', 'kme_ex_checked', ...
-        'scheme', 'std', ...
-        'max_iter', 100, ...
-        'tol_c', 0, ...
+        'tag', 'kme_std_checked', ...
+        'maxiter', 100, ...
+        'tolc', 0, ...
         'display', 'off', ...
-        'dispLevel', 0, ...
-        'uc_warn', false, ...
+        'displevel', 0, ...
+        'ucwarn', false, ...
         'init', 'km++', ...
-        'initFunc', @kmpick_pp, ...
-        'on_nil', 'repick++', ...
-        'on_nil_op', 1, ...
-        'rpickFunc', @kmpick_pp, ...
-        'dist_func', @kmd_sqL2, ...
+        'initfunc', @kmpick_pp, ...
+        'onnil', 'repick++', ...
+        'onnilop', 1, ...
+        'rpickfunc', @kmpick_pp, ...
+        'distfunc', @kmd_sqL2, ...
         'rstream', []);    
 else    
     if ~(isstruct(S0) && numel(S0) == 1 && isfield(S0, 'tag') && ...
-            strcmp(S0, 'kme_ex_checked'))
+            strcmp(S0, 'kme_std_checked'))
         error('kmeans_ex_set:invalidarg', 'S0 is invalid.');
     end    
     S = S0;
@@ -58,7 +57,7 @@ ovals = varargin(2:2:end);
 
 n = length(onames);
 if ~(iscellstr(onames) && n == length(ovals))
-    error('kmeans_ex_set:invalidarg', 'The name/value pair list is invalid.');
+    error('kmeans_std_set:invalidarg', 'The name/value pair list is invalid.');
 end
 
 update_display = false;
@@ -67,18 +66,12 @@ update_on_nil = false;
 
 for i = 1 : n
    
-    name = onames{i};
+    name = lower(onames{i});
     v = ovals{i};
     
-    switch lower(name)
+    switch name
         
-        case 'scheme'
-            if ~(ischar(v) && any(strcmpi(v, {'std', 'acc'})))
-                opterr('scheme must be either of ''std'' or ''acc''.');
-            end
-            v = lower(v);
-        
-        case {'max_iter', 'tol_c'}
+        case {'maxiter', 'tolc'}
             if ~(isnumeric(v) && isscalar(v) && v > 0)
                 opterr('%s must be a positive scalar.', name);
             end
@@ -90,7 +83,7 @@ for i = 1 : n
             v = lower(v);
             update_display = ~strcmp(v, S.display);                
             
-        case 'uc_warn'
+        case 'ucwarn'
             if ~((islogical(v) || isnumeric(v)) && isscalar(v))
                 opterr('uc_warn must be a logical or numeric scalar (0 or 1).');
             end
@@ -103,14 +96,14 @@ for i = 1 : n
             v = lower(v);
             update_init = ~strcmp(v, S.init);
             
-        case 'on_nil'
+        case 'onnil'
             if ~(ischar(v) && any(strcmpi(v, {'repick', 'repick++', 'mcpick', 'error', 'keep'})))
                 opterr('The value of on_nil option is invalid.');
             end
             v = lower(v);
             update_on_nil = ~strcmp(v, S.on_nil);
             
-        case 'dist_func'
+        case 'distfunc'
             if ischar(v)                
                 if ~any(strcmpi(v, {'sqL2', 'L1'}))
                     opterr('Unknown dist_func name %s', v);
@@ -149,42 +142,42 @@ end
 if update_display
     switch S.display
         case 'off'
-            S.dispLevel = 0;
+            S.displevel = 0;
         case 'final'
-            S.dispLevel = 1;
+            S.displevel = 1;
         case 'iter'
-            S.dispLevel = 2;
+            S.displevel = 2;
     end
 end
 
 if update_init
     switch S.init
         case 'km++'
-            S.initFunc = @kmpick_pp;
+            S.initfunc = @kmpick_pp;
         case 'random'
-            S.initFunc = @kmpick_rand;
+            S.initfunc = @kmpick_rand;
         case 'mcinit'
-            S.initFunc = @kmpick_mc;
+            S.initfunc = @kmpick_mc;
     end
 end
 
 if update_on_nil
-    switch S.on_nil
+    switch S.onnil
         case 'repick++'
-            S.rpickFunc = @kmpick_pp;
-            S.on_nil_op = 1;
+            S.rpickfunc = @kmpick_pp;
+            S.onnilop = 1;
         case 'repick'
-            S.rpickFunc = @kmpick_rand;
-            S.on_nil_op = 1;
+            S.rpickfunc = @kmpick_rand;
+            S.onnilop = 1;
         case 'mcpick'
-            S.rpickFunc = @kmpick_mc;
-            S.on_nil_op = 1;
+            S.rpickfunc = @kmpick_mc;
+            S.onnilop = 1;
         case 'error'
-            S.rpickFunc = [];
-            S.on_nil_op = -1;
+            S.rpickfunc = [];
+            S.onnilop = -1;
         case 'keep'
-            S.rpickFunc = [];
-            S.on_nil_op = 0;
+            S.rpickfunc = [];
+            S.onnilop = 0;
     end
 end
 
@@ -193,6 +186,6 @@ end
 
 function opterr(msg, varargin)
 
-error('kmeans_ex_set:invalidopt', msg, varargin{:});
+error('kmeans_std_set:invalidopt', msg, varargin{:});
 
 

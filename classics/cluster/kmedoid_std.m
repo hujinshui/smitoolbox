@@ -38,21 +38,21 @@ function [L, M, info] = kmedoid_std(C, M0, varargin)
 %       of name/value pairs (or a struct created by kmedoid_std_set)
 %       to customize the algorithm.
 %
-%       - max_iter: the maximum number of iterations (default = 100)
+%       - MaxIter:  the maximum number of iterations (default = 100)
 %
-%       - tol_c:    the maximum allowable number of label changes at
+%       - TolC:     the maximum allowable number of label changes at
 %                   convergence. (default = 0)
 %
-%       - display:  the level of information displaying (default = 'off')
+%       - Display:  the level of information displaying (default = 'off')
 %                   It can take either of the following values:
 %                   - 'off':    display nothing
 %                   - 'iter':   display information for each iteration
 %                   - 'final':  display final result information
 %
-%       - uc_warn:  whether to raise a warning if not converged.
+%       - UcWarn:   whether to raise a warning if not converged.
 %                   (default = false).
 %
-%       - init:     the method to initialize centers. It can take either
+%       - Init:     the method to initialize centers. It can take either
 %                   of the following values (default = 'km++'):
 %                   - 'random':  randomly pick K distinct samples as centers
 %                   - 'km++':    randomly pick K samples using Kmean++
@@ -60,7 +60,7 @@ function [L, M, info] = kmedoid_std(C, M0, varargin)
 %                                sequentially select furthest samples 
 %                                from selected centers.    
 %
-%       - rstream:  the random number stream to use, which can be either
+%       - Rstream:  the random number stream to use, which can be either
 %                   empty (using default) or a RandStream object.
 %                   (default = []).
 %
@@ -121,7 +121,7 @@ end
 % initialize medoids
 
 if isempty(M0)
-    M0 = opts.initFunc(n, K, [], C, opts.rstream);
+    M0 = opts.initfunc(n, K, [], C, opts.rstream);
 end
 M = M0;
 
@@ -137,13 +137,13 @@ converged = false;
 it = 0;
 ac = 1 : K;
 
-dispLevel = opts.dispLevel;
+dispLevel = opts.displevel;
 if dispLevel >= 2
     print_iter_header();    
     print_iter(it, costs, ac, n);
 end
 
-while ~converged && it < opts.max_iter
+while ~converged && it < opts.maxiter
     
     it = it + 1;
     
@@ -173,7 +173,7 @@ while ~converged && it < opts.max_iter
     % determine convergence
     
     ch = nnz(L ~= L_pre);
-    converged = (ch <= opts.tol_c);
+    converged = (ch <= opts.tolc);
                 
     % display iteration info
     if dispLevel >= 2    

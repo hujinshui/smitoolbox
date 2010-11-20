@@ -26,13 +26,13 @@ function S = kmedoid_std_set(S0, varargin)
 if nargin < 1 || isempty(S0)    
     S = struct( ...
         'tag', 'kmd_std_checked', ...
-        'max_iter', 100, ...
-        'tol_c', 0, ...
+        'maxiter', 100, ...
+        'tolc', 0, ...
         'display', 'off', ...
-        'dispLevel', 0, ...
-        'uc_warn', false, ...
+        'displevel', 0, ...
+        'ucwarn', false, ...
         'init', 'km++', ...
-        'initFunc', @kmpick_pp, ...
+        'initfunc', @kmpick_pp, ...
         'rstream', []);    
 else    
     if ~(isstruct(S0) && numel(S0) == 1 && isfield(S0, 'tag') && ...
@@ -61,18 +61,12 @@ update_init = false;
 
 for i = 1 : n
    
-    name = onames{i};
+    name = lower(onames{i});
     v = ovals{i};
     
-    switch lower(name)
+    switch name
         
-        case 'scheme'
-            if ~(ischar(v) && any(strcmpi(v, {'std', 'acc'})))
-                opterr('scheme must be either of ''std'' or ''acc''.');
-            end
-            v = lower(v);
-        
-        case {'max_iter', 'tol_c'}
+        case {'maxiter', 'tolc'}
             if ~(isnumeric(v) && isscalar(v) && v > 0)
                 opterr('%s must be a positive scalar.', name);
             end
@@ -84,7 +78,7 @@ for i = 1 : n
             v = lower(v);
             update_display = ~strcmp(v, S.display);                
             
-        case 'uc_warn'
+        case 'ucwarn'
             if ~((islogical(v) || isnumeric(v)) && isscalar(v))
                 opterr('uc_warn must be a logical or numeric scalar (0 or 1).');
             end
@@ -118,22 +112,22 @@ end
 if update_display
     switch S.display
         case 'off'
-            S.dispLevel = 0;
+            S.displevel = 0;
         case 'final'
-            S.dispLevel = 1;
+            S.displevel = 1;
         case 'iter'
-            S.dispLevel = 2;
+            S.displevel = 2;
     end
 end
 
 if update_init
     switch S.init
         case 'km++'
-            S.initFunc = @kmpick_pp;
+            S.initfunc = @kmpick_pp;
         case 'random'
-            S.initFunc = @kmpick_rand;
+            S.initfunc = @kmpick_rand;
         case 'mcinit'
-            S.initFunc = @kmpick_mc;
+            S.initfunc = @kmpick_mc;
     end
 end
 
