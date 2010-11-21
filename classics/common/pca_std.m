@@ -13,39 +13,31 @@ classdef pca_std
 %
 
     properties(GetAccess = 'public', SetAccess = 'private')        
-        in_dim;             % the dimensionality of input space (d)
-        out_dim;            % the dimensionality of output space (q) 
-        basis;              % the basis matrix (a d x q orthonormal matrix)
-        center;             % the center in the input space
+        dim;        % the dimension of input space (d)
+        pdim;       % the dimension of the principal subspace (q)
+        basis;      % the principal basis matrix (a d x q orthonormal matrix)
+        center;     % the center in the input space (d x 1 vector, or just 0)
                 
-        vars;       % the variance along each principal dimension (q x 1)
-        residue;    % the residual varianace of discarded subspace (scalar)        
+        eigvals;    % the eigenvalues for principal dimensions (q x 1)
+        
+        principal_var;  % the variance preserved in principal subspace
+        residue_var;    % the residual variance (not preserved)
+        total_var;      % the total variance of the input space
+        
     end
     
     properties(Dependent)        
-        principal_var;      % the variance preserved in principal space
-        total_var;          % the total variance of entire space (sum(vars) + residue)
         principal_ratio;    % the ratio of variance preserved in principal space
         residue_ratio;      % the ratio of residual variance        
     end
     
-    methods
-        function v = get.principal_var(obj)
-            v = sum(obj.vars);
-        end
-        
-        function v = get.total_var(obj)
-            v = sum(obj.vars) + obj.residue;
-        end
-        
+    methods        
         function r = get.principal_ratio(obj)
-            pv = sum(obj.vars);
-            r = pv / (pv + obj.residue);
+            r = obj.principal_var / obj.total_var;
         end
         
-        function r = get.residue_ratio(obj)
-            pv = sum(obj.vars);
-            r = obj.residue / (pv + obj.residue);
+        function r = get.residue_ratio(obj)            
+            r = obj.residue_var / obj.total_var;
         end
     end
     
@@ -53,16 +45,16 @@ classdef pca_std
     methods        
         % construction
         
-        function obj = pca_std(B, x0, vars, residue)
+        function obj = pca_std(B, x0, eigvals, residue)
             % constructs a PCA model with required information
             %
-            %   obj = pca_std(B, x0, vars, residue)
+            %   obj = pca_std(B, x0, eigvals, residue)
             %       constructs and returns a PCA model, with the following
             %       information:
-            %           - B:    the basis matrix (d x q)
-            %           - x0:   the center vector in input space (d x 1)
-            %           - vars: the variances of principal dimensions (q x 1)
-            %           - residue: the residue variance
+            %           - B:        the basis matrix (d x q)
+            %           - x0:       the center vector in input space (d x 1)
+            %           - eigvals:  the eigenvalues of principal dimensions (q x 1)
+            %           - residue:  the residue variance
             %
             
             if ~(isfloat(B) && ndims(B) == 2)
@@ -76,14 +68,14 @@ classdef pca_std
                     'The dimension of subspace should not exceed that of the input space.');
             end
             
-            if ~(isfloat(x0) && isequal(size(x0), [d 1]))
+            if ~(isfloat(x0) && (isequal(x0, 0) || isequal(size(x0), [d 1])))
                 error('pca_std:invalidarg', ...
-                    'x0 should be a numeric vector of size d x 1.');
+                    'x0 should be a numeric vector of size d x 1 or zero.');
             end                        
             
-            if ~(isfloat(vars) && isequal(size(vars), [q 1]))
+            if ~(isfloat(eigvals) && isequal(size(eigvals), [q 1]))
                 error('pca_std:invalidarg', ...
-                    'vars should be a numeric vector of size q x 1.');
+                    'eigvals should be a numeric vector of size q x 1.');
             end
             
             if ~(isfloat(residue) && isscalar(residue))
@@ -92,13 +84,16 @@ classdef pca_std
             end
                                   
         
-            obj.in_dim = d;
-            obj.out_dim = q; 
+            obj.dim = d;
+            obj.pdim = q; 
             obj.basis = B;
             obj.center = x0;
             
-            obj.vars = vars;
-            obj.residue = residue;        
+            obj.eigvals = eigvals;
+            
+            obj.principal_var = sum(eigvals);
+            obj.residue_var = residue;
+            obj.total_var = obj.principal_var + obj.residue_var;
         end
         
         
@@ -117,114 +112,38 @@ classdef pca_std
             %       computation may not be correct.
             %                        
             
-            svars = obj.vars(inds);
-            sres = sum(obj.vars) - sum(svars) + obj.residue;
+            sevals = obj.eigvals(inds);
+            sres = obj.principal_var - sum(sevals) + obj.residue_var;
             
-            sobj = pca_std(obj.basis(:, inds), obj.x_anchor, svars, sres);
-            
+            sobj = pca_std(obj.basis(:, inds), obj.center, sevals, sres);            
         end
+        
+        
+        function sobj = truncate(obj, p)
+            % truncates a PCA model to specified dimension
+            %
+            %   sobj = obj.truncate(p);
+            %       truncates the PCA model to p dimension.
+            %
+            %       Note that p should not exceed obj.pdim;
+            %
+            
+            if p == obj.pdim
+                sobj = obj;
+            else
+                sobj = select(obj, 1:p);
+            end                
+        end
+        
         
     end
             
+    
    
     methods
-        % manipulate PCA model
-        
-        function n = get_truncated_dim(obj, criterion, v)
-            % compute the preseved dimension after truncation according to
-            % the specified criteria
-            %
-            %   n = obj.get_truncated_dim('dim', n);            
-            %       if n <= out_dim, simply returns n, otherwise, raises an
-            %       error.
-            %
-            %   n = obj.get_truncated_dim('ratio', r);
-            %       return n, such that the n leading dimension preserves
-            %       at least ratio r of the total variance in the input
-            %       space.
-            %
-            %       If r > principal_ratio, out_dim will be returned, with
-            %       a warning issued.
-            %
-            %   n = obj.get_truncated_dim('tol', r);
-            %       return n, such that all dimensions with variance
-            %       smaller than r * vars(1) are discarded.
-            %
-            
-            if ~ischar(criterion)
-                error('pca_std:get_truncated_dim:invalidarg', ...
-                    'criterion should be a striing.');
-            end
-            
-            if ~(isnumeric(v) && isscalar(v))
-                error('pca_std:get_truncated_dim:invalidarg', ...
-                'The criterion value v should be a numeric scalar.');
-            end
-            
-            switch criterion
-                case 'dim'
-                    if v <= obj.out_dim
-                        n = v;
-                    else
-                        error('pca_std:get_truncated_dim:invalidarg', ...
-                            'The number of dimensions to preserve exceeds out_dim.');
-                    end
-                    
-                case 'ratio'
-                    assert(v > 0 && v < 1, 'pca_std:get_truncated_dim:invalidarg', ...
-                        'The ratio value should have 0 < v < 1.');
-                    
-                    pv = sum(obj.vars);
-                    tv = pv + obj.residue;
-                    
-                    if pv >= v * tv
-                        n = find(cumsum(obj.vars) >= v * tv, 1);
-                    else
-                        n = obj.out_dim;
-                        
-                        warning('pca_std:ratio_too_large', ...
-                            'The ratio value exceeds the principal ratio.');
-                    end
-                    
-                case 'tol'
-                    assert(v > 0 && v < 1, 'pca_std:get_truncated_dim:invalidarg', ...
-                        'The tol-ratio value should have 0 < v < 1.');
-                    
-                    n = find(obj.vars >= v * obj.vars(1), 1, 'last');     
-                    
-                otherwise
-                    error('pca_std:get_truncated_dim:invalidarg', ...
-                        'Unknown truncation criterion %s', criterion);
-            end            
-            
-        end % get_truncated_dim
-        
-        
-        function M = truncated(obj, criterion, v)
-            % returns a truncated model based on this model
-            %
-            %   M = obj.truncated('dim', n);
-            %       truncates the model by selecting the first n
-            %       dimensions.
-            %
-            %   M = obj.truncated('ratio', r);
-            %       truncates the model by preserving ratio r of 
-            %       variance in the principal subspace.
-            %
-            %   M = obj.truncated('tol', r);
-            %       truncates the model by only preserving the 
-            %       dimensions of sufficiently large variance,
-            %       i.e. variance > r * max(variance)
-            %
-            
-            ns = obj.get_truncated_dim(criterion, v);                
-            M = obj.select(1:ns);
-            
-        end                        
-        
-        
+                      
         function Y = transform(obj, X, s)
-            % projects the input vectors into the subspace
+            % projects the input vectors onto the subspace
             %
             %   Y = obj.transform(X);
             %       transforms the input vectors by projecting them into
@@ -308,30 +227,51 @@ classdef pca_std
     end
     
     
-    
-    
-    methods(Static)
-        % Training
         
-        function obj = train(X, varargin)
-            % trains a PCA model based on data
+    methods(Static)
+        
+        function obj = estimate(X, pd, varargin)
+            % Estimates a PCA model from Data
             %
-            %   obj = pca_std.train(X);
+            %   obj = pca_std.estimate(X, pd, ...);
+            %
             %       trains a PCA model based on data in X.
             %
             %       Suppose there are n samples in d-dimensional space,
             %       then X should be a d x n matrix with each column
             %       representing a sample.
             %
-            %       The subspace dimension is determined by the rank of X,
-            %       which is no larger than min(d, n-1), the maximum
-            %       possible rank.
+            %       The dimension of the principal subspace is determined
+            %       in different ways, depending on the 2nd argument pd.
+            %       In particular,
             %
-            %   obj = pca_std.train(X, name1, value1, name2, value2, ...);
-            %       trains a PCA model with options given in name-value
-            %       list.            
+            %       - pd can be a positive scalar:
             %
-            %       The following options are available.
+            %           if 0 < pd < 1, then it determines a minimum 
+            %           subspace that preserves at least ratio pd of the 
+            %           total variance. (e.g if pd = 0.9, then it preserves 
+            %           90% of the variance).
+            %
+            %           if pd >= 1, then the dimension of the principal
+            %           subspace is pd. Note that in this case, pd should
+            %           have pd <= min(d, n-1), where n is the number of
+            %           columns in X.
+            %
+            %       - pd can be [] (empty) or omitted, then it determines
+            %         a subspace that preserves 99.9% of the variance.
+            %         (eqivalent to setting pd to 0.999).
+            %
+            %       - pd can be a function handle that supports the 
+            %         usage as follows:
+            %
+            %           d = pd(eigvals);
+            %
+            %         It takes as input a sorted (in descending order)
+            %         vector of eigenvalues, and returns the dimension
+            %         of the principal subspace.
+            %       
+            %       In addition, one can specify the following options
+            %       in name/value pairs (optionally).
             %
             %       - 'method':     the method to train PCA model, which
             %                       can be either of the following strings:
@@ -343,24 +283,7 @@ classdef pca_std
             %                                 decompostion.
             %                       - 'trans': the method based on solves
             %                                  the eigen-problem of X'*X,
-            %                                  which is efficient when n < d.
-            %
-            %       - 'maxdim':     the maximum number of dimensions to 
-            %                       preserve. The option value should be 
-            %                       a scalar in the range [1, min(d, n-1)].
-            %
-            %       - 'ratio':      the ratio of variance to preserve in
-            %                       the principal subspace, which should be
-            %                       a value in the range (0, 1).
-            %
-            %       - 'tol':        set a criterion that all preserved
-            %                       dimensions should have not-too-small
-            %                       large variance. 
-            %
-            %                       The value t should have 0 < t < 1,
-            %                       which means that all preserved
-            %                       dimensions should have a variance not
-            %                       smaller than t * max(variance)
+            %                                  which is efficient when n < d.           
             %
             %       - 'weights':    The weights of samples. If this option
             %                       is specified, then the model will be
@@ -370,49 +293,54 @@ classdef pca_std
             %                       vector, with weights(i) being the
             %                       weight of the i-th sample.
             %
-            %       - 'center':     The center of the data in the input
-            %                       space. 
+            %       - 'center':     The pre-computed center of the data 
+            %                       in the input space. 
             %
             %                       It can be either a d x 1 vector, or 0.
             %                       
             %                       If not specified, the sample mean will
             %                       serve as the center.
             %
-            %   The subspace dimension is determined as follows:
-            %       - If none of the options 'maxdim', 'ratio', and 'tol' 
-            %         are specified, then it sets the subspace dimention to
-            %         the rank of X.
-            %       - If 'ratio' is not specified, but 'maxdim' or 'ratio'
-            %         is specified, then the dimension of subspace is
-            %         decided to satisfy the conditions.
-            %       - If 'ratio' is specified, the dimension is decided as
-            %         the smallest dimension that can preserve at least
-            %         specified ratio of variance in the principal
-            %         subspace, while satisfying the conditions set by
-            %         'maxdim' or 'tol' if they are specified.
-            %       - If even the maximum dimension satisyfing the
-            %         conditions by 'maxdim' and 'tol' cannot preserve the
-            %         specified ratio of variance, that maximum dimension
-            %         is used, while a warning is issued.
-            %
             
             %% parse and verify input arguments
             
-            assert(isfloat(X) && ndims(X) == 2, 'pca_std:train:invalidarg', ...
-                'X should be a numeric matrix of floatiing point value type.');
+            % verify X
+            if ~(isfloat(X) && ndims(X) == 2)
+                error('pca_std:estimate:invalidarg', ...
+                    'X should be a numeric matrix.');
+            end
             
             [d, n] = size(X);
-            dim_ub = min(d, n-1);
             
+            % verify pd
+            
+            dim_ub = min(d, n-1);            
+            if nargin < 2 || isempty(pd)
+                pd = 0.999;
+            else
+                if (isnumeric(pd) && isscalar(pd) && pd > 0) || ...
+                        isa(pd, 'function_handle')
+                    
+                    if isnumeric(pd) && pd >= 1
+                        if ~(pd == fix(pd) && pd <= dim_ub)
+                            error('pca_std:estimate:invalidarg', ...
+                                'When pd >= 1, pd should be an integer and pd <= min(d, n-1)');
+                        end
+                    end                    
+                else
+                    error('pca_std:estimate:invalidarg', ...
+                        'The 2nd argument pd is invalid.');
+                end
+            end
+
             
             % default options
             
             method = 'auto';
-            maxdim = [];
-            ratio = [];
-            tol = [];
             weights = [];
-            x0 = [];            
+            x0 = [];       
+            
+            % parse options
             
             if ~isempty(varargin)
                 
@@ -420,63 +348,35 @@ classdef pca_std
                 values = varargin(2:2:end);
                 
                 nopts = numel(names);
-                assert(numel(values) == nopts && iscellstr(names), ...
-                    'pca_std:train:invalidsyntax', ...
-                    'The name-value list is incorrect.');
+                if ~(numel(values) == nopts && iscellstr(names))
+                    error('pca_std:train:invalidsyntax', ...
+                        'The name-value list is invalid.');
+                end
                 
                 for i = 1 : nopts
                     
-                    name = names{i};
+                    name = lower(names{i});
                     v = values{i};
                     
                     switch name
                         case 'method'
-                            if ~ischar(v)
+                            if ~(ischar(v) && ismember(v, {'auto','std','svd','trans'}))
                                 error('pca_std:invalidoption', ...
-                                'The method option value should be a string.');
+                                    'The method option value should be a string.');
                             end
-                            
-                            switch v
-                                case {'auto', 'std', 'svd', 'trans'}
-                                    method = v;
-                                otherwise
-                                    error('pca_std:invalidoption', ...
-                                        'Unknown method %s for trainging PCA', v);
-                            end
-                            
-                        case 'maxdim'
-                            if ~(isnumeric(v) && isscalar(v) && ...
-                                v == fix(v) && v >= 1 && v <= dim_ub)
-                                error('pca_std:invalidoption', ...
-                                    'The maxdim should be an integer in the range [1, min(d, n-1)].');
-                            end                            
-                            maxdim = v;
-                            
-                        case 'ratio'
-                            if ~(isnumeric(v) && isscalar(v) && v > 0 && v < 1)                                
-                                error('pca_std:invalidoption', ...
-                                    'The ratio should be a scalar with 0 < r < 1.');
-                            end                            
-                            ratio = v;
-                            
-                        case 'tol'
-                            if ~(isnumeric(v) && isscalar(v) && v > 0 && v < 1)
-                                error('pca_std:invalidoption', ...
-                                    'The tol value should be a scalar with 0 < t < 1.');
-                            end                            
-                            tol = v;
+                            method = v;                           
                             
                         case 'weights'                            
-                            if ~(isfloat(v) && ndims(v) == 2 && ...
-                                size(v,1) == 1 && size(v,2) == n)
+                            if ~(isfloat(v) && isvector(v) && numel(v) == n)
                                 error('pca_std:invalidoption', ...
-                                    'The weights should be a 1 x n numeric vector.');
-                            end                            
+                                    'The weights should be a numeric vector of length n.');
+                            end         
+                            if size(v, 1) > 1; v = v.'; end
                             weights = v;
                                 
                         case 'center'
-                            if ~(isequal(v, 0) || ( isfloat(v) && ...
-                                ndims(v) == 2 && size(v,1) == d && size(v,2) == 1))
+                            if ~(isfloat(v) && ...
+                                    (isequal(v, 0) || isequal(size(v), [d 1])))
                                 error('pca_std:invalidoption', ...
                                     'The center should be either 0 or d x 1 numeric vector.');
                             end                            
@@ -484,13 +384,11 @@ classdef pca_std
                             
                         otherwise
                             error('pca_std:invalidoption', ...
-                                'Unknown option %s for training PCA', name);
-                            
-                    end % option-name-switch                    
-                
-                end % each option
-                
-            end % has options
+                                'Unknown option %s for estimating PCA', name);                            
+                    end                                    
+                end                 
+            end 
+            
                                    
             %% pre-process samples
             
@@ -557,63 +455,41 @@ classdef pca_std
                     clear D;                    
             end
             
-            % re-arrange
-            [svars, si] = sort(devs, 1, 'descend');
-            svars = svars(1:dim_ub);
-            svars(svars < 0) = 0;
+            % re-arrange in descending order           
+            [sevs, si] = sort(devs, 1, 'descend');                                    
+            sevs = max(sevs(1:dim_ub), 0);
             U = U(:, si(1:dim_ub));
             
-            tvar = sum(svars);
+            sevs = sevs * (1 / tw);
+            tvar = sum(sevs);
             
-            %% post-process: subspace-dim decision
+            %% select principal subspace
             
-            if isempty(maxdim) && isempty(ratio) && isempty(tol)               
-                
-                % no condition set, use rank
-                subd = find(svars > eps(class(svars)), 1, 'last');
-                
+            if isnumeric(pd)
+                if pd >= 1
+                    p = pd;
+                else
+                    vr = cumsum(sevs) * (1 / tvar);
+                    p = find(vr >= pd, 1);
+                    if isempty(p); p = dim_ub; end
+                end
             else
-                
-                subd = dim_ub;
-                
-                % max dimension
-                if ~isempty(maxdim) && subd > maxdim
-                    subd = maxdim;
-                end
-                
-                % value tolerance
-                if ~isempty(tol) && svars(subd) < tol * svars(1)
-                    subd = find(svars >= tol * svars(1), 1, 'last');
-                end
-                
-                % preserve ratio
-                if ~isempty(ratio)                    
-                    cum_vars = cumsum(svars);                    
-                    
-                    if cum_vars(subd) >= ratio * tvar
-                        subd = find(cum_vars >= ratio * tvar, 1);
-                    else
-                        warning('pca_std:fail_preserve_variance', ...
-                            'The subspace model satisfying the required conditions cannot preserve sufficient variance.');
-                    end
-                end
-                
+                p = pd(sevs);
             end
-            
-            if subd < dim_ub                
-                svars = svars(1:subd);
-                U = U(:, 1:subd);
-                sres = tvar - sum(svars);
+                                                
+            if p < dim_ub                
+                pevs = sevs(1:p);
+                Up = U(:, 1:p);
+                res = tvar - sum(pevs);
             else
-                sres = 0;
-            end
-            
-            svars = svars / tw;
-            sres = sres / tw;
+                pevs = sevs;
+                Up = U;
+                res = 0;
+            end                        
                         
             % output
             
-            obj = pca_std(U, x0, svars, sres);            
+            obj = pca_std(Up, x0, pevs, res);            
             
         end
         
