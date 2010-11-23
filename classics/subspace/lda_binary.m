@@ -108,16 +108,16 @@ if isempty(ws)
     mu0 = sum(X0, 2) * (1/n0);
     mu1 = sum(X1, 2) * (1/n1);
     
-    C0 = X0 * X0' + (n0 * mu0 - 2 * sum(X0, 2)) * mu0';
-    C1 = X1 * X1' + (n1 * mu1 - 2 * sum(X1, 2)) * mu1';
+    C0 = X0 * X0' - (n0 * mu0) * mu0';
+    C1 = X1 * X1' - (n1 * mu1) * mu1';
     Sigma = (C0 + C1) * (1 / (n0 + n1));
     
 else
     mu0 = X0 * (w0' / t0);
     mu1 = X1 * (w1' / t1);
     
-    C0 = X0 * bsxfun(@times, X0, w0)' + (t0 * mu0 - 2 * (X0 * w0')) * mu0';
-    C1 = X1 * bsxfun(@times, X1, w1)' + (t1 * mu1 - 2 * (X1 * w1')) * mu1';
+    C0 = X0 * bsxfun(@times, X0, w0)' - (t0 * mu0) * mu0';
+    C1 = X1 * bsxfun(@times, X1, w1)' - (t1 * mu1) * mu1';
     Sigma = (C0 + C1) * (1 / (t0 + t1));
 end
 
