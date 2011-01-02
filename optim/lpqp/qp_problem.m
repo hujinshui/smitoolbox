@@ -1,21 +1,22 @@
-function S = lp_problem(f, A, b, Aeq, beq, l, u)
-% Constructs a struct to represent a generic Linear programming problem
+function S = qp_problem(H, f, A, b, Aeq, beq, l, u)
+% Constructs a struct to represent a generic Quadratic programming problem
 %
 %   A Linear programming problem is formulated as:
 %
-%       minimize f(x) = f' * x;
+%       minimize f(x) = (1/2) * x' * H * x + f' * x;
 %
 %       s.t.    bl <= A * x <= bu
 %               Aeq * x = beq
 %               l <= x <= u
 %
-%   S = lp_problem(f, A, b);
-%   S = lp_problem(f, A, b, Aeq, beq); 
-%   S = lp_problem(f, A, b, Aeq, beq, l, u);
+%   S = qp_problem(H, f, A, b);
+%   S = qp_problem(H, f, A, b, Aeq, beq); 
+%   S = qp_problem(H, f, A, b, Aeq, beq, l, u);
 %       constructs the problem.
 %
 %       Input arguments:
-%       - f:    the objective coefficients
+%       - H:    the quadratic coefficient matrix
+%       - f:    the linear coefficient vector
 %       - A:    the coefficient matrix of the inequalities
 %       - b:    the bounds of the inequalities, which can be in form of
 %               bu or {bl, bu}.
@@ -40,24 +41,30 @@ function S = lp_problem(f, A, b, Aeq, beq, l, u)
 
 %   History
 %   -------
-%       - Created by Dahua Lin, on Sep 25, 2010
+%       - Created by Dahua Lin, on Jan 2, 2010
 %
 
 %% main
 
-error(nargchk(3, 7, nargin));
+error(nargchk(4, 8, nargin));
+
+% H 
+d = size(H,1);
+if ~(isfloat(H) && isreal(H) && ndims(H) == 2 && ~isempty(H) && d==size(H,2))
+    error('qp_problem:invalidarg', 'H should be a non-empty square matrix.');
+end
 
 % f
-if ~(isnumeric(f) && isvector(f) && isreal(f) && ~isempty(f))
-    error('lp_problem:invalidarg', 'f should be a non-empty real vector.');         
+if ~(isnumeric(f) && isvector(f) && isreal(f) && ~isempty(f) && d==numel(f))
+    error('qp_problem:invalidarg', 'f should be a non-empty real vector.');         
 end
+
 if ~isa(f, 'double'); f = double(f); end
-if size(f, 2) > 2; f = f.'; end  % turn f to a column vector
-d = length(f);
+if size(f, 2) > 2; f = f.'; end
 
 % constraints
 if ~isempty(A)
-    [A, bl, bu] = check_lin_iec(d, A, b, 'lp_problem');
+    [A, bl, bu] = check_lin_iec(d, A, b, 'qp_problem');
 else
     A = [];
     bl = [];
@@ -65,7 +72,7 @@ else
 end
 
 if nargin >= 4
-    [Aeq, beq] = check_lin_eqc(d, Aeq, beq, 'lp_problem');
+    [Aeq, beq] = check_lin_eqc(d, Aeq, beq, 'qp_problem');
 else
     Aeq = [];
     beq = [];
@@ -77,7 +84,7 @@ if nargin >= 6
     if nargin < 7
         u = [];
     end
-    [l, u] = check_bnds(d, l, u, 'lp_problem');
+    [l, u] = check_bnds(d, l, u, 'qp_problem');
 else
     l = [];
     u = [];
@@ -87,8 +94,9 @@ end
 % output
 
 S = struct( ...
-    'type', 'lp', ...
+    'type', 'qp', ...
     'd', d, ...
+    'H', H, ...
     'f', f, ...
     'A', A, 'bl', bl, 'bu', bu, ...
     'Aeq', Aeq, 'beq', beq, ...
