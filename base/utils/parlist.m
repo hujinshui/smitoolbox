@@ -13,6 +13,8 @@ function S = parlist(varargin)
 %       updates the struct S0 with the values provided in the ensuing
 %       name/value list.
 %
+%       Each name in the name pair list should be a field of S0.
+%
 %   Remarks
 %   -------
 %       - If there are repeated names in the list, then the latter value
@@ -22,6 +24,7 @@ function S = parlist(varargin)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Nov 10, 2010
+%       - Modified by Dahua Lin, on Jan 4, 2011
 %
 
 %% main
@@ -54,7 +57,11 @@ if ~isempty(pairs)
     end
     
     for i = 1 : n
-        S.(names{i}) = values{i};
+        cname = names{i};
+        if ~isfield(S, cname)
+            error('parlist:invalidarg', 'The option name %s is not supported', cname);
+        end
+        S.(cname) = values{i};
     end
 end
 
