@@ -15,7 +15,7 @@ function [a, info] = rbstlr(X, y, f, s, varargin)
 %       solves te problem as formalized above. Suppose there are n 
 %       independent variables (x_1, ..., x_n), each with d components.
 %       Then X is an n x d matrix, with X(i, :) corresponding to x_i.
-%       And, y should be an n x 1 vector.
+%       And, y should be an n x q matrix.
 %
 %       The robust error function is specified by f. Here, f can be
 %       a string giving the name of a pre-defined loss function.
@@ -40,8 +40,12 @@ function [a, info] = rbstlr(X, y, f, s, varargin)
 %       in name/value pairs to control the optimization process:
 %
 %       - 'Method':     which method to use. The value can be:
-%                       - 'newton': Use newton's method (default)
-%                       - 'irls':   Iterative reweighted least square
+%                       - 'newton': Use newton's method
+%                       - 'bfgs':   Use BFGS numeric optimization
+%                       - 'irls':   Iterative reweighted least square                       
+%                       When q == 1, the default method is 'newton', and
+%                       when q > 1, the default method is 'irls'.
+%
 %       - 'MaxIter':    maximum number of iterations {100}
 %       - 'TolFun':     the tolerance of objective function at convergence
 %                       {1e-10}. 
@@ -62,6 +66,8 @@ function [a, info] = rbstlr(X, y, f, s, varargin)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Jan 5, 2011
+%       - Modified by Dahua Lin, on Jan 6, 2011
+%           - supports the case with q > 1.
 %
 
 %% verify input arguments
@@ -73,9 +79,10 @@ if ~(isfloat(X) && ndims(X) == 2)
 end
 [n, d] = size(X);
 
-if ~(isfloat(y) && isequal(size(y), [n 1]))
-    error('rbstlr:invalidarg', 'y should be a numeric vector of size n x 1.');
+if ~(isfloat(y) && ndims(y) == 2 && size(y, 1) == n)
+    error('rbstlr:invalidarg', 'y should be a numeric matrix with n rows');
 end
+q = size(y, 2);
 
 if ischar(f)
     f = robustloss(f);
@@ -94,7 +101,7 @@ else
     end
 end
 
-[mcode, opts, w, a0, r2] = parse_options(n, d, varargin);
+[mcode, opts, w, a0, r2] = parse_options(n, d, q, varargin);
    
 
 %% main
@@ -106,10 +113,16 @@ if isempty(a0)
 end
 
 if isempty(s)
-    s = 2 * mean(abs(X * a0 - y));
+    if q == 1
+        mean_dev = mean(abs(X * a0 - y));
+    else
+        e0 = X * a0 - y;
+        mean_dev = mean(sqrt(dot(e0, e0, 2)));
+    end
+    s = 2 * mean_dev;
 end
 
-% delegate to solve
+% Delegate to solve
 
 if mcode == 1   % use newton
     if nargout < 2
@@ -117,6 +130,14 @@ if mcode == 1   % use newton
     else
         [a, info] = rlr_newton(X, y, w, r2, f, s, opts, a0);
     end
+    
+elseif mcode == 2 % use bfgs
+    if nargout < 2
+        a = rlr_bfgs(X, y, w, r2, f, s, opts, a0);
+    else
+        [a, info] = rlr_bfgs(X, y, w, r2, f, s, opts, a0);
+    end
+    
 else            % use irls
     if nargout < 2
         a = rlr_irls(X, y, w, r2, f, s, opts, a0);
@@ -125,32 +146,83 @@ else            % use irls
     end
 end
 
+if q > 1 && size(a, 2) == 1
+    a = reshape(a, d, q);
+end
+
 
 %% Core function
 
 function [v, g, H] = objfun(a, X, y, w, r2, f, s)
 % objective function
 
+u_g = nargout >= 2;
+u_h = nargout >= 3;
+d = size(X, 2);
+q = size(y, 2);
+if q > 1
+    a = reshape(a, d, q);
+end
+
 e = (X * a - y) * (1/s);
 
-[V, D1, D2] = f(e);
-
+if q == 1
+    [V, D1, D2] = f(e);    
+else
+    enrm = sqrt(dot(e, e, 2));
+    [V, D1] = f(enrm);
+    rw = D1 ./ enrm;    
+end   
+    
 if isequal(w, 1)
     v = (s^2) * sum(V);
-    g = s * (X' * D1);
-    H = X' * bsxfun(@times, D2, X);
+    if u_g
+        if q == 1
+            g = s * (X' * D1);
+        else
+            g = s * (X' * bsxfun(@times, rw, e));
+        end
+    end
+    if u_h
+        if q > 1
+            error('rbstlr:rterror', 'Cannot compute H when q > 1.');
+        end
+        H = X' * bsxfun(@times, D2, X);
+        H = 0.5 * (H + H');
+    end
 else
     v = (s^2) * (V' * w);
-    g = s * (X' * (D1 .* w));
-    H = X' * bsxfun(@times, D2 .* w, X);
+    if u_g
+        if q == 1
+            g = s * (X' * (D1 .* w));
+        else
+            g = s * (X' * bsxfun(@times, rw .* w, e));
+        end
+    end
+    if u_h
+        if q > 1
+            error('rbstlr:rterror', 'Cannot compute H when q > 1.');
+        end
+        H = X' * bsxfun(@times, D2 .* w, X);
+        H = 0.5 * (H + H');
+    end
 end
-H = 0.5 * (H + H');
 
 if r2 > 0
     v = v + (0.5 * r2) * (a' * a);
-    g = g + r2 * a;
-    H = adddiag(H, r2);
+    if u_g
+        g = g + r2 * a;
+    end
+    if u_h
+        H = adddiag(H, r2);
+    end
 end
+
+if u_g && q > 1
+    g = g(:);
+end
+
+
     
 
 function [a, info] = rlr_newton(X, y, w, r2, f, s, opts, a0)
@@ -158,10 +230,30 @@ function [a, info] = rlr_newton(X, y, w, r2, f, s, opts, a0)
 
 F = @(c) objfun(c, X, y, w, r2, f, s);
 
+if size(a0, 2) > 1
+    a0 = a0(:);
+end
+
 if nargout < 2
     a = newtonfmin(F, a0, opts{:});
 else
     [a, info] = newtonfmin(F, a0, opts{:});
+end
+
+
+function [a, info] = rlr_bfgs(X, y, w, r2, f, s, opts, a0)
+% solve using BFGS method
+
+F = @(c) objfun(c, X, y, w, r2, f, s);
+
+if size(a0, 2) > 1
+    a0 = a0(:);
+end
+
+if nargout < 2
+    a = bfgsfmin(F, a0, opts{:});
+else
+    [a, info] = bfgsfmin(F, a0, opts{:});
 end
 
 
@@ -184,9 +276,14 @@ end
 
 %% option parsing
 
-function [mcode, opts, w, a0, r2] = parse_options(n, d, nvs)
+function [mcode, opts, w, a0, r2] = parse_options(n, d, q, nvs)
 
-mcode = 1;  % 1 - newton, 2 - irls
+if q == 1
+    mcode = 1;  % 1 - newton, 2 - bfgs, 3 - irls
+else
+    mcode = 3;
+end
+
 w = 1;
 a0 = [];
 r2 = 0;
@@ -212,8 +309,10 @@ if ~isempty(nvs)
                 end
                 if strcmpi(v, 'newton')
                     mcode = 1;
-                elseif strcmpi(v, 'irls')
+                elseif strcmpi(v, 'bfgs')
                     mcode = 2;
+                elseif strcmpi(v, 'irls')
+                    mcode = 3;
                 else
                     error('rbstlr:invalidarg', 'The Method is invalid.');
                 end
@@ -270,6 +369,12 @@ if ~isempty(nvs)
         end
     end    
 end
+
+if q > 1 && mcode == 1
+    error('rbstlr:invalidarg', ...
+        'One cannot choose newton method when y has multiple columns.');    
+end
+    
 
 if display == 0
     opts = {'MaxIter', maxiter, 'TolFun', tolfun, 'TolX', tolx};
