@@ -28,22 +28,29 @@ hold on; plot_line(a0, 'r-');
 a = llsq(X, y);
 hold on; plot_line(a, 'g--');
 
-w = rand(n, 1);
-
-disp('Solve using newton:');
+disp('Solve using Newton:');
 ar1 = rbstlr(X, y, 'bisquare', [], ...
     'Method', 'newton', 'Display', 'iter', 'L2R', 0.01);
 disp(' ');
 
-disp('Solve using IRLS');
+disp('Solve using BFGS:');
 ar2 = rbstlr(X, y, 'bisquare', [], ...
-    'Method', 'irls', 'Display', 'iter', 'L2R', 0.01);
-hold on; plot_line(ar2, 'm-');
+    'Method', 'bfgs', 'Display', 'iter', 'L2R', 0.01);
 disp(' ');
 
-fprintf('ar (newton) = %.4f x + %.4f\n', ar1(1), ar1(2)); 
-fprintf('ar (IRLS)   = %.4f x + %.4f\n', ar2(1), ar2(2));
-fprintf('difference = %.3g', Linfdiff(ar1, ar2)); 
+disp('Solve using IRLS:');
+ar3 = rbstlr(X, y, 'bisquare', [], ...
+    'Method', 'irls', 'Display', 'iter', 'L2R', 0.01);
+disp(' ');
+
+
+hold on; plot_line(ar1, 'm-');
+
+fprintf('ar (Newton) = %.4f x + %.4f\n', ar1(1), ar1(2));
+fprintf('ar (BFGS)   = %.4f x + %.4f, diff = %.3g\n', ...
+    ar2(1), ar2(2), Linfdiff(ar1, ar2));
+fprintf('ar (IRLS)   = %.4f x + %.4f, diff = %.3g\n', ...
+    ar3(1), ar3(2), Linfdiff(ar1, ar3));
 disp(' ');
 
 

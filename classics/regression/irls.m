@@ -126,7 +126,7 @@ end
 e = X * a - y;
 [rn, rn2] = e_to_rn(e);
 rw = wf(rn);
-v = rw' * rn2;
+v = (rw' * rn2) / 2;
 
 
 while ~converged && it < options.MaxIter
@@ -146,7 +146,7 @@ while ~converged && it < options.MaxIter
     e = (1/s) * (X * a - y);
     [rn, rn2] = e_to_rn(e);
     rw = wf(rn);
-    v = rw' * rn2;
+    v = (rw' * rn2) / 2;
         
     % determine convergence
     ch = v - v_p;
