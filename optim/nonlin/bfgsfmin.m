@@ -1,7 +1,7 @@
-function [x, info] = bfgsfmin(f, x0, options)
+function [x, info] = bfgsfmin(f, x0, varargin)
 % Perform unconstrained minimization using (BFGS) quasi-Newton method 
 %
-%   x = bfgsfmin(f, x0, options);
+%   x = bfgsfmin(f, x0, ...);
 %       solves a (local) minima of f using quasi-Newton method, with
 %       Broyden-Fletcher-Goldfarb-Shanno (BFGS) updates.
 %       Here, f is the objective function that supports the following 
@@ -14,18 +14,18 @@ function [x, info] = bfgsfmin(f, x0, options)
 %
 %       x0 is the initial guess of the solution.
 %
-%       options is the optimization option struct, with following fields:
+%       One can also specify following options through name/value pairs.
 %
-%       - MaxIter:  the maximum number of iterations
-%       - TolFun:   the termination tolerance of objective value change
-%       - TolX:     the termination tolerance of solution change 
-%       - Monitor:  the monitor that shows the procedural information
+%       - MaxIter:  the maximum number of iterations {100}
+%       - TolFun:   the termination tolerance of objective value change {1e-8}
+%       - TolX:     the termination tolerance of solution change {1e-7}
+%       - Display:  the level of display {'none'}|'proc'|'iter'
 %       - InitInvHess: the initial inversed Hessian matrix 
 %                      (if omitted, the default is the identity matrix)
 %
 %       The function returns the optimized solution.
 %
-%   [x, info] = bfgsfmin(f, x0, options);
+%   [x, info] = bfgsfmin(f, x0, ...);
 %       additionally returns the information of the solution. Here, info
 %       is a struct with the following fields:
 %
@@ -39,11 +39,24 @@ function [x, info] = bfgsfmin(f, x0, options)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Aug 7, 2010
+%       - Modified by Dahua Lin, on Jan 5, 2010
+%           - change the way of option setting
 %
 
 %% verify input 
 
-verify_optim_options('bfgsfmin', options, 'MaxIter', 'TolFun', 'TolX');
+if nargin == 3 && isstruct(varargin{1})
+    options = varargin{1};
+else
+    options = struct('MaxIter', 100, 'TolFun', 1e-8, 'TolX', 1e-7);
+
+    if nargin == 1 && strcmpi(f, 'options')
+        x = options;
+        return;
+    end
+    options = smi_optimset(options, varargin{:});
+end
+
 omon_level = 0;
 if isfield(options, 'Monitor')
     omon = options.Monitor;
@@ -53,7 +66,7 @@ end
 d = length(x0);
 if isfield(options, 'InitInvHess') && ~isempty(options.InitInvHess)
     B = options.InitInvHess;
-    if ~(isfloat(H) && isreal(H) && ndims(H) == 2 && size(H,1) == d && size(H,2) == d)
+    if ~(size(B,1) == d && size(B,2) == d)
         error('bfgsfmin:invalidopt', ...
             'InitInvHess should be a d x d real matrix.');
     end

@@ -1,7 +1,7 @@
-function [x, info] = gdfmin(f, x0, options)
+function [x, info] = gdfmin(f, x0, varargin)
 % Perform unconstrained minimization using simple gradient descent
 %
-%   x = gdfmin(f, x0, options);
+%   x = gdfmin(f, x0, ...);
 %       solves a (local) minima of f using standard gradient descent.
 %       Here, f is the objective function that supports the following 
 %       usage:
@@ -13,16 +13,16 @@ function [x, info] = gdfmin(f, x0, options)
 %
 %       x0 is the initial guess of the solution.
 %
-%       options is the optimization option struct, with following fields:
+%       One can also specify following options through name/value pairs.
 %
-%       - MaxIter:  the maximum number of iterations
-%       - TolFun:   the termination tolerance of objective value change
-%       - TolX:     the termination tolerance of solution change 
-%       - Monitor:  the monitor that shows the procedural information
+%       - MaxIter:  the maximum number of iterations {200}
+%       - TolFun:   the termination tolerance of objective value change {1e-6}
+%       - TolX:     the termination tolerance of solution change {1e-6}
+%       - Display:  the level of display {'none'}|'proc'|'iter'
 %
 %       The function returns the optimized solution.
 %
-%   [x, info] = gdfmin(f, x0, options);
+%   [x, info] = gdfmin(f, x0, ...);
 %       additionally returns the information of the solution. Here, info
 %       is a struct with the following fields:
 %
@@ -36,11 +36,24 @@ function [x, info] = gdfmin(f, x0, options)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Aug 7, 2010
+%       - Modified by Dahua Lin, on Jan 5, 2010
+%           - change the way of option setting
 %
 
 %% verify input 
 
-verify_optim_options('gdfmin', options, 'MaxIter', 'TolFun', 'TolX');
+if nargin == 3 && isstruct(varargin{1})
+    options = varargin{1};
+else
+    options = struct('MaxIter', 200, 'TolFun', 1e-6, 'TolX', 1e-6);
+
+    if nargin == 1 && strcmpi(f, 'options')
+        x = options;
+        return;
+    end
+    options = smi_optimset(options, varargin{:});
+end
+
 omon_level = 0;
 if isfield(options, 'Monitor')
     omon = options.Monitor;
