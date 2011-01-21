@@ -56,7 +56,7 @@ if size(f, 2) > 2; f = f.'; end  % turn f to a column vector
 d = length(f);
 
 % constraints
-if ~isempty(A)
+if nargin >= 3 && ~isempty(A)
     [A, bl, bu] = check_lin_iec(d, A, b, 'lp_problem');
 else
     A = [];
@@ -64,7 +64,7 @@ else
     bu = [];
 end
 
-if nargin >= 4
+if nargin >= 5 && ~isempty(Aeq)
     [Aeq, beq] = check_lin_eqc(d, Aeq, beq, 'lp_problem');
 else
     Aeq = [];
