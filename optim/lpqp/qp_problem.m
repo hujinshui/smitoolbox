@@ -63,7 +63,7 @@ if ~isa(f, 'double'); f = double(f); end
 if size(f, 2) > 2; f = f.'; end
 
 % constraints
-if ~isempty(A)
+if nargin >= 4 && ~isempty(A)
     [A, bl, bu] = check_lin_iec(d, A, b, 'qp_problem');
 else
     A = [];
@@ -71,7 +71,7 @@ else
     bu = [];
 end
 
-if nargin >= 4
+if nargin >= 6 && ~isempty(Aeq)
     [Aeq, beq] = check_lin_eqc(d, Aeq, beq, 'qp_problem');
 else
     Aeq = [];
@@ -80,8 +80,8 @@ end
 
 % bounds
 
-if nargin >= 6
-    if nargin < 7
+if nargin >= 7
+    if nargin < 8
         u = [];
     end
     [l, u] = check_bnds(d, l, u, 'qp_problem');
