@@ -11,7 +11,7 @@ n = 500;
 noise = 0.05;
 outr = 0.2;
 
-a0 = rand(2, 1);, 
+a0 = rand(2, 1);
 
 x = rand(n, 1);
 X = [x, ones(n, 1)];
@@ -25,15 +25,22 @@ figure;
 plot(x, y, '.');
 hold on; plot_line(a0, 'r-');
 
+% Use linear least square
 a = llsq(X, y);
 hold on; plot_line(a, 'g--');
 
+% Use robust linear regression
 
-disp('Solve using fminunc:');
-f = rbstlr(X, y, [], 'bisquare', [], 0.01);
+% form the objective
+f_data = rbstlr(X, y, [], 'bisquare');
+f_reg = qreg(0.01);
+f = combfun({f_data, f_reg});
+
+% do optimization
 options = optimset('LargeScale', 'on', 'GradObj', 'on', ...
     'TolX', 1e-8, 'TolFun', 1e-8, 'Display', 'iter');
 ar1 = fminunc(f, zeros(2,1), options);
+
 hold on; plot_line(ar1, 'm-');
 
 
