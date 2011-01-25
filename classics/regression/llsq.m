@@ -77,7 +77,7 @@ if n ~= size(y, 1)
     error('llsq:invalidarg', 'X and y should have the same number of rows.');
 end
 
-if nargin < 3
+if nargin < 3 || isempty(w)
     w = 1;
 else
     if ~(isfloat(w) && ndims(w) == 2)

@@ -1,20 +1,18 @@
-function f = rbstlr(X, y, w, rho, s, r2)
+function f = rbstlr(X, Y, w, rho, s)
 % Robust linear regression (M-estimation)
 %
 %   This function returns an objective function of the following 
 %   optimization problem:
 %
 %       minimize   sum_i rho(||x_i' * a - y_i|| / s) * (s^2)
-%                + (r2/2) * ||a||^2
 %
 %   Here, rho is a robust loss function that converts the residue to
 %   a cost value, s is a scale parameter.
 %
-%   f = rbstlr(X, y);
-%   f = rbstlr(X, y, w);
-%   f = rbstlr(X, y, w, rho);
-%   f = rbstlr(X, y, w, rho, s);
-%   f = rbstlr(X, y, w, rho, s, r2);
+%   f = rbstlr(X, Y);
+%   f = rbstlr(X, Y, w);
+%   f = rbstlr(X, Y, w, rho);
+%   f = rbstlr(X, Y, w, rho, s);
 %       
 %       The function returns a function handle f that represents the
 %       optimization objective as formalized above.
@@ -24,7 +22,7 @@ function f = rbstlr(X, y, w, rho, s, r2)
 %                   each with q components, then X should be an matrix
 %                   of size n x d.
 %
-%       - y:        the response matrix. The size of y should be n x q.
+%       - Y:        the response matrix. The size of y should be n x q.
 %                   Here, q is the dimension of the response space.
 %
 %       - w:        The weights of the samples. If all samples have the
@@ -41,9 +39,6 @@ function f = rbstlr(X, y, w, rho, s, r2)
 %                   as twice the mean deviation based on the coefficient
 %                   estimated by linear least square.
 %
-%       - r2:       the L2 regularization coefficient. If omitted, it
-%                   is set to zero.
-%
 %       The output argument f is a function handle, which can be invoked 
 %       as follows:
 %
@@ -53,20 +48,8 @@ function f = rbstlr(X, y, w, rho, s, r2)
 %
 %       Here, f takes as input the parameter a, and returns the objective
 %       value v, or optionally the gradient g, and Hessian matrix H.
-%       
-%       One can use an unconstrained nonlinear optimization function
-%       to solve the optimal parameter. For example, you can write
-%
-%           a = fminunc(rbstlr(X, y), a0(:));
-%           a = reshape(a, [d q]);
-%
-%       it solve the optimal parameter a, give the data X and y and initial
-%       guess a0.
-%
-%   Remarks
-%   -------
-%       - Note that the output function handle f can produce the Hessian
-%         matrix H only when q == 1.
+%       This function handle can be used as an objective function in
+%       numeric optimization.
 %
 
 %   History
@@ -76,28 +59,28 @@ function f = rbstlr(X, y, w, rho, s, r2)
 %           - supports the case with q > 1.
 %       - Modified by Dahua Lin, on Jan 22, 2011
 %           - now returns an objective function
+%       - Modified by Dahua Lin, on Jan 24, 2011
+%           - reimplemented based on genlr
 %
 
 %% verify input arguments
-
-error(nargchk(2, inf, nargin));
 
 if ~(isfloat(X) && ndims(X) == 2)
     error('rbstlr:invalidarg', 'X should be a numeric matrix.');
 end
 n = size(X, 1);
 
-if ~(isfloat(y) && ndims(y) == 2 && size(y, 1) == n)
+if ~(isfloat(Y) && ndims(Y) == 2 && size(Y, 1) == n)
     error('rbstlr:invalidarg', 'y should be a numeric matrix with n rows');
 end
+q = size(Y, 2);
 
 if nargin < 3 || isempty(w)
-    w = 1;
+    w = [];
 else
     if ~(isfloat(w) && isvector(w) && numel(w) == n)
         error('rbstlr:invalidarg', 'w should be a vector of length n.');
     end
-    if size(w, 2) > 1; w = w.'; end  % turn into a column vector
 end
 
 if nargin < 4
@@ -119,14 +102,6 @@ else
         error('rbstlr:invalidarg', 's should be either empty or a positive scalar.');
     end
 end
-
-if nargin < 6
-    r2 = 0;
-else
-    if ~(isfloat(r2) && isscalar(r2) && r2 >= 0)
-        error('rbstlr:invalidarg', 'r should be a non-negative scalar.');
-    end
-end
    
 
 %% main
@@ -134,93 +109,86 @@ end
 % determine s
 
 if isempty(s)
-    s = decide_s(X, y, w, r2);
+    s = decide_s(X, Y, w);
 end
 
 % form objective function
 
-f = @(c) objfun(c, X, y, w, r2, rho, s);
+h = @(u, y) rblr_h(u, y, rho, s);
+f = genlr(h, q, X, Y, w);
 
 
-
-%% Core function
-
-function [v, g, H] = objfun(a, X, y, w, r2, f, s)
-% objective function
-
-u_g = nargout >= 2;
-u_h = nargout >= 3;
-d = size(X, 2);
-q = size(y, 2);
-if q > 1
-    a = reshape(a, d, q);
-end
-
-e = (X * a - y) * (1/s);
-
-if q == 1
-    [V, D1, D2] = f(e);    
-else
-    enrm = sqrt(dot(e, e, 2));
-    [V, D1] = f(enrm);
-    rw = D1 ./ enrm;    
-end   
+%% The h-function
     
-if isequal(w, 1)
-    v = (s^2) * sum(V);
-    if u_g
-        if q == 1
-            g = s * (X' * D1);
-        else
-            g = s * (X' * bsxfun(@times, rw, e));
-        end
-    end
-    if u_h
-        if q > 1
-            error('rbstlr:rterror', 'Cannot compute H when q > 1.');
-        end
-        H = X' * bsxfun(@times, D2, X);
-        H = 0.5 * (H + H');
-    end
+function [v, D1, D2] = rblr_h(U, Y, rho, s)
+
+
+[n, q] = size(U);
+
+E = U - Y;
+if q == 1
+    r2 = E.^2;
+    r = abs(E);    
 else
-    v = (s^2) * (V' * w);
-    if u_g
-        if q == 1
-            g = s * (X' * (D1 .* w));
-        else
-            g = s * (X' * bsxfun(@times, rw .* w, e));
+    r2 = dot(E, E, 2);
+    r = sqrt(r2);
+end
+
+rs = r * (1/s);
+
+if nargout <= 1
+    v = rho(rs);    
+elseif nargout <= 2
+    [v, dv1] = rho(rs);
+else
+    [v, dv1, dv2] = rho(rs);
+end
+
+v = v * (s^2);
+
+if nargout >= 2
+    ga1 = dv1 ./ rs;
+    if q == 1
+        D1 = ga1 .* E;
+    else
+        D1 = bsxfun(@times, ga1, E);
+    end
+end
+
+if nargout >= 3
+    if q == 1
+        D2 = dv2; 
+    else
+        D2 = zeros(n, q, q);
+        c2 = (dv2 - ga1) ./ r2;
+        
+        
+        for i = 1 : q
+            ei = E(:,i);            
+            for j = 1 : i                
+                ej = E(:,j);                
+                
+                h2 = c2 .* (ei .* ej);
+                if i == j
+                    h2 = h2 + ga1;
+                end
+                
+                D2(:,i,j) = h2;
+                if i ~= j
+                    D2(:,j,i) = h2;
+                end                
+            end
         end
     end
-    if u_h
-        if q > 1
-            error('rbstlr:rterror', 'Cannot compute H when q > 1.');
-        end
-        H = X' * bsxfun(@times, D2 .* w, X);
-        H = 0.5 * (H + H');
-    end
 end
-
-if r2 > 0
-    v = v + (0.5 * r2) * (a' * a);
-    if u_g
-        g = g + r2 * a;
-    end
-    if u_h
-        H = adddiag(H, r2);
-    end
-end
-
-if u_g && q > 1
-    g = g(:);
-end
-
-
+    
+    
 %% Auxiliary function
 
-function s = decide_s(X, y, w, r2)
+function s = decide_s(X, y, w)
 
 q = size(y, 2);
-a0 = llsq(X, y, w, r2);
+a0 = llsq(X, y, w);
 if q == 1
     mean_dev = mean(abs(X * a0 - y));
 else
