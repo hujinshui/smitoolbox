@@ -11,15 +11,6 @@ function [s, t, w] = gridgraph1d(n, kernel, offsets)
 %       and weights of the undirected edges. Note that each edge appears
 %       only once with s < t. Particularly, each vertex v is connected
 %       to v-k and v+k with edge weight kernel(k).
-%       
-%   W = gridgraph1d(n, kernel, offsets)
-%       returns the edges of the graph among n nodes along a 1D grid.
-%
-%       In this construction, we connect each vertex v to v+offsets(k)
-%       and v-offsets(k) with edge weight kernel(k).
-%
-%       Note that gridgraph1d(n, kernel) is equivalent to
-%       gridgraph1d(n, kernel, 1:h) where h is length(kernel).
 %
 %   Remarks
 %   -------
