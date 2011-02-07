@@ -123,6 +123,7 @@ classdef gatrwa < handle
             obj.sigma = sig_;
         end        
         
+        
         function update_rho(obj)
             % Update all rho values
             %
@@ -146,16 +147,53 @@ classdef gatrwa < handle
         end
         
         
-        function fv = eval_objv(obj, s, r)
+        function f = objfunc(obj)
+            % Get the objective function
+            %
+            %   f = obj.objfunc();
+            %
+            
+            function [v, g] = gatrwaf(x)
+                
+                n = obj.nv;
+                m = obj.ne;
+                
+                s = x(1:n);
+                r = x(n+1:n+m);
+                
+                if nargout <= 1
+                    v = eval_objv(obj, s, r);
+                else
+                    [v, gs, gr] = eval_objv(obj, s, r);
+                    g = [gs; gr];
+                end                
+            end
+            
+            f = @gatrwaf;
+        end
+        
+        
+        
+        function [fv, gs, gr] = eval_objv(obj, s, r)
             % Evaluate the objective value of a solution
             %
-            %   obj.eval_objv();
-            %       evaluate the objective value for the current solution.
+            %   fv = obj.eval_objv();
+            %   [fv, gs, gr] = obj.eval_objv();
             %
-            %   obj.eval_objv(s, r);
-            %       evaluate the objective value of the given solution.
-            %       Here, s is for sigma [nx1], and r is for rho [m x 1].
+            %   fv = obj.eval_objv(s, r);
+            %   [fv, gs, gr] = obj.eval_objv(s, r);
             %
+            %       evaluate the objective value for the given solution.
+            %       Here, s is an n x 1 vector for sigma, and r is 
+            %       an m x 1 vector for rho.
+            %
+            %       If s and r are omitted, the current solution would 
+            %       be used.
+            %
+            %       The function returns the objective value fv, and if
+            %       the second and third output are required, it also 
+            %       returns the corresponding derivatives, via gs and gr.            
+            %       
             
             n = obj.nv;
             m = obj.ne;
@@ -176,19 +214,31 @@ classdef gatrwa < handle
             
             eg = obj.egraph;
             ep = obj.eprob;
+            jvv = obj.Jdv;
+            jst = eg.ew(1:m);
+            hc = (log(2*pi) + 1) / 2;
             
             lambda_v = s.^2;
             ss = s(eg.es + 1);
-            lambda_e = r .* ss(1:m) .* ss(m+1:2*m);  
-            Je = eg.ew(1:m);
+            sst = ss(1:m) .* ss(m+1:2*m);
+            clear ss;
             
-            hc = (log(2*pi) + 1) / 2;
-            
-            fv0 = (lambda_v' * obj.Jdv) / 2 + lambda_e' * Je;
+            lambda_e = r .* sst;  
+                                                
+            fv0 = (lambda_v' * jvv) / 2 + lambda_e' * jst;
             H = sum(log(s)) + hc * n;
             I = (-0.5) * (ep' * log(1 - r.^2));
             
             fv = fv0 - H + I;
+            
+            if nargout >= 3  % compute gradient
+                
+                b = gatrwa_cimp(0, eg, s, r);
+                
+                gs = jvv .* s + b - 1 ./ s;
+                gr = jst .* sst + ep .* (r ./ (1 - r.^2));                
+            end
+            
         end        
     end
     
