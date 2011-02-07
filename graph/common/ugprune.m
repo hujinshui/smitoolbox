@@ -29,6 +29,7 @@ if ~(isempty(K) || (isscalar(K) && isnumeric(K) && K >= 1))
     error('ugprune:invalidarg', ...
         'K should be either empty or a positive integer number.');
 end
+K = double(K);
 
 if nargin < 3
     w = G0.ew;
