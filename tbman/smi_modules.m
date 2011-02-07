@@ -1,4 +1,4 @@
-function modules = smi_modules(op)
+function modules = smi_modules()
 % Get modules information of SMI toolbox
 %
 %   smi_modules();
