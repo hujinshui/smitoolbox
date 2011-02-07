@@ -1,24 +1,77 @@
-function [T, sigma0] = test_gatrwa()
+function [T, sigma0] = test_gatrwa(siz)
 % A script to test the correctness of gatrwa
 %
 
 % Created by Dahua Lin, on Feb 6, 2011
 %
 
+
+if numel(siz) == 1
+    [T, sigma0] = test1d(siz);
+elseif numel(siz) == 2
+    [T, sigma0] = test2d(siz);
+end
+
+
+
+function [T, sigma0] = test1d(n)
+
 % construct chain graph
 
-n = 300;
 a = zeros(n, 1);
 a(1) = 5;
 a(n) = 5;
+a = a + 0.01 * rand(size(a));
 nw = 1.6;
 
 [s,t,w] = gridgraph1d(n, nw);
 g = gr_adjlist.from_edges('u', n, s, t, w);
 J = laplacemat(g, a);
-m = g.ne;
+
+% solve
+
+[T, sigma0] = do_task(J, g, 1);
+
+% visualize
+
+plot(1:T.nv, sigma0, 1:T.nv, T.sigma);
+
+
+function [T, sigma0] = test2d(siz)
+
+% construct mrf grid
+
+n1 = siz(1);
+n2 = siz(2);
+
+a = zeros(n1, n2);
+ea = 5;
+a(1, :) = ea;
+a(n1, :) = ea;
+a(:, 1) = ea;
+a(:, n2) = ea;
+nw = 1.6;
+
+[s,t,w] = gridgraph2d([n1 n2], [0, nw; nw, 0]);
+g = gr_adjlist.from_edges('u', n1 * n2, s, t, w);
+J = laplacemat(g, a(:));
+
+% solve
+
+[T, sigma0] = do_task(J, g, 0.75);
+
+% visualize
+
+plot(1:T.nv, sigma0, 1:T.nv, T.sigma);
+
+
+
+function [T, sigma0, rho0] = do_task(J, g, ep)
 
 % prepare ground truth
+
+n = size(J, 1);
+m = g.ne;
 
 C0 = inv(full(J));
 sigma0 = sqrt(diag(C0));
@@ -31,30 +84,17 @@ rho0 = rho0(1:m);
 % initialize model and solve
 
 T = gatrwa(J);
-T.set_eprob(1);
+T.set_eprob(ep);
 
 T.initialize();
-ca_solve(T, 50000, 1e-9);
-fprintf('CA solve: rho diff = %g  sigma diff = %g\n', ...
-    norm(rho0 - T.rho), norm(sigma0 - T.sigma));
-
-% F = T.objfunc();
-% T.initialize();
-% x0 = [T.sigma; T.rho];
-% 
-% options = optimset('GradObj', 'on', 'LargeScale', 'on',...
-%     'MaxIter', 200, 'TolX', 1e-8, 'TolFun', 1e-10, 'Display', 'iter');
-% x = fminunc(F, x0, options);
-% 
-% sigma = x(1:T.nv);
-% rho = x(T.nv+1 : end);
-% fprintf('Fmin solve: rho diff = %g  sigma diff = %g\n', ...
-%     norm(rho0 - rho), norm(sigma0 - sigma));
+csolve(T, 50000, 1e-9);
+fprintf('C solve: rho diff = %g  sigma diff = %g\n', ...
+    norm(rho0 - T.rho) / sqrt(numel(rho0)),  ...
+    norm(sigma0 - T.sigma) / sqrt(numel(sigma0)));
 
 
 
-
-function ca_solve(T, maxiter, tol)
+function csolve(T, maxiter, tol)
 
 i = 0;
 objv = T.eval_objv();
@@ -63,19 +103,13 @@ converged = false;
 while ~converged && i < maxiter
             
     i = i + 1;
-    
-    prev = objv;
-     
-    T.update_sigma();
+            
+    prev = objv;     
+    ord = randperm(T.nv);
+    T.cupdate(ord);
     objv = T.eval_objv();
-    ch1 = objv - prev;      
-    
-    prev = objv;
-    T.update_rho();
-    objv = T.eval_objv();
-    ch2 = objv - prev;
-    
-    ch = ch1 + ch2;        
+    ch = objv - prev;      
+               
     fprintf('Iter %d: objv = %f:  ch = %g\n', i, objv, ch);
     
     if abs(ch) < tol
@@ -84,6 +118,3 @@ while ~converged && i < maxiter
 end
 
 disp(' ');
-
-
-

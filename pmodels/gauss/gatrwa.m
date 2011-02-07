@@ -134,17 +134,32 @@ classdef gatrwa < handle
             %       set the order as in the updating of sigma.
             %
             
-            m = obj.ne;
-            eg = obj.egraph;                                         
-            ep = obj.eprob;
-            
-            % compute a
-            ss = obj.sigma(eg.es + 1);
-            a = eg.ew(1:m) .* (ss(1:m) .* ss(m+1:2*m));
-            
-            r = (ep - sqrt(ep.^2 + 4 * a.^2)) ./ (2 * a);
+            r = gatrwa_cimp(2, obj.egraph, obj.sigma, obj.eprob);
             obj.rho = r;           
         end
+        
+        
+        function cupdate(obj, ord)
+            % Perform combined updates
+            %
+            %   obj.cupdate(ord);
+            %
+            %       updates the sigma values of specified vertices along
+            %       with the rho values of their incident edges
+            %
+            
+            if ~(isvector(ord) && isnumeric(ord))
+                error('gatrwa:invalidarg', 'ord should be a numeric vector.');
+            end
+            ord = int32(ord - 1);
+                        
+            [sig_, rho_] = gatrwa_cimp(3, obj.egraph, obj.Jdv, ...
+                obj.sigma, obj.rho, obj.eprob, ord);
+            
+            obj.sigma = sig_;
+            obj.rho = rho_;
+        end
+        
         
         
         function f = objfunc(obj)
