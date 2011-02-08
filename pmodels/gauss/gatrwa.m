@@ -5,15 +5,17 @@ classdef gatrwa < handle
     % Created by Dahua Lin, on Feb 6, 2011
     %
     
-    properties
-        
+    
+    properties(GetAccess='public', SetAccess='private')
         nv;         % the number of nodes
         ne;         % the number of edges
         
         egraph;     % the underlying weighted edge graph for J
         Jdv;        % diagonal values of J
         eprob;      % the edge appearance probabilities [m x 1]
-        
+    end
+       
+    properties
         sigma;      % the per-node sigma values [n x 1]: sqrt(var)
         rho;        % the per-edge coefficient correlation [m x 1]
     end
@@ -131,7 +133,7 @@ classdef gatrwa < handle
         
         %% Inference steps
         
-        function initialize(obj)
+        function initialize(obj, s, r)
             % Initialize the solution
             %
             %   obj.initialize();
@@ -140,9 +142,30 @@ classdef gatrwa < handle
             %           
             %       By default, sigma is initialized to be 1./sqrt(Jdv);
             %       and rho are set to all zeros.
+            %
+            %   obj.initialize(s, r);
+            %       initializes the solution using s for sigma and 
+            %       r for rho.
+            %
             
-            obj.sigma = 1 ./ sqrt(obj.Jdv);
-            obj.rho = zeros(obj.ne, 1);
+            if nargin < 2
+                obj.sigma = 1 ./ sqrt(obj.Jdv);
+            else
+                if ~(isfloat(s) && isequal(size(s), [obj.nv 1]))
+                    error('gatrwa:initialize:invalidarg', ...
+                        's should be an n x 1 numeric vector.');
+                end
+            end
+            
+            if nargin < 3
+                obj.rho = zeros(obj.ne, 1);
+            else
+                if ~(isfloat(r) && isequal(size(r), [obj.ne 1]))
+                    error('gatrwa:initialize:invalidarg', ...
+                        'r should be a m x 1 numeric vector.');
+                end
+            end
+            
         end
         
         
@@ -394,7 +417,7 @@ classdef gatrwa < handle
                 end
                 if ~(isfloat(r) && isequal(size(r), [m 1]))
                     error('gatrwa:eval_energy:invalidarg', ...
-                        'r should be a 2m x 1 numeric vector.');
+                        'r should be a m x 1 numeric vector.');
                 end
             end
             
@@ -453,7 +476,7 @@ classdef gatrwa < handle
                 end
                 if ~(isfloat(r) && isequal(size(r), [m 1]))
                     error('gatrwa:eval_entropy:invalidarg', ...
-                        'r should be a 2m x 1 numeric vector.');
+                        'r should be a m x 1 numeric vector.');
                 end
             end
             
