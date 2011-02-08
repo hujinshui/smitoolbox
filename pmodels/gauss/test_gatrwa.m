@@ -87,34 +87,7 @@ T = gatrwa(J);
 T.set_eprob(ep);
 
 T.initialize();
-csolve(T, 50000, 1e-9);
-fprintf('C solve: rho diff = %g  sigma diff = %g\n', ...
+T.solve('maxiter', 50000, 'display', true);
+fprintf('Compare with groud-truth: rho diff = %g  sigma diff = %g\n', ...
     norm(rho0 - T.rho) / sqrt(numel(rho0)),  ...
     norm(sigma0 - T.sigma) / sqrt(numel(sigma0)));
-
-
-
-function csolve(T, maxiter, tol)
-
-i = 0;
-objv = T.eval_objv();
-converged = false;
-
-while ~converged && i < maxiter
-            
-    i = i + 1;
-            
-    prev = objv;     
-    ord = randperm(T.nv);
-    T.cupdate(ord);
-    objv = T.eval_objv();
-    ch = objv - prev;      
-               
-    fprintf('Iter %d: objv = %f:  ch = %g\n', i, objv, ch);
-    
-    if abs(ch) < tol
-        converged = true;
-    end
-end
-
-disp(' ');
