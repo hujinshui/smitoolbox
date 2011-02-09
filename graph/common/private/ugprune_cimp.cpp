@@ -84,11 +84,11 @@ void do_select_edges(const graph_t& G0,
                 edge_t e = *ep;
                 double ew = w[e.i];
                 
-                ss.push_back(wentry(e.i, ew));
-                
-                std::nth_element(ss.begin(), ss.begin() + K, ss.end(), 
-                        std::greater<wentry>());                                
+                ss.push_back(wentry(e.i, ew));                         
             }
+                        
+            std::nth_element(ss.begin(), ss.begin() + K, ss.end(), 
+                        std::greater<wentry>()); 
             
             for (int i = 0; i < K; ++i)
             {

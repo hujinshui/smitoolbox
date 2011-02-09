@@ -13,9 +13,7 @@ classdef gatrwa < handle
         egraph;     % the underlying weighted edge graph for J
         Jdv;        % diagonal values of J
         eprob;      % the edge appearance probabilities [m x 1]
-    end
-       
-    properties
+
         sigma;      % the per-node sigma values [n x 1]: sqrt(var)
         rho;        % the per-edge coefficient correlation [m x 1]
     end
@@ -26,8 +24,7 @@ classdef gatrwa < handle
         function obj = gatrwa(J)
             % construct an object for tree-reweighted approximation
             %
-            %   obj = gatrwa(J);
-            %   obj = gatrwa(J, ep);
+            %   obj = gatrwa(J);            
             %
             %       In the input, J is an information matrix. 
             %
@@ -155,6 +152,7 @@ classdef gatrwa < handle
                     error('gatrwa:initialize:invalidarg', ...
                         's should be an n x 1 numeric vector.');
                 end
+                obj.sigma = s;
             end
             
             if nargin < 3
@@ -164,6 +162,7 @@ classdef gatrwa < handle
                     error('gatrwa:initialize:invalidarg', ...
                         'r should be a m x 1 numeric vector.');
                 end
+                obj.rho = r;
             end
             
         end
