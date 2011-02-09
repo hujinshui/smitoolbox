@@ -70,6 +70,34 @@ classdef gr_adjlist < gr_edgelist
     end
     
     
+    methods
+        function G = set_weights(G, w)
+            % Reset the weights of the edges
+            %
+            %   G = G.set_weights(w);
+            %
+            
+            if ~(isfloat(w) && isvector(w))
+                error('gr_adjlist:invalidarg', ...
+                    'w should be a numeric vector.');
+            end
+                        
+            m = G.ne;
+            if isscalar(w)
+                G.ew = constmat(2*m, 1, w);
+            elseif isequal(size(w), [m 1])
+                G.ew = [w; w];
+            elseif isequal(size(w), [2*m 1])
+                G.ew = w;
+            else
+                error('gr_adjlist:invalidarg', ...
+                    'The size of w is invalid.');
+            end
+        end
+        
+    end    
+    
+    
     methods(Static)
         
         function G = from_amat(dty, A)
