@@ -93,7 +93,7 @@ classdef sgmrf
         end
         
                              
-        function v = qenergy(obj, s2, sst, mu)
+        function v = qenergy(obj, s2, sst)
             % Compute quadratic energy using covariance values
             %
             %   v = qenergy(obj, s2, sst);
@@ -104,19 +104,9 @@ classdef sgmrf
             %       variance vector and sst is the covariance values
             %       corresponding to the underlying edges
             %
-            %   v = qenergy(obj, s2, sst, mu);
-            %
-            %       This syntax returns v = (1/2) * tr(J * (C + mu*mu')).
-            %
             
             jdv = obj.Jdv;
-            w = obj.ew;
-            
-            if nargin >= 4
-                s2 = s2 + mu .* mu;            
-                sst = sst + mu(obj.es) .* mu(obj.et);                                
-            end
-            
+            w = obj.ew;                        
             v = (jdv' * s2) / 2 + (w' * sst); 
         end
                         
