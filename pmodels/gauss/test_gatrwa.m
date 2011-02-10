@@ -1,4 +1,4 @@
-function [T, sigma0] = test_gatrwa(siz)
+function [GM, sigma0, sigma] = test_gatrwa(siz)
 % A script to test the correctness of gatrwa
 %
 
@@ -7,14 +7,14 @@ function [T, sigma0] = test_gatrwa(siz)
 
 
 if numel(siz) == 1
-    [T, sigma0] = test1d(siz);
+    [GM, sigma0, sigma] = test1d(siz);
 elseif numel(siz) == 2
-    [T, sigma0] = test2d(siz);
+    [GM, sigma0, sigma] = test2d(siz);
 end
 
 
 
-function [T, sigma0] = test1d(n)
+function [GM, sigma0, sigma] = test1d(n)
 
 % construct chain graph
 
@@ -26,18 +26,17 @@ nw = 1.6;
 
 [s,t,w] = gridgraph1d(n, nw);
 g = gr_adjlist.from_edges('u', n, s, t, w);
-J = laplacemat(g, a);
 
 % solve
 
-[T, sigma0] = do_task(J, g, 1);
+[GM, sigma0, sigma] = do_task(g, a, 1);
 
 % visualize
 
-plot(1:T.nv, sigma0, 1:T.nv, T.sigma);
+plot(1:GM.nv, sigma0, 1:GM.nv, sigma);
 
 
-function [T, sigma0] = test2d(siz)
+function [GM, sigma0, sigma] = test2d(siz)
 
 % construct mrf grid
 
@@ -54,40 +53,39 @@ nw = 1.6;
 
 [s,t,w] = gridgraph2d([n1 n2], [0, nw; nw, 0]);
 g = gr_adjlist.from_edges('u', n1 * n2, s, t, w);
-J = laplacemat(g, a(:));
 
 % solve
 
-[T, sigma0] = do_task(J, g, 0.75);
+[GM, sigma0, sigma] = do_task(g, a(:), 0.75);
 
 % visualize
 
-plot(1:T.nv, sigma0, 1:T.nv, T.sigma);
+plot(1:GM.nv, sigma0, 1:GM.nv, sigma);
 
 
 
-function [T, sigma0, rho0] = do_task(J, g, ep)
+function [GM, sigma0, sigma] = do_task(g, a, ep)
 
 % prepare ground truth
 
-n = size(J, 1);
-m = g.ne;
+n = g.nv;
 
+GM = sgmrf.amodel(g, a);
+J = infomat(GM);
 C0 = inv(full(J));
-sigma0 = sqrt(diag(C0));
+vs0 = diag(C0);
+cs0 = C0(sub2ind([n n], GM.es, GM.et));
 
-cc = bsxfun(@times, bsxfun(@times, C0, 1 ./ sigma0), 1 ./ sigma0');
+% solve
 
-rho0 = cc(sub2ind([n n], g.es+1, g.et+1));
-rho0 = rho0(1:m);
+[vs, cs] = gatrwa(GM, ep, 'display', true);
+fprintf('Compare with groud-truth: vs diff = %g, cs diff = %g\n', ...
+    mean(abs(vs - vs0)), mean(abs(cs - cs0)) );
 
-% initialize model and solve
+% output
 
-T = gatrwa(J);
-T.set_eprob(ep);
+sigma0 = sqrt(vs0).';
+sigma = sqrt(vs).';
 
-T.initialize();
-T.solve('maxiter', 50000, 'display', true);
-fprintf('Compare with groud-truth: rho diff = %g  sigma diff = %g\n', ...
-    norm(rho0 - T.rho) / sqrt(numel(rho0)),  ...
-    norm(sigma0 - T.sigma) / sqrt(numel(sigma0)));
+
+
