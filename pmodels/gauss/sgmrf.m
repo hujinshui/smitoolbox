@@ -1,151 +1,203 @@
 classdef sgmrf
-    % The class to represent a simplified Gaussian MRF as follows
-    %
-    %   The quadratic part of the energy function is given by
-    %
-    %       E_q(x) 
-    %       = (1/2) * 
-    %         (
-    %           sum_i a_i x_i^2 + 
-    %           sum_e w_e (x_{e_i} - x_{e_j})^2 
-    %         )
-    %       = (1/2) * x^T J x
-    %
-    %       Here, J is an n x n positive definite matrix, with
-    %       J_{ii} = a_i + sum_j w_{ij}, and J_{ij} = -w_{ij}
-    %       for i ~= j.
+    % The class to represent a Gaussian MRF with each node being a scalar
+    %    
     %       
     
     % Created by Dahua Lin, on Nov 2, 2010
+    % Modified by Dahua Lin, on Feb 10, 2011
     %
     
     properties(GetAccess='public', SetAccess='private')
-        nnodes;     % the number of nodes (each node is a scalar variable)
-        nedges;     % the number of edges
-        graph;      % the underlying graph (gr_adjlist)
+        nv;     % the number of nodes
+        ne;     % the number of edges
         
-        a;          % the regularization coefficients (n x 1 or scalar)
-        J;          % the information matrix (n x n sparse)
+        Jdv;    % the diagonal entries of J [nv x 1]
+        Jgr;    % the information graph (capturing off-diagonal entries)
+        
+        es;     % the source vertices [ne x 1]
+        et;     % the target vertices [ne x 1]
+        ew;     % the edge weights [ne x 1]
     end
         
     methods
         
-        function obj = sgmrf(g, a)
-            % constructs a simplified Gaussian MRF model
+        function obj = sgmrf(v1, v2)
+            % Construct a Gaussian MRF
             %
-            %   obj = sgmrf(W, a);
-            %   obj = sgmrf(g, a);
-            %       constructs a simplified Gaussian MRF model.
+            %   obj = sgmrf(J);
+            %       constructs a Gaussian MRF from the information matrix.
             %       
-            %       In the input, we can specify the underlying 
-            %       graph by the affinity matrix W, or a weighted
-            %       graph struct g (gr_edgelist or gr_adjlist).
-            %
-            %       The input argument a is a vector of length n,
-            %       where a(i) is the additional regularization
-            %       coefficient for the i-th variable.
-            %
-            %   Remarks
-            %   -------
-            %       - a should be a non-negative vector, and in
-            %         each connected component of the underlying
-            %         graph, at least one variable should be
-            %         a positive a-value.
-            %
+            %   obj = sgmrf(jdv, jg);
+            %       constructs a Gaussian MRF from the diagonal values
+            %       in jdv, and an off-diagonal graph jg.
+            %   
             
-            % verify input arguments
-            
-            g = gr_adjlist(g, 'u');
-            if isempty(g.w)
-                error('sgmrf:invalidarg', 'g should be a weighted graph.');
-            end                        
-            
-            % compute J
-            
-            J_ = laplacemat(g, a); 
-            if size(a, 2) > 1; a = a.'; end
-            
-            % set fields
-            
-            obj.nnodes = g.n;
-            obj.nedges = g.m;
-            obj.graph = g;
-            
-            obj.a = a;
-            obj.J = J_;            
-        end
-        
-        
-        function E = quad_energy(obj, x)
-            % computes the quadratic energy 
-            %
-            %   E = quad_energy(obj, x);
-            %       computes the quadratic energy with respect to x,
-            %       which is given by (1/2) * x' * J * x.
-            %       
-            %       x can be a column vector of length n or 
-            %       multiple vectors organized into an n x K
-            %       matrix. In output, E is a scalar or a 1 x K
-            %       vector, correspondingly.
-            %
-            
-            d = size(x, 1);
-            Jx = obj.J * x;  
-            
-            if d > 1
-                E = 0.5 * dot(x, Jx);
-            else
-                E = 0.5 * (x .* Jx);
-            end            
-        end        
-        
-        
-        function mu = infer(obj, h)
-            % infer the mean vector from a potential vector
-            %
-            %   mu = obj.infer(h);
-            %       infers the mean vector mu from the potential 
-            %       vector h, by solving J^{-1} h.
-            %
-            %       h can be a column vector of length n or
-            %       multiple vectors organized into an n x K
-            %       matrix. In output, x has the same size as y.
-            
-            mu = obj.J \ h;
-        end
+            if nargin == 1
+                J = v1;                
+                if ~(isfloat(J) && ndims(J) == 2 && size(J,1) == size(J,2))
+                    error('sgmrf:invalidarg', 'J should be a symmetric matrix.');
+                end
                 
-        function x = smooth(obj, y)
-            % Performs smoothing.
-            %
-            %   x = obj.smooth(y);
-            %       it solves the following problem:
-            %       
-            %           minimize 
-            %           (1/2) sum_i a_i (x_i - y_i)^2 + 
-            %           (1/2) sum_e w_e (x_{e_i} - x_{e_j})^2.
-            %
-            %       y can be a column vector of length n or 
-            %       multiple vectors organized into an n x K matrix.
-            %       In output, x has the same size as y.
-            %
-            
-            n = obj.nnodes;
-            if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == n)
-                error('sgmrf:smooth:invalidarg', ...
-                    'The size of y is invalid.');
-            end
-            
-            a_ = obj.a;                        
-            if size(y,2) == 1 || isscalar(a_)
-                ay = a_ .* y;
+                jdv = full(diag(J));
+                [s, t, w] = find(J);
+                i = find(s < t);
+                jgr = gr_adjlist.from_edges('u', size(J,1), s(i), t(i), w(i));
+                
             else
-                ay = bsxfun(@times, a_, y);
+                jdv = v1;
+                jgr = v2;
+                
+                if ~(isa(jgr, 'gr_adjlist') && jgr.dtype == 'u')
+                    error('sgmrf:invalidarg', 'jgr should be an undirected graph.');
+                end
+                
+                if ~(isfloat(jdv) && isequal(size(jdv), [jgr.nv, 1]))
+                    error('sgmrf:invalidarg', 'jdv should be a vector of size nv x 1.');
+                end
             end
             
-            x = obj.J \ ay;
+            obj.nv = jgr.nv;
+            obj.ne = jgr.ne;
+            
+            obj.Jdv = jdv;
+            obj.Jgr = jgr;    
+            
+            m = jgr.ne;
+            obj.es = double(jgr.es(1:m) + 1);
+            obj.et = double(jgr.et(1:m) + 1);
+            obj.ew = jgr.ew(1:m);
+        end
+        
+        
+        function J = infomat(obj)
+            % Get the information matrix J
+            %
+            %   J = infomat(obj);
+            %
+            % Note the returned matrix J is an nv x nv sparse matrix.
+            %
+                                    
+            n = obj.nv;
+            s = obj.es;
+            t = obj.et;
+            w = obj.ew;            
+            
+            i = [(1:n)'; s; t];
+            j = [(1:n)'; t; s];
+            v = [obj.Jdv; w; w];
+            if ~isa(v, 'double')
+                v = double(v);
+            end
+            
+            J = sparse(i, j, v, n, n);
+        end
+        
+                             
+        function v = qenergy(obj, s2, sst, mu)
+            % Compute quadratic energy using covariance values
+            %
+            %   v = qenergy(obj, s2, sst);
+            %
+            %       This syntax returns v = (1/2) * tr(J * C).
+            %
+            %       Here, in the input arguments, s2 is the marginal
+            %       variance vector and sst is the covariance values
+            %       corresponding to the underlying edges
+            %
+            %   v = qenergy(obj, s2, sst, mu);
+            %
+            %       This syntax returns v = (1/2) * tr(J * (C + mu*mu')).
+            %
+            
+            jdv = obj.Jdv;
+            w = obj.ew;
+            
+            if nargin >= 4
+                s2 = s2 + mu .* mu;            
+                sst = sst + mu(obj.es) .* mu(obj.et);                                
+            end
+            
+            v = (jdv' * s2) / 2 + (w' * sst); 
+        end
+                        
+        
+        function v = qenergy_x(obj, x)
+            % Compute the (1/2) * x' * J * x
+            %
+            %   v = qenergy_x(obj, x);
+            %       computes the value (1/2) * x' * J * x. 
+            %       In the input, x can be an nv x 1 vector or a matrix
+            %       of nv x K. Then in the output, v is a vector of 
+            %       size 1 x K, with v(k) corresponding to x(:,k).
+            %
+                        
+            if ~(isfloat(x) && ndims(x) == 2 && size(x,1) == obj.nv)
+                error('sgmrf:qenergy_x:invalidarg', ...
+                    'x should be a numeric matrix with size(x,1) == nv');
+            end
+            
+            if size(x,2) == 1
+                xs = x(obj.es);
+                xt = x(obj.et);
+            else
+                xs = x(obj.es, :);
+                xt = x(obj.et, :);
+            end            
+            
+            v = qenergy(obj, x.^2, xs .* xt);
+        end
+
+        
+        function v = qenergy_sr(obj, sigma, rho)
+            % Compute (1/2) * tr(J * C) using sigma and rho
+            %
+            %   v = qenergy_sigma_rho(obj, sigma, rho)
+            %       computes the quadratic energy using marginal
+            %       standard deviation given by sigma and the correlation
+            %       coefficients given by rho
+            %
+            
+            v = qenergy(obj, sigma .^ 2, ...
+                rho .* (sigma(obj.es).*sigma(obj.et)) );
         end
         
     end
+    
+    
+    
+    methods(Static)
+        
+        function obj = amodel(g0, a)
+            % Constructs an attractive gaussian mrf
+            %
+            %   obj = sgmrf.amodel(g0, a);
+            %       constructs an attractive Gaussian MRF, of which 
+            %       the information matrix is defined to be
+            %
+            %           J = laplacemat(g0, a);
+            %
+            %       Here, g0 should be an undirected gr_adjlist object,
+            %       and a is either a scalar or an nv x 1 vector.
+            %
+            
+            if ~(isa(g0, 'gr_adjlist') && g0.dtype == 'u')
+                error('sgmrf:amodel:invalidarg', ...
+                    'g0 should be an undirected gr_adjlist object.');
+            end
+            n = g0.nv;
+            
+            if ~( isfloat(a) && (isscalar(a) || isequal(size(a), [n 1])) )
+                error('sgmrf:invalidarg', ...
+                    'a should be either a scalar or an n x 1 numeric vector.');
+            end
+                        
+            jdv = aggreg(g0.ew, n, g0.es+1, 'sum') + a;
+            jgr = set_weights(g0, -g0.ew);                        
+            obj = sgmrf(jdv, jgr);
+        end
+        
+    end
+    
     
 end
 
