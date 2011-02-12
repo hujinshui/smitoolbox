@@ -1,5 +1,5 @@
-classdef gmrf_lbp < handle
-    % The class for Loopy Belief propagation on Gaussian MRF
+classdef gmrf_blk_lbp < handle
+    % The class for Loopy Belief propagation on Block-wise Gaussian MRF
     %
     
     % History
@@ -31,17 +31,18 @@ classdef gmrf_lbp < handle
     
     methods
         
-        function obj = gmrf_lbp(gm)
+        function obj = gmrf_blk_lbp(gm)
             % constructs a loopy belief-propagation solution on GMRF
             %
-            %   obj = gmrf_lbp(gm);
+            %   obj = gmrf_blk_lbp(gm);
             %       constructs a loopy belief-propagation solution on
             %       a Gaussian MRF gm, and make necessary initialization
             %       for the inference on information matrices.
             %
             
-            if ~isa(gm, 'gaussmrf')
-                error('gmrf_lbp:invalidarg', 'gm should be a gaussmrf object.');
+            if ~isa(gm, 'gmrf_blk')
+                error('gmrf_blk_lbp:invalidarg', ...
+                    'gm should be a gmrf_blk object.');
             end
             
             % set graph and neighbor hood structure
@@ -191,7 +192,7 @@ classdef gmrf_lbp < handle
             % verify input arguments
             
             if ~(isnumeric(vs) && isvector(vs))
-                error('gmrf_lbp:infer_Js:invalidarg', ...
+                error('gmrf_blk_lbp:infer_Js:invalidarg', ...
                     'vs should be a numeric vector.');
             end
             if size(vs, 1) > 1; vs = vs.'; end
@@ -245,7 +246,7 @@ classdef gmrf_lbp < handle
             
             n = obj.nnodes;
             if ~(iscell(hs) && isvector(hs) && numel(hs) == n)
-                error('gmrf_lbp:invalidarg', ...
+                error('gmrf_blk_lbp:invalidarg', ...
                     'hs should be a cell vector with n cells.');
             end
             
@@ -254,7 +255,7 @@ classdef gmrf_lbp < handle
             for i = 1 : n
                 h = hs{i};
                 if ~(isfloat(h) && isequal(size(h), [ds(i) K]))
-                    error('gmrf_lbp:invalidarg', ...
+                    error('gmrf_blk_lbp:invalidarg', ...
                         'some h in hs is not valid.');
                 end
             end
@@ -369,7 +370,7 @@ classdef gmrf_lbp < handle
             % verify input arguments
             
             if ~(isnumeric(vs) && isvector(vs))
-                error('gmrf_lbp:infer_Js:invalidarg', ...
+                error('gmrf_blk_lbp:infer_Js:invalidarg', ...
                     'vs should be a numeric vector.');
             end
             if size(vs, 1) > 1; vs = vs.'; end
@@ -431,7 +432,7 @@ classdef gmrf_lbp < handle
                 
                 nopts = numel(onames);
                 if ~(numel(ovals) == nopts && iscellstr(onames))
-                    error('gmrf_lbp:invalidopt', ...
+                    error('gmrf_blk_lbp:invalidopt', ...
                         'The option list is invalid.');
                 end
                 
@@ -440,19 +441,19 @@ classdef gmrf_lbp < handle
                     switch onames{i}
                         case 'order'
                             if ~(isnumeric(ov) && ndims(ov)==2 && size(ov,1)==1)
-                                error('gmrf_lbp:invalidopt', ...
+                                error('gmrf_blk_lbp:invalidopt', ...
                                     'order should be a numeric row vector.');
                             end
                             order = ov;
                         case 'maxiter'
                             if ~(isnumeric(ov) && isscalar(ov) && ov > 0)
-                                error('gmrf_lbp:invalidopt', ...
+                                error('gmrf_blk_lbp:invalidopt', ...
                                     'maxiter should be a positive scalar.');
                             end
                             maxiter = ov;
                         case 'tol'
                             if ~(isfloat(tol) && isscalar(tol) && isreal(tol) && tol > 0)
-                                error('gmrf_lbp:invalidopt', ...
+                                error('gmrf_blk_lbp:invalidopt', ...
                                     'tol should be a positive real scalar.');
                             end
                             tol = ov;

@@ -1,5 +1,5 @@
-function S = test_gmrf_bp(name)
-% a simple script to test the implementation of LBP on G-MRF
+function S = test_gmrf_blk_bp(name)
+% a simple script to test the implementation of BP on block-wise G-MRF
 %
 %   
 
@@ -38,7 +38,7 @@ switch name
         J12 = rand(2, 3);
         J13 = rand(2, 4);
 
-        gm = gaussmrf({J11, J22, J33}, [1 2; 1 3], {J12, J13});
+        gm = gmrf_blk({J11, J22, J33}, [1 2; 1 3], {J12, J13});
         
     case 'toy2'
         Js = cell(8, 1);
@@ -59,7 +59,7 @@ switch name
         J27 = rand(3, 2);
         J18 = rand(2, 1);
         
-        gm = gaussmrf(Js, ...
+        gm = gmrf_blk(Js, ...
             [1 2; 2 3; 3 4; 3 5; 3 6; 2 7; 1 8], ...
             {J12, J23, J34, J35, J36, J27, J18});
         
@@ -105,7 +105,7 @@ end
 
 function tbp = run_tbp(gm, hs)
 
-tbp = gmrf_tbp(gm, 1);
+tbp = gmrf_blk_tbp(gm, 1);
 tbp.infer_Js();
 
 tbp.initialize_hs(hs);
@@ -114,7 +114,7 @@ tbp.infer_hs();
 
 function lbp = run_lbp(gm, hs)
 
-lbp = gmrf_lbp(gm);
+lbp = gmrf_blk_lbp(gm);
 lbp.infer_Js('tol', 1e-12);
 
 lbp.initialize_hs(hs);
