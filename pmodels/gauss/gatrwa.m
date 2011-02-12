@@ -53,8 +53,8 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 
 %% verify input arguments
 
-if ~isa(GM, 'sgmrf')
-    error('gatrwa:invalidarg', 'GM should be an sgmrf object.');
+if ~isa(GM, 'gmrf')
+    error('gatrwa:invalidarg', 'GM should be an gmrf object.');
 end
 
 if ~(isfloat(ep) && (isscalar(ep) || isequal(size(ep), [GM.ne, 1])))
@@ -99,7 +99,7 @@ end
 it = 0;
 converged = false;
 
-energy = GM.qenergy_sr(s, r);
+energy = GM.energy_sr(s, r);
 entropy = eval_entropy(ep, s, r);
 objv = energy - entropy;
 
@@ -115,7 +115,7 @@ while ~converged && it < opts.maxiter
     
     [s, r] = cupdate(GM, ep, s, r, opts.order);
     
-    energy = GM.qenergy_sr(s, r);
+    energy = GM.energy_sr(s, r);
     entropy = eval_entropy(ep, s, r);
     objv = energy - entropy;
     
@@ -139,8 +139,7 @@ end
 
 % output
 
-vs = s.^2;
-cs = r .* (s(GM.es) .* s(GM.et));
+[vs, cs] = GM.sr_to_vcs(s, r);
 
 if nargout >= 1
     info = struct( ...

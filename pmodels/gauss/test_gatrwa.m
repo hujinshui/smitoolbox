@@ -64,21 +64,23 @@ plot(1:GM.nv, sigma0, 1:GM.nv, sigma);
 
 
 
-function [GM, sigma0, sigma] = do_task(g, a, ep)
+function [agm, sigma0, sigma] = do_task(g, a, ep)
 
 % prepare ground truth
 
 n = g.nv;
 
-GM = sgmrf.amodel(g, a);
-J = infomat(GM);
+agm = agmrf(g, a);
+J = information_matrix(agm);
 C0 = inv(full(J));
 vs0 = diag(C0);
-cs0 = C0(sub2ind([n n], GM.es, GM.et));
+cs0 = C0(sub2ind([n n], g.es+1, g.et+1));
+cs0 = cs0(1:g.ne);
 
 % solve
 
-[vs, cs] = gatrwa(GM, ep, 'display', true);
+gm = to_gmrf(agm);
+[vs, cs] = gatrwa(gm, ep, 'display', true);
 fprintf('Compare with groud-truth: vs diff = %g, cs diff = %g\n', ...
     mean(abs(vs - vs0)), mean(abs(cs - cs0)) );
 
