@@ -8,7 +8,7 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 %       by GM.
 %
 %       Input arguments:
-%       - GM:       an sgmrf object to represent a Gaussian Markov random
+%       - GM:       an gmrf object to represent a Gaussian Markov random
 %                   field.
 %       - ep:       the edge appearance probabilities. It can be either
 %                   a scalar to assign the same value to all edges, or
@@ -48,6 +48,7 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Feb 9, 2011
+%       - Modified by Dahua Lin, on Feb 12, 2011
 %
 
 
