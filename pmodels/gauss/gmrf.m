@@ -1,5 +1,5 @@
-classdef sgmrf
-    % The class to represent a Gaussian MRF with each node being a scalar
+classdef gmrf
+    % The class to represent a Gaussian MRF 
     %    
     %       
     
@@ -13,21 +13,17 @@ classdef sgmrf
         
         Jdv;    % the diagonal entries of J [nv x 1]
         Jgr;    % the information graph (capturing off-diagonal entries)
-        
-        es;     % the source vertices [ne x 1]
-        et;     % the target vertices [ne x 1]
-        ew;     % the edge weights [ne x 1]
     end
         
     methods
         
-        function obj = sgmrf(v1, v2)
+        function obj = gmrf(v1, v2)
             % Construct a Gaussian MRF
             %
-            %   obj = sgmrf(J);
+            %   obj = gmrf(J);
             %       constructs a Gaussian MRF from the information matrix.
             %       
-            %   obj = sgmrf(jdv, jg);
+            %   obj = gmrf(jdv, jg);
             %       constructs a Gaussian MRF from the diagonal values
             %       in jdv, and an off-diagonal graph jg.
             %   
@@ -35,7 +31,7 @@ classdef sgmrf
             if nargin == 1
                 J = v1;                
                 if ~(isfloat(J) && ndims(J) == 2 && size(J,1) == size(J,2))
-                    error('sgmrf:invalidarg', 'J should be a symmetric matrix.');
+                    error('gmrf:invalidarg', 'J should be a symmetric matrix.');
                 end
                 
                 jdv = full(diag(J));
@@ -48,11 +44,11 @@ classdef sgmrf
                 jgr = v2;
                 
                 if ~(isa(jgr, 'gr_adjlist') && jgr.dtype == 'u')
-                    error('sgmrf:invalidarg', 'jgr should be an undirected graph.');
+                    error('gmrf:invalidarg', 'jgr should be an undirected graph.');
                 end
                 
                 if ~(isfloat(jdv) && isequal(size(jdv), [jgr.nv, 1]))
-                    error('sgmrf:invalidarg', 'jdv should be a vector of size nv x 1.');
+                    error('gmrf:invalidarg', 'jdv should be a vector of size nv x 1.');
                 end
             end
             
@@ -61,30 +57,23 @@ classdef sgmrf
             
             obj.Jdv = jdv;
             obj.Jgr = jgr;    
-            
-            m = jgr.ne;
-            obj.es = double(jgr.es(1:m) + 1);
-            obj.et = double(jgr.et(1:m) + 1);
-            obj.ew = jgr.ew(1:m);
         end
         
         
-        function J = infomat(obj)
+        function J = information_matrix(obj)
             % Get the information matrix J
             %
-            %   J = infomat(obj);
+            %   J = information_matrix(obj);
             %
             % Note the returned matrix J is an nv x nv sparse matrix.
             %
                                     
-            n = obj.nv;
-            s = obj.es;
-            t = obj.et;
-            w = obj.ew;            
+            n = obj.nv;                 
+            g = obj.Jgr;
             
-            i = [(1:n)'; s; t];
-            j = [(1:n)'; t; s];
-            v = [obj.Jdv; w; w];
+            i = [(1:n)'; double(g.es+1)];
+            j = [(1:n)'; double(g.et+1)];
+            v = [obj.Jdv; g.ew];
             if ~isa(v, 'double')
                 v = double(v);
             end
@@ -93,52 +82,38 @@ classdef sgmrf
         end
         
                              
-        function v = qenergy(obj, s2, sst)
-            % Compute quadratic energy using covariance values
+        function v = energy(obj, v, c)
+            % Compute the energy value tr(J * C) / 2
             %
-            %   v = qenergy(obj, s2, sst);
+            %   v = qenergy(obj, v, c);
             %
-            %       This syntax returns v = (1/2) * tr(J * C).
+            %       It returns the value as computed below
             %
-            %       Here, in the input arguments, s2 is the marginal
-            %       variance vector and sst is the covariance values
-            %       corresponding to the underlying edges
+            %       v = <Jdv, v> / 2 + <Jgr.ew, c>
             %
-            
-            jdv = obj.Jdv;
-            w = obj.ew;                        
-            v = (jdv' * s2) / 2 + (w' * sst); 
+            %       This value equals tr(J * C) / 2, if C is a covariance
+            %       matrix such that v captures its diagonal values, and
+            %       c gives the covariance at graph edges.
+            %
+                                 
+            v = (obj.Jdv' * v) / 2 + (obj.Jgr.ew(1:obj.ne)' * c); 
         end
-                        
+                   
         
-        function v = qenergy_x(obj, x)
-            % Compute the (1/2) * x' * J * x
+        function [vs, cs] = sr_to_vcs(obj, sigma, rho)
+            % Converts (sigma, rho) to (vs, cs)
             %
-            %   v = qenergy_x(obj, x);
-            %       computes the value (1/2) * x' * J * x. 
-            %       In the input, x can be an nv x 1 vector or a matrix
-            %       of nv x K. Then in the output, v is a vector of 
-            %       size 1 x K, with v(k) corresponding to x(:,k).
+            %   [vs, cs] = sr_to_vcs(obj, sigma, rho);
             %
-                        
-            if ~(isfloat(x) && ndims(x) == 2 && size(x,1) == obj.nv)
-                error('sgmrf:qenergy_x:invalidarg', ...
-                    'x should be a numeric matrix with size(x,1) == nv');
-            end
             
-            if size(x,2) == 1
-                xs = x(obj.es);
-                xt = x(obj.et);
-            else
-                xs = x(obj.es, :);
-                xt = x(obj.et, :);
-            end            
-            
-            v = qenergy(obj, x.^2, xs .* xt);
+            g = obj.Jgr;
+            vs = sigma.^2;
+            cs = rho .* gmrf_cimp(1, g.ne, g.es, g.et, sigma);            
         end
-
         
-        function v = qenergy_sr(obj, sigma, rho)
+        
+        
+        function v = energy_sr(obj, sigma, rho)
             % Compute (1/2) * tr(J * C) using sigma and rho
             %
             %   v = qenergy_sigma_rho(obj, sigma, rho)
@@ -147,10 +122,34 @@ classdef sgmrf
             %       coefficients given by rho
             %
             
-            v = qenergy(obj, sigma .^ 2, ...
-                rho .* (sigma(obj.es).*sigma(obj.et)) );
+            [vs, cs] = sr_to_vcs(obj, sigma, rho);            
+            v = energy(obj, vs, cs);
         end
         
+        
+        function v = qterm(obj, x)
+            % Compute the quadratic term (1/2) * x' * J * x
+            %
+            %   v = qterm(obj, x);
+            %
+            %       computes the value (1/2) * x' * J * x. 
+            %       In the input, x can be an nv x 1 vector or a matrix
+            %       of nv x K. Then in the output, v is a vector of 
+            %       size 1 x K, with v(k) corresponding to x(:,k).
+            %
+                        
+            if ~(isfloat(x) && ndims(x) == 2 && size(x,1) == obj.nv)
+                error('gmrf:qenergy_x:invalidarg', ...
+                    'x should be a numeric matrix with size(x,1) == nv');
+            end
+            if ~isa(x, 'double'); x = double(x); end
+            
+            g = obj.Jgr;
+            xst = gmrf_cimp(1, g.ne, g.es, g.et, x);
+            
+            v = energy(obj, x.^2, xst);
+        end
+
     end
     
     
@@ -160,7 +159,7 @@ classdef sgmrf
         function obj = amodel(g0, a)
             % Constructs an attractive gaussian mrf
             %
-            %   obj = sgmrf.amodel(g0, a);
+            %   obj = gmrf.amodel(g0, a);
             %       constructs an attractive Gaussian MRF, of which 
             %       the information matrix is defined to be
             %
@@ -171,19 +170,19 @@ classdef sgmrf
             %
             
             if ~(isa(g0, 'gr_adjlist') && g0.dtype == 'u')
-                error('sgmrf:amodel:invalidarg', ...
+                error('gmrf:amodel:invalidarg', ...
                     'g0 should be an undirected gr_adjlist object.');
             end
             n = g0.nv;
             
             if ~( isfloat(a) && (isscalar(a) || isequal(size(a), [n 1])) )
-                error('sgmrf:invalidarg', ...
+                error('gmrf:invalidarg', ...
                     'a should be either a scalar or an n x 1 numeric vector.');
             end
                         
             jdv = aggreg(g0.ew, n, g0.es+1, 'sum') + a;
             jgr = set_weights(g0, -g0.ew);                        
-            obj = sgmrf(jdv, jgr);
+            obj = gmrf(jdv, jgr);
         end
         
     end
