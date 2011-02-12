@@ -6,4 +6,5 @@ syntax: glob
 *.cpp~
 *.txt~
 *.h~
+*.cfg~
 
