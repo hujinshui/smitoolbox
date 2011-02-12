@@ -1,34 +1,33 @@
-classdef gaussmrf
-    % The class to represent a Gaussian MRF model
+classdef gmrf_blk
+    % The class to represent a Gaussian MRF model with block variables
     %
     
     % Created by Dahua Lin, on Oct 21, 2010
-    %
+    % Modified by Dahua Lin, on Feb 12, 2011
     
     properties(GetAccess='public', SetAccess='private')
         
-        nnodes; % the number of nodes
-        nedges; % the number of edges        
+        nnodes; % the number of block nodes
+        nedges; % the number of inter-block edges        
         graph;  % the underlying graph struct (gr_adjlist)
         
-        dims;   % the dimensions of all nodes
+        dims;   % the vector of block dimension
         tdim;   % the total dimension
         
-        Js;     % the information sub-matrix of all nodes
-        Rs;     % the information cross-matrix (corresponding to edges)        
+        Js;     % the sub information matrix of each block
+        Rs;     % the cross information matrix between blocks      
     end
     
     methods
         
-        function obj = gaussmrf(Js, edges, Rs)
+        function obj = gmrf_blk(Js, edges, Rs)
             % Constructs a Gaussian MRF object
             %
-            %   obj = gaussmrf(Js, edges, Rs);
-            %       constructs a Gauss-MRF model using information-form
-            %       parameterization. 
+            %   obj = gmrf_blk(Js, edges, Rs);
+            %       constructs a Gauss-MRF model with block variables.
             %
-            %       Suppose the MRF has n nodes and m edges. Then
-            %       Js should be a cell array with n cells.
+            %       Suppose the MRF has n block nodes and m inter-block 
+            %       edges. Then Js should be a cell array with n cells.
             %       In particular, Js{i} is the information matrix
             %       for the i-th node.
             %
@@ -46,7 +45,7 @@ classdef gaussmrf
             % verify Js
             
             if ~(iscell(Js) && isvector(Js))
-                error('gaussmrf:invalidarg', 'Js should be a cell vector.');
+                error('gmrf_blk:invalidarg', 'Js should be a cell vector.');
             end
             n = numel(Js);
                         
@@ -55,7 +54,7 @@ classdef gaussmrf
                 J = Js{i};                
                 d = size(J, 1);                
                 if ~(isfloat(J) && isequal(size(J), [d d]))
-                    error('gaussmrf:invalidarg', ...
+                    error('gmrf_blk:invalidarg', ...
                         'some information matrices in Js are invalid.');
                 end
                 
@@ -65,7 +64,7 @@ classdef gaussmrf
             % verify graph and Rs
             
             if ~(isnumeric(edges) && ndims(edges) == 2 && size(edges,2) == 2)
-                error('gaussmrf:invalidarg', ...
+                error('gmrf_blk:invalidarg', ...
                     'edges should be a matrix of size m x 2.');
             end            
             m = size(edges, 1);
@@ -76,7 +75,7 @@ classdef gaussmrf
                 
                 R = Rs{k};
                 if ~(isfloat(R) && isequal(size(R), [sd td]))
-                    error('gaussmrf:invalidarg', ...
+                    error('gmrf_blk:invalidarg', ...
                         'some matrices in Rs are invalid.');
                 end
             end
@@ -107,7 +106,7 @@ classdef gaussmrf
         function J = information_matrix(obj)
             % Get the full information matrix of the entire model
             %
-            %   J = obj.precision_matrix;
+            %   J = obj.information_matrix;
             %
             % Note: the resultant matrix is a sparse matrix.
             %
@@ -165,13 +164,13 @@ classdef gaussmrf
         function gm = from_groupvars(J, grps)
             % Constructs a Gaussian MRF by grouping variables
             %            
-            %   gm = gaussmrf.from_groupvars(J, grps);
+            %   gm = gmrf_blk.from_groupvars(J, grps);
             %       constructs a Gaussian MRF model with the original
             %       information matrix J over all variables, and
-            %       a grouping of variables specified by grps.
+            %       a grouping of variables into blocks specified by grps.
             %
             %       Suppose we want to divide all variables into 
-            %       K groups, then grps should be a cell array with
+            %       K blocks, then grps should be a cell array with
             %       K cells, where grps{k} gives the indices of 
             %       variables which are assigned to the k-th group.
             %
@@ -180,11 +179,11 @@ classdef gaussmrf
             
             n = size(J, 1);
             if ~(isfloat(J) && ndims(J) == 2 && n == size(J, 2))
-                error('gaussmrf:from_groupvars:invalidarg', ...
+                error('gmrf_blk:from_groupvars:invalidarg', ...
                     'J should be a square matrix of float type.');
             end
             if ~(iscell(grps) && isvector(grps))
-                error('gaussmrf:from_groupvars:invalidarg', ...
+                error('gmrf_blk:from_groupvars:invalidarg', ...
                     'grps should be a cell vector.');
             end            
             K = numel(grps);

@@ -1,5 +1,5 @@
-classdef gmrf_tbp < handle
-    % The class for belief-propagation on tree-structured Gaussian MRF
+classdef gmrf_blk_tbp < handle
+    % The class for belief-propagation on block-tree-structured Gaussian MRF
     %
     
     % Created by Dahua Lin, on Oct 31, 2010
@@ -31,10 +31,10 @@ classdef gmrf_tbp < handle
     
     methods
         
-        function obj = gmrf_tbp(gm, varargin)
+        function obj = gmrf_blk_tbp(gm, varargin)
             % constructs a tree belief-propagation solution
             %
-            %   obj = gmrf_tbp(gm, vs, ps, es);
+            %   obj = gmrf_blk_tbp(gm, vs, ps, es);
             %       constructs a tree belief-propagation solution for
             %       the Gaussian MRF gm. 
             %
@@ -43,22 +43,23 @@ classdef gmrf_tbp < handle
             %       from root), ps are the parents corresponding to vs,
             %       es are the corresponding downward edge indices.
             %
-            %   obj = gmrf_tbp(gm, seeds);
+            %   obj = gmrf_blk_tbp(gm, seeds);
             %       uses the root seeds for constructing the computation 
             %       tree.
             %       
             
             % verify input
             
-            if ~isa(gm, 'gaussmrf')
-                error('gmrf_tbp:invalidarg', 'gm should be a gaussmrf object.');
+            if ~isa(gm, 'gmrf_blk')
+                error('gmrf_blk_tbp:invalidarg', ...
+                    'gm should be a gmrf_blk object.');
             end
                         
             if nargin == 2
                 seeds = varargin{1};
                 [vs, ps, es, tf] = gr_bfs_trees(gm.graph, seeds);
                 if ~tf
-                    error('gmrf_tbp:invalidarg', ...
+                    error('gmrf_blk_tbp:invalidarg', ...
                         'The graph of gm is not in tree-structure.');
                 end
             else            
@@ -68,7 +69,7 @@ classdef gmrf_tbp < handle
                 
                 if ~(isnumeric(vs) && isnumeric(ps) && isnumeric(es) ...
                         && isvector(vs) && isequal(size(vs), size(ps), size(es)))
-                    error('gmrf_bp:invalidarg', ...
+                    error('gmrf_blk_tbp:invalidarg', ...
                         'vs, ps, and es should be numeric vectors of the same size.');
                 end
             end
@@ -128,7 +129,7 @@ classdef gmrf_tbp < handle
             
             n = obj.tree.nv;
             if ~(iscell(hs) && isvector(hs) && numel(hs) == n)
-                error('gmrf_tbp:invalidarg', ...
+                error('gmrf_blk_tbp:invalidarg', ...
                     'hs should be a cell vector with n cells.');
             end
             
@@ -137,7 +138,7 @@ classdef gmrf_tbp < handle
             for i = 1 : n
                 h = hs{i};
                 if ~(isfloat(h) && isequal(size(h), [ds(i) K]))
-                    error('gmrf_tbp:invalidarg', ...
+                    error('gmrf_blk_tbp:invalidarg', ...
                         'some h in hs is not valid.');
                 end
             end
