@@ -104,19 +104,18 @@ classdef agmrf
             
             a = obj.w_ext;
             e = (x - y).^2;
-            v = ( a' * e ) / 2;            
+            v = ( a' * e ) / 2;
         end
         
         
         function v = int_energy(obj, x)
             % Compute the internal energy
             %
-            %   v = obj.int_energy(x, y);
+            %   v = obj.int_energy(x);
             %
             
             g = obj.g_int;
             w = g.ew(1:g.ne);
-            
             e = gmrf_cimp(2, g.ne, g.es, g.et, x);
             v = ( w' * e ) / 2;
         end
@@ -133,7 +132,7 @@ classdef agmrf
         
         
         %% Expected energy computation
-        
+                                
         function v = ext_energy_ep(obj, mx, vs, y)
             % Compute the expected external energy given distribution of x
             %
@@ -148,7 +147,7 @@ classdef agmrf
             
             a = obj.w_ext;
             e = (mx - y) .^ 2 + vs;
-            v = ( a' * e ) / 2;            
+            v = ( a' * e ) / 2;
         end
         
         
@@ -156,11 +155,12 @@ classdef agmrf
             % Compute the expected internal energy given distribution of x
             %
             %   v = obj.int_energy_ep(mx, vs, cs);
+            %       evaluates the expected internal energy            
             %
             %   Inputs:
             %       - mx:   the mean of x
             %       - vs:   the variance of x
-            %       - cs:   the covariance at edges
+            %       - cs:   the covariance at edges                        
             %
             
             g = obj.g_int;
@@ -170,7 +170,7 @@ classdef agmrf
             e2 = gmrf_cimp(0, g.ne, g.es, vs) + gmrf_cimp(0, g.ne, g.et, vs);           
             
             e = e1 + e2 - 2 * cs;
-            v = ( w' * e ) / 2;            
+            v = ( w' * e ) / 2;
         end
         
         
@@ -189,7 +189,34 @@ classdef agmrf
                 int_energy_ep(obj, mx, vs, cs);            
         end        
         
-    end                
+    end   
+    
+    
+    methods(Static)
+        
+        function e = ext_energy_ep_terms(mx, vs, y)
+            % Compute the expected external energy terms (unweighted)
+            %
+            
+            e = (mx - y) .^ 2 + vs;    
+            e = e / 2;
+        end
+        
+        
+        function e = int_energy_ep_terms(g, mx, vs, cs)
+            % Compute the expected internal energy terms (unweighted)
+            %
+            
+            e1 = gmrf_cimp(2, g.ne, g.es, g.et, mx);
+            e2 = gmrf_cimp(0, g.ne, g.es, vs) + gmrf_cimp(0, g.ne, g.et, vs);           
+            
+            e = e1 + e2 - 2 * cs;
+            e = e / 2;
+        end
+        
+        
+    end
+        
     
 end
 
