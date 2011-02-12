@@ -137,7 +137,7 @@ classdef agmrf
         function v = ext_energy_ep(obj, mx, vs, y)
             % Compute the expected external energy given distribution of x
             %
-            %   v = obj.ext_energy_ep(obj, mx, vs, y);
+            %   v = obj.ext_energy_ep(mx, vs, y);
             %       evaluates the expected external energy
             %       
             %   Inputs:           
@@ -155,7 +155,7 @@ classdef agmrf
         function v = int_energy_ep(obj, mx, vs, cs)
             % Compute the expected internal energy given distribution of x
             %
-            %   v = obj.int_energy_ep(obj, mx, vs, cs);
+            %   v = obj.int_energy_ep(mx, vs, cs);
             %
             %   Inputs:
             %       - mx:   the mean of x
@@ -176,7 +176,7 @@ classdef agmrf
         
         function v = energy_ep(obj, mx, vs, cs, y)
             % Compute the expected energy given distribution of x
-            %   v = obj.int_energy_ep(obj, mx, vs, cs);
+            %   v = obj.int_energy_ep(mx, vs, cs);
             %
             %   Inputs:
             %       - mx:   the mean of x
