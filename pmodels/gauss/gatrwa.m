@@ -43,6 +43,8 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 %                                       ( = (1/2) * tr(J * C) )
 %                       - 'entropy':    the approximated entropy
 %                       - 'objv':       objective value: energy - entropy
+%                       - 'sigma':      the standard deviation vector
+%                       - 'rho':        the correlation coefficients
 %
 
 %   History
@@ -142,13 +144,15 @@ end
 
 [vs, cs] = GM.sr_to_vcs(s, r);
 
-if nargout >= 1
+if nargout >= 3
     info = struct( ...
         'niters', it, ...
         'converged', converged, ...
         'energy', energy, ...
         'entropy', entropy, ...
-        'objv', objv);
+        'objv', objv, ...
+        'sigma', s, ...
+        'rho', r);
 end
 
 
