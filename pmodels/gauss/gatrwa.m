@@ -16,8 +16,8 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 %
 %       One can specify further options to control the solving process:
 %
-%       - 'sigma0':     initial guess of sigma (sqrt of variance)
-%       - 'rho0':       initial guess of correlation coefficients
+%       - 'var0':       initial guess of marginal variance of nodes
+%       - 'cov0':       initial guess of covariance for edges
 %       - 'maxiter':    the maximum number of iterations
 %                       (default = 5000)
 %       - 'tolfun':     the tolerance of objective change
@@ -43,8 +43,6 @@ function [vs, cs, info] = gatrwa(GM, ep, varargin)
 %                                       ( = (1/2) * tr(J * C) )
 %                       - 'entropy':    the approximated entropy
 %                       - 'objv':       objective value: energy - entropy
-%                       - 'sigma':      the standard deviation vector
-%                       - 'rho':        the correlation coefficients
 %
 
 %   History
@@ -68,8 +66,8 @@ if isscalar(ep)
 end
 
 opts = struct( ...
-    'sigma0', [], ...
-    'rho0', [], ...
+    'var0', [], ...
+    'cov0', [], ...
     'maxiter', 5000, ...
     'tolfun', 1e-8, ...
     'tolx', 1e-6, ...
@@ -85,17 +83,21 @@ end
 
 % initialize
 
-if isempty(opts.sigma0)
-    s = 1 ./ GM.Jdv;
+if isempty(opts.var0)
+    s = 1 ./ sqrt(GM.Jdv); 
 else
-    s = opts.sigma0;
+    s = sqrt(opts.var0);
 end
 
-if isempty(opts.rho0)
+if isempty(opts.cov0)
     r = zeros(GM.ne, 1);
 else
-    r = opts.rho0;
+    es_ = GM.Jgr.es(1:GM.ne) + 1;
+    et_ = GM.Jgr.et(1:GM.ne) + 1;
+    r = opts.cov0 ./ (s(es_) .* s(et_));
+    clear es_ et_;
 end
+
 
 % main loop
 
@@ -200,21 +202,21 @@ for i = 1 : length(onames)
     cv = ovals{i};
     
     switch lower(cn)
-        case 'sigma0'
+        case 'var0'
             if ~(isfloat(cv) && isequal(size(cv), [GM.nv, 1]))
                 error('gatrwa:invalidarg', ...
-                    'sigma0 should be a numeric vector of size nv x 1.');
+                    'var0 should be a numeric vector of size nv x 1.');
             end
             if ~isa(cv, 'double'); cv = double(cv); end
-            opts.sigma0 = cv;
+            opts.var0 = cv;
             
-        case 'rho0'
+        case 'cov0'
             if ~(isfloat(cv) && isequal(size(cv), [GM.ne, 1]))
                 error('gatrwa:invalidarg', ...
-                    'rho0 should be a numeric vector of size ne x 1.');
+                    'cov0 should be a numeric vector of size ne x 1.');
             end
             if ~isa(cv, 'double'); cv = double(cv); end
-            opts.rho0 = cv;
+            opts.cov0 = cv;
             
         case 'maxiter'
             if ~(isnumeric(cv) && isscalar(cv) && cv >= 1)
