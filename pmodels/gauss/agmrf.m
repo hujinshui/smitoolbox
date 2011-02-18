@@ -89,6 +89,22 @@ classdef agmrf
             J = sparse(i, j, v, n, n);
         end
         
+        
+        function mu = pos_mean(obj, y)
+            % Compute the posterior mean vector given y
+            %
+            %   mu = obj.compute_mean(y);
+            %
+            
+            J = information_matrix(obj);
+            if size(y, 2) == 1
+                h = obj.w_ext .* y;
+            else
+                h = bsxfun(@times, obj.w_ext, y);
+            end
+            mu = J \ h;
+        end
+        
     end
     
     

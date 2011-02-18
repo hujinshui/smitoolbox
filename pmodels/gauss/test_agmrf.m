@@ -32,6 +32,15 @@ Jg = information_matrix(gm);
 
 fprintf('isequal(J0, Ja, Jg) = %d\n', isequal(J0, Ja, Jg));
 
+
+%% Compute mean vector
+
+mu0 = J0 \ (a .* y);
+mu = agm.pos_mean(y);
+
+fprintf('||mu - mu0|| = %g\n', norm(mu - mu0));
+
+
 %% compute energy
 
 disp('Energy evaluation:');
