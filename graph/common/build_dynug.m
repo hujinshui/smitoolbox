@@ -29,7 +29,7 @@ function [G, Gc] = build_dynug(nfrms, int_graphs, cross_edges)
 %       The edges are re-indexed, such that the within-frame edges
 %       come first, and the cross-frame edges come next.
 %
-%   {G, Gc] = build_dynug( ... );
+%   [G, Gc] = build_dynug( ... );
 %       
 %       additionally returns Gc, which is a directed graph that contains 
 %       only cross-frame edges.
