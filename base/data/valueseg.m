@@ -1,12 +1,12 @@
 %VALUESEG divides a vector of numeric values into constant-value segments
 %
-%   sp = valueseg(x);
+%   [sp, ep] = valueseg(x);
 %       divides the numeric/logical/char vector x into segments, such that 
 %       the elements in each segments have the same value.
 %
-%       In the output, sp is a row vector of size m, where m is the number
-%       of segments. In particular, sp(i) is the starting index of the
-%       i-th value segment.
+%       In the output, sp and ep are row vectors of size m, where m is 
+%       the number of segments. In particular, sp(i) is the starting 
+%       index of the i-th value segment, and ep(i) is its last index.
 %
 
 %   History

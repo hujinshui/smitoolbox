@@ -14,6 +14,14 @@ bopts = {'-O'};
 
 % get environment 
 
+bcslib_home = getenv('BCSLIB_HOME');
+if isempty(bcslib_home)
+    error('smi_build_mex:enverror', ...
+        'Cannot find BCS Lib. Please add environment variable BCSLIB_HOME.');
+end
+bopts = [bopts, {['-I' bcslib_home]}];
+
+
 require_boost = ismember('graph', {mdls.name});
 
 if require_boost
