@@ -8,181 +8,250 @@
  *
  ********************************************************************/
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
 #include <limits>
-#include <algorithm>
 
-// recursive functor for aggregation
+using namespace bcs;
+using namespace bcs::matlab;
 
-template<typename T>
-struct rsum
-{
-    inline void operator()(T& s, T v) const
-    {
-        s += v;
-    }
-};
+const int SUM_CODE = 1;
+const int MIN_CODE = 2;
+const int MAX_CODE = 3;
+
+
+// aggregators
 
 template<typename T>
-struct rmin
-{   
-    inline void operator()(T& s, T v) const
-    {
-        if (v < s) s = v;
-    }
-};
-
-template<typename T>
-struct rmax
+struct sum_ag
 {
-    inline void operator()(T& s, T v) const
-    {   
-        if (v > s) s = v;
-    }
-};
-
-
-// aggregation functions
-
-
-template<typename T, typename RFun>
-void aggregate_rows(int m, int n, int K, const T *X, const int *I, T *R)
-{
-    RFun rfun;
+    typedef T result_type;
     
-    if (n == 1)
-    {
-        for (int i = 0; i < m; ++i)
-        {
-            int k = I[i];
-            if (k >= 0 && k < K)
-            {
-                rfun(R[k], X[i]);
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < m; ++i)
-        {
-            int k = I[i];
-            if (k >= 0 && k < K)
-            {
-                const T *x = X + i;
-                T *r = R + k;
-            
-                for (int j = 0; j < n; ++j)
-                {
-                    rfun(*r, *x);
-                
-                    x += m;
-                    r += K;
-                }
-            }
-        }
-    }
-}
-
-
-template<typename T, typename RFun>
-void aggregate_cols(int m, int n, int K, const T *X, const int *I, T *R)
-{
-    RFun rfun;
-    
-    if (m == 1)
-    {
-        for (int i = 0; i < n; ++i)
-        {
-            int k = I[i];
-            if (k >= 0 && k < K)
-            {
-                rfun(R[k], X[i]);
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < n; ++i) 
-        {
-            int k = I[i];
-            if (k >= 0 && k < K) 
-            {
-                const T *x = X + i * m;
-                T *r = R + k * m;
-                
-                for (int j = 0; j < m; ++j) 
-                {
-                    rfun(r[j], x[j]);
-                }
-            }
-        }
-    }
-}
-
-
-template<typename T>
-void aggregate(int m, int n, int K, const T *X, const int *I, T *R,
-        bool byrows, int code)
-{
-    if (code == 1)
-    {
-        if (byrows)
-            aggregate_rows<T, rsum<T> >(m, n, K, X, I, R);
-        else
-            aggregate_cols<T, rsum<T> >(m, n, K, X, I, R);
-    }
-    else if (code == 2)
-    {
-        if (byrows)
-            aggregate_rows<T, rmin<T> >(m, n, K, X, I, R);
-        else
-            aggregate_cols<T, rmin<T> >(m, n, K, X, I, R);
-    }
-    else if (code == 3)
-    {
-        if (byrows)
-            aggregate_rows<T, rmax<T> >(m, n, K, X, I, R);
-        else
-            aggregate_cols<T, rmax<T> >(m, n, K, X, I, R);
-    }
-}
-
-
-template<typename T>
-inline T get_initv(int code)
-{
-    if (code == 1) // sum
+    result_type init() const
     {
         return T(0);
     }
-    else if (code == 2) // min
+    
+    void operator() (result_type& r, const T& x) const
     {
-        return std::numeric_limits<T>::infinity();
+        r += x;
     }
-    else // max
+};
+
+template<>
+struct sum_ag<bool>
+{
+    typedef double result_type;
+    
+    result_type init() const
     {
-        return - std::numeric_limits<T>::infinity();
+        return false;
+    }
+    
+    void operator() (result_type& r, const bool& x) const
+    {
+        r += (double)x;
+    }
+};
+
+
+template<typename T>
+struct min_ag
+{
+    typedef T result_type;
+    
+    result_type init() const
+    {
+        if (std::numeric_limits<T>::has_infinity)
+        {
+            return std::numeric_limits<T>::infinity();
+        }
+        else
+        {
+            return std::numeric_limits<T>::max();
+        }                
+    }
+    
+    void operator() (result_type& r, const T& x) const
+    {
+        if (x < r) r = x;
+    }
+};
+
+template<>
+struct min_ag<bool>
+{
+    typedef bool result_type;
+    
+    result_type init() const
+    {
+        return true;
+    }
+    
+    void operator() (result_type& r, const bool& x) const
+    {
+        r &= x;
+    }
+};
+
+
+
+template<typename T>
+struct max_ag
+{
+    typedef T result_type;
+    
+    result_type init() const
+    {
+        if (std::numeric_limits<T>::has_infinity)
+        {
+            return - std::numeric_limits<T>::infinity();
+        }
+        else
+        {
+            return std::numeric_limits<T>::min();
+        }                
+    }
+    
+    void operator() (result_type& r, const T& x) const
+    {
+        if (x > r) r = x;
+    }
+};
+
+
+template<>
+struct max_ag<bool>
+{
+    typedef bool result_type;
+    
+    result_type init() const
+    {
+        return false;
+    }
+    
+    void operator() (result_type& r, const bool& x) const
+    {
+        r |= x;
+    }
+};
+
+
+template<class Aggregator, typename TIn, class TIndexerIn, typename TOut, class TIndexerOut>
+inline void aggreg_vector(
+        int n, int K, Aggregator ag, 
+        const_aview1d<TIn, TIndexerIn> x, 
+        const const_aview1d<int32_t>& I, 
+        aview1d<TOut, TIndexerOut> r)
+{
+    for (int i = 0; i < n; ++i)
+    {
+        int k = I[i];
+        if (k >= 0 && k < K)
+        {
+            ag(r[k], x[i]);
+        }
     }
 }
 
-template<typename T> mxArray* init_matrix(int m, int n, int code);  
+// do aggregation
 
-template<>
-inline mxArray* init_matrix<double>(int m, int n, int code)
-{
-    double v0 = get_initv<double>(code);
-    mxArray *mx = mxCreateDoubleMatrix(m, n, mxREAL);
-    std::fill_n(mxGetPr(mx), m*n, v0);
-    return mx;
+template<typename T, class Aggregator>
+marray do_aggreg_rows(const_marray mX, const_marray mI, size_t K, Aggregator ag)
+{    
+    index_t m = (index_t)mX.nrows();
+    index_t n = (index_t)mX.ncolumns();
+ 
+    typedef typename Aggregator::result_type TOut;    
+    marray mR = create_marray<TOut>((size_t)m, K); 
+    
+    const_aview1d<int32_t> I = view1d<int32_t>(mI); 
+    
+    if (m == 1)
+    {
+        const_aview1d<T> x = view1d<T>(mX);
+        aview1d<TOut> r = view1d<TOut>(mR);
+        fill(r, ag.init());
+        
+        aggreg_vector(n, (int)K, ag, x, I, r);
+    }
+    else
+    {
+        const_aview2d<T, column_major_t> X = view2d<T>(mX);
+        aview2d<TOut, column_major_t> R = view2d<TOut>(mR);
+        fill(R, ag.init());
+        
+        for (index_t i = 0; i < m; ++i)
+        {
+            aggreg_vector(n, (int)K, ag, X.row(i), I, R.row(i));
+        }
+    }
+   
+    return mR;
 }
 
-template<>
-inline mxArray* init_matrix<float>(int m, int n, int code)
+
+template<typename T, class Aggregator>
+marray do_aggreg_columns(const_marray mX, const_marray mI, size_t K, Aggregator ag)
 {
-    float v0 = get_initv<float>(code);
-    mxArray *mx = mxCreateNumericMatrix(m, n, mxSINGLE_CLASS, mxREAL);
-    std::fill_n((float*)mxGetData(mx), m*n, v0);
-    return mx;
+    size_t m = mX.nrows();
+    size_t n = mX.ncolumns();
+    
+    typedef typename Aggregator::result_type TOut;    
+    marray mR = create_marray<TOut>((size_t)K, n); 
+    
+    const_aview1d<int32_t> I = view1d<int32_t>(mI); 
+    
+    if (n == 1)
+    {
+        const_aview1d<T> x = view1d<T>(mX);
+        aview1d<TOut> r = view1d<TOut>(mR);
+        fill(r, ag.init());
+        
+        aggreg_vector(m, (int)K, ag, x, I, r);
+    }
+    else
+    {
+        const_aview2d<T, column_major_t> X = view2d<T>(mX);
+        aview2d<TOut, column_major_t> R = view2d<TOut>(mR);
+        fill(R, ag.init());
+        
+        for (index_t i = 0; i < n; ++i)
+        {
+            aggreg_vector(m, (int)K, ag, X.column(i), I, R.column(i));
+        }
+    }
+   
+    return mR;
+}
+
+
+template<typename T>
+inline marray do_aggreg(const_marray mX, const_marray mI, size_t K, int code)
+{    
+    if (mI.nrows() != 1)
+    {
+        switch (code)
+        {
+            case SUM_CODE:
+                return do_aggreg_columns<T, sum_ag<T> >(mX, mI, K, sum_ag<T>());
+            case MIN_CODE:
+                return do_aggreg_columns<T, min_ag<T> >(mX, mI, K, min_ag<T>());
+            case MAX_CODE:
+                return do_aggreg_columns<T, max_ag<T> >(mX, mI, K, max_ag<T>());                
+        }        
+    }
+    else
+    {
+        switch (code)
+        {
+            case SUM_CODE:
+                return do_aggreg_rows<T, sum_ag<T> >(mX, mI, K, sum_ag<T>());
+            case MIN_CODE:
+                return do_aggreg_rows<T, min_ag<T> >(mX, mI, K, min_ag<T>());
+            case MAX_CODE:
+                return do_aggreg_rows<T, max_ag<T> >(mX, mI, K, max_ag<T>());                
+        }
+    }    
 }
 
 
@@ -192,62 +261,59 @@ inline mxArray* init_matrix<float>(int m, int n, int code)
  * main entry:
  *
  * Inputs:
- *  [0]:  X:    data
- *  [1]:  K:    #classes
- *  [2]:  I:    indices
+ *  [0]:  X:    data [double|single|int32 matrix]
+ *  [1]:  K:    #classes [double scalar]
+ *  [2]:  I:    indices [zero-based int32]
  *  [3]:  code: function code (1-sum, 2-min, 3-max)
  *
  * Outputs:
  *  [0]:  R:    the results
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
-    const mxArray *mxX = prhs[0];
-    const mxArray *mxK = prhs[1];
-    const mxArray *mxI = prhs[2];
-    const mxArray *mxCode = prhs[3];
+    const_marray mX(prhs[0]);
+    const_marray mK(prhs[1]);
+    const_marray mI(prhs[2]);
+    const_marray mCode(prhs[3]);
+     
+    size_t K = (size_t)mK.get_scalar<double>();
+    int code = (int)mCode.get_scalar<double>();
     
-    int m = (int)mxGetM(mxX);
-    int n = (int)mxGetN(mxX);
+    // main delegate
     
-    bool byrows = mxGetM(mxI) != 1;    
-    int K = (int)mxGetScalar(mxK);
-    int code = (int)mxGetScalar(mxCode);
+    marray mR;
     
-    // prepare output
-    
-    mxArray *mxR = 0;
-    
-    int mr = byrows ? K : m;
-    int nr = byrows ? n : K;
-    
-    // main
-    
-    const int *I = (const int*)mxGetData(mxI);
-    
-    switch (mxGetClassID(mxX))
+    if (mX.is_double())
     {
-        case mxDOUBLE_CLASS:
-            mxR = init_matrix<double>(mr, nr, code);
-            aggregate(m, n, K, (const double*)mxGetData(mxX), I, 
-                    (double*)mxGetData(mxR), byrows, code);
-            break;
-            
-        case mxSINGLE_CLASS:
-            mxR = init_matrix<float>(mr, nr, code);
-            aggregate(m, n, K, (const float*)mxGetData(mxX), I, 
-                    (float*)mxGetData(mxR), byrows, code);
-            break;   
-            
-        default:
-            mexErrMsgIdAndTxt("aggreg:invalidarg", 
-                    "The type of X must be either double or single.");
+        mR = do_aggreg<double>(mX, mI, K, code);
     }
-    
-    plhs[0] = mxR;
+    else if (mX.is_single())
+    {
+        mR = do_aggreg<float>(mX, mI, K, code);
+    }
+    else if (mX.is_int32())
+    {
+        mR = do_aggreg<int32_t>(mX, mI, K, code);
+    }
+    else if (mX.is_logical())
+    {
+        mR = do_aggreg<bool>(mX, mI, K, code);        
+    }
+    else
+    {
+        throw mexception("aggreg:invalidarg", 
+            "aggreg only supports matrices of type double, single, int32, or logical");
+    }
+   
+    // output
+    plhs[0] = mR.mx_ptr();
     
 }
 
+
+BCSMEX_MAINDEF
+        
+        
 

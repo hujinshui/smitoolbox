@@ -43,13 +43,16 @@ function R = aggreg(X, K, I, fun)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Nov 11, 2010
+%       - Modified by Dahua Lin, on Mar 27, 2011
+%           - re-implement the mex using bcslib
+%           - now additionally supports int32 and bool.
 %
 
 %% verify input
 
-if ~(isnumeric(X) && ~issparse(X) && isreal(X) && ndims(X) == 2)
+if ~((isnumeric(X) || islogical(X)) && ~issparse(X) && ndims(X) == 2)
     error('aggreg:invalidarg', ...
-        'X should be a non-sparse real matrix.');
+        'X should be a non-sparse numeric or logical matrix.');
 end
 [m, n] = size(X);
 
@@ -94,6 +97,9 @@ switch fun
     case 'std'
         R = sqrt(ag_var(X, K, I));
         
+    otherwise
+        error('aggreg:invalidarg', 'The fun name is invalid.');
+        
 end
 
 
@@ -106,6 +112,9 @@ R = aggreg_cimp(X, K, int32(I)-1, 1);
 function R = ag_mean(X, K, I)
 
 S = ag_sum(X, K, I);
+if ~isfloat(S)
+    S = double(S);
+end
 C = intcount(K, I);
 R = make_mean(S, C, I);
 
@@ -125,6 +134,9 @@ function R = ag_var(X, K, I)
 S1 = ag_sum(X, K, I);
 S2 = ag_sum(X.^2, K, I);
 C = intcount(K, I);
+
+if ~isfloat(S1); S1 = double(S1); end
+if ~isfloat(S2); S2 = double(S2); end
 
 E1 = make_mean(S1, C, I);
 E2 = make_mean(S2, C, I);
