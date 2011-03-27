@@ -8,34 +8,33 @@
  *
  ********************************************************************/
 
-#include <mex.h>
-
+#include <bcslib/matlab/bcs_mex.h>
 #include <vector>
 
+using namespace bcs;
+using namespace bcs::matlab;
+
+
 template<typename T>
-void find_seg(int n, const T *v, std::vector<int>& offsets)
+void find_seg(size_t n, const T *v, std::vector<int>& offsets)
 {
     offsets.push_back(0);    
-    for (int i = 1; i < n; ++i)
+    for (size_t i = 1; i < n; ++i)
     {
         if (v[i] != v[i-1]) offsets.push_back(i);
     }    
 }
 
 
-void mxMakeSegs(int n, const std::vector<int>& offsets, bool make_row, 
-        mxArray*& mxSp, mxArray*& mxEp)
+std::pair<marray, marray> do_make_segs(int n, const std::vector<int>& offsets, bool make_row)
 {        
-    int m = offsets.size() - 1;
-    
-    mxSp = make_row ? mxCreateDoubleMatrix(1, m+1, mxREAL) :
-        mxCreateDoubleMatrix(m+1, 1, mxREAL);
+    size_t m = offsets.size() - 1;
         
-    mxEp = make_row ? mxCreateDoubleMatrix(1, m+1, mxREAL) :
-        mxCreateDoubleMatrix(m+1, 1, mxREAL);
+    marray mSp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);        
+    marray mEp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);
         
-    double *sp = mxGetPr(mxSp);
-    double *ep = mxGetPr(mxEp);
+    double *sp = mSp.data<double>();
+    double *ep = mEp.data<double>();
             
     for (int i = 0; i < m; ++i)
     {
@@ -44,7 +43,9 @@ void mxMakeSegs(int n, const std::vector<int>& offsets, bool make_row,
     }
     
     sp[m] = offsets[m] + 1;
-    ep[m] = n;            
+    ep[m] = n;   
+    
+    return std::make_pair(mSp, mEp);
 }
 
 
@@ -59,80 +60,77 @@ void mxMakeSegs(int n, const std::vector<int>& offsets, bool make_row,
  *   [1]: ep: the ending positions
  *
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
-    const mxArray *mxV = prhs[0];
+    const_marray mV(prhs[0]);
     
-    int nr = mxGetM(mxV);
-    int nc = mxGetN(mxV);
+    if (!(mV.is_vector() && !mV.is_sparse() && !mV.is_empty()))
+    {
+        throw mexception("valueseg:invalidarg", 
+            "x should be a full non-empty vector.");
+    }
     
-    if (!(mxGetNumberOfDimensions(mxV) == 2 && !mxIsSparse(mxV) && !mxIsEmpty(mxV) 
-        && (nr == 1 || nc == 1) ))
-        mexErrMsgIdAndTxt("valueseg:invalidarg", 
-                "x should be a full non-empty vector.");
-                
-    int n = mxGetNumberOfElements(mxV);
-    bool make_row = mxGetM(mxV) == 1;
+    size_t n = mV.nelems();
+    bool make_row = mV.nrows() == 1;
         
     
     // delegate by type
-    
-    mxArray *mxSp = 0;
-    mxArray *mxEp = 0;
-    
-    mxClassID cid = mxGetClassID(mxV);
+        
+    mxClassID cid = mV.class_id();
     
     std::vector<int> offsets;
-    const char *v = (char*)mxGetData(mxV);
     
     switch (cid)
     {
         case mxDOUBLE_CLASS:
-            find_seg(n, (const double*)(v), offsets);
+            find_seg(n, mV.data<double>(), offsets);
             break;
         case mxSINGLE_CLASS:
-            find_seg(n, (const float*)(v), offsets);
+            find_seg(n, mV.data<float>(), offsets);
             break;
         case mxINT32_CLASS:
-            find_seg(n, (const int*)(v), offsets);
+            find_seg(n, mV.data<int32_t>(), offsets);
             break;
         case mxCHAR_CLASS:
-            find_seg(n, (const char*)(v), offsets);
+            find_seg(n, mV.data<char>(), offsets);
             break;
         case mxUINT8_CLASS:
-            find_seg(n, (const char*)(v), offsets);
+            find_seg(n, mV.data<uint8_t>(), offsets);
             break;
         case mxUINT32_CLASS:
-            find_seg(n, (const unsigned int*)(v), offsets);
+            find_seg(n, mV.data<uint32_t>(), offsets);
             break;
         case mxLOGICAL_CLASS:
-            find_seg(n, (const bool*)(v), offsets);
+            find_seg(n, mV.data<bool>(), offsets);
             break;
         case mxINT8_CLASS:
-            find_seg(n, (const unsigned char*)(v), offsets);
+            find_seg(n, mV.data<int8_t>(), offsets);
             break;
         case mxINT16_CLASS:
-            find_seg(n, (const short*)(v), offsets);
+            find_seg(n, mV.data<int16_t>(), offsets);
             break;
         case mxUINT16_CLASS:
-            find_seg(n, (const unsigned short*)(v), offsets);
+            find_seg(n, mV.data<uint16_t>(), offsets);
             break;
         default:
-            mexErrMsgIdAndTxt("valueseg:invalidarg", 
-                    "valueseg only supports numeric, char, or logical types.");
+            throw mexception("valueseg:invalidarg", 
+                "valueseg only supports numeric, char, or logical types.");
     }
-            
-    mxMakeSegs(n, offsets, make_row, mxSp, mxEp);
+    
+    marray mSp, mEp;
+    rbind(mSp, mEp) = do_make_segs(n, offsets, make_row);
     
     // output
     
-    plhs[0] = mxSp;
-    plhs[1] = mxEp;
+    plhs[0] = mSp.mx_ptr();
+    plhs[1] = mEp.mx_ptr();
     
 }
 
+
+BCSMEX_MAINDEF
 
 
 
