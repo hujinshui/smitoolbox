@@ -8,70 +8,132 @@
  *
  ********************************************************************/
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/array/array_eval.h>
 
-template<typename T>
-int get_nums(int n, const T *ns0, int *ns)
+using namespace bcs;
+using namespace bcs::matlab;
+
+
+template<typename T0>
+array1d<size_t> get_nums(const_marray mNs)
 {
-    int s = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        s += (ns[i] = (int)(ns0[i]));
-    }
-    return s;
-}
-
-
-int get_nums(const mxArray *mxNs, int n, int *ns)
-{    
-    mxClassID cid = mxGetClassID(mxNs);
+    size_t n = mNs.nelems();
+    array1d<size_t> ns(n);
     
-    if (cid == mxDOUBLE_CLASS)
+    const T0 *in = mNs.data<T0>();
+    
+    for (index_t i = 0; i < (index_t)n; ++i)
     {
-        return get_nums<double>(n, (const double*)mxGetData(mxNs), ns);
+        ns(i) = (size_t)(in[i]);
     }
-    else if (cid == mxSINGLE_CLASS)
-    {
-        return get_nums<float>(n, (const float*)mxGetData(mxNs), ns);
-    }
-    else if (cid == mxINT32_CLASS)
-    {
-        return get_nums<int>(n, (const int*)mxGetData(mxNs), ns);
-    }
-    else if (cid == mxUINT32_CLASS)
-    {
-        return get_nums<unsigned int>(n, (const unsigned int*)mxGetData(mxNs), ns);
-    }
-    else
-    {
-        mexErrMsgIdAndTxt("repnum:invalidarg", 
-                "ns should be of type double, single, int32, or uint32");
-    }            
+    
+    return ns;
 }
 
 
-void do_repnum(int n, const int *ns, double *r)
+array1d<size_t> do_get_nums(const_marray mNs)
 {
-    for (int k = 0; k < n; ++k)
+    if (!(mNs.is_vector() && !mNs.is_sparse()))
     {
-        int c = ns[k];
-        double v = k+1;
-        
-        for (int i = 0; i < c; ++i) *r++ = v;
+        throw mexception("repnum:invalidarg", 
+            "ns should be a non-sparse numeric vector.");
     }
+    
+    switch (mNs.class_id())
+    {
+        case mxDOUBLE_CLASS:
+            return get_nums<double>(mNs);
+        case mxSINGLE_CLASS:
+            return get_nums<float>(mNs);
+        case mxINT32_CLASS:
+            return get_nums<int32_t>(mNs);
+        case mxUINT32_CLASS:
+            return get_nums<uint32_t>(mNs);
+        case mxINT16_CLASS:
+            return get_nums<int16_t>(mNs);
+        case mxUINT16_CLASS:
+            return get_nums<uint16_t>(mNs); 
+        case mxINT8_CLASS:
+            return get_nums<int8_t>(mNs);
+        case mxUINT8_CLASS:
+            return get_nums<uint8_t>(mNs);            
+        default:
+            throw mexception("repnum:invalidarg", 
+                "ns should be a non-sparse numeric vector.");
+    }
+}
+
+
+void check_vs_size(const_marray mNs, const_marray mVs)
+{
+    if (!(mVs.is_vector() && !mVs.is_sparse()))
+    {
+        throw mexception("repnum:invalidarg", 
+            "vs should be a non-sparse numeric vector.");
+    }
+    
+    if (mVs.nrows() != mNs.nrows() || mVs.ncolumns() != mVs.ncolumns())
+    {
+        throw mexception("repnum:invalidarg", 
+            "The sizes of vs and ns are inconsistent.");
+    }    
+}
+
+
+marray do_repnum(const_marray mNs)
+{
+    array1d<size_t> ns = do_get_nums(mNs);
+    
+    size_t n = ns.nelems();
+    size_t N = sum(ns);
+    
+    marray mR = mNs.nrows() == 1 ? 
+        create_marray<double>(1, N) :
+        create_marray<double>(N, 1);
+        
+    double *r = mR.data<double>();
+    
+    for (size_t i = 0; i < n; ++i)
+    {
+        double v = i + 1;
+        for (size_t j = 0; j < ns(i); ++j)
+        {                        
+            *(r++) = v;
+        }
+    }
+    
+    return mR;
 }
 
 
 template<typename T>
-void do_repvals(int n, const T *vs, const int *ns, T *r)
+marray do_repnum_ex(const_marray mVs, const_marray mNs)
 {
-    for (int k = 0; k < n; ++k)
-    {
-        int c = ns[k];
-        T v = vs[k];
+    check_vs_size(mNs, mVs);    
+    array1d<size_t> ns = do_get_nums(mNs);
+    const_aview1d<T> vs = view1d<T>(mVs);
+    
+    size_t n = ns.nelems();
+    size_t N = sum(ns);
+    
+    marray mR = mNs.nrows() == 1 ? 
+        create_marray<T>(1, N) :
+        create_marray<T>(N, 1);
         
-        for (int i = 0; i < c; ++i) *r++ = v;
+    T *r = mR.data<T>();
+    
+    for (size_t i = 0; i < n; ++i)
+    {
+        double v = vs(i);
+        for (size_t j = 0; j < ns(i); ++j)
+        {                        
+            *(r++) = v;
+        }
     }
+    
+    return mR;
+    
 }
 
 
@@ -93,136 +155,68 @@ void do_repvals(int n, const T *vs, const int *ns, T *r)
  *  Output:
  *    [1]: r:   the generated vector 
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    const mxArray *mxNs = 0;
-    const mxArray *mxVs = 0;
+    marray mR;
     
     if (nrhs == 1)
     {
-        mxNs = prhs[0];        
+        const_marray mNs(prhs[0]);
+        
+        mR = do_repnum(mNs);
     }
     else if (nrhs == 2)
     {
-        mxVs = prhs[0];
-        mxNs = prhs[1];
-    }
-    else
-    {
-        mexErrMsgIdAndTxt("repnum:invalidarg", 
-                "The number of inputs to repnum should be 1.");
-    }
-
-    // check ns
-            
-    int m_ns = mxGetM(mxNs);
-    int n_ns = mxGetN(mxNs);   
-    if (!(!mxIsSparse(mxNs) && !mxIsComplex(mxNs) && !mxIsEmpty(mxNs) && 
-            mxGetNumberOfDimensions(mxNs) == 2 && (m_ns == 1 || n_ns == 1)))
-        mexErrMsgIdAndTxt("repnum:invalidarg", 
-                "ns should be a non-empty real full vector.");    
-    int n = m_ns * n_ns;
-    
-    int *ns = new int[n];
-    int N = get_nums(mxNs, n, ns);
+        const_marray mVs(prhs[0]);
+        const_marray mNs(prhs[1]);
         
-    // check vs
-    
-    if (mxVs != 0)
-    {
-        int m_vs = mxGetM(mxVs);
-        int n_vs = mxGetN(mxVs);
-        if (!(!mxIsSparse(mxVs) && !mxIsComplex(mxVs) && 
-                mxGetNumberOfDimensions(mxVs) == 2 && (m_ns == m_vs && n_ns == n_vs)))
-            mexErrMsgIdAndTxt("repnum:invalidarg", 
-                "vs should be a non-empty real full vector with the same size of ns.");
-    }
-    
-    // main
-    
-    // determine the size of return
-    int m_r, n_r;    
-    if (m_ns == 1)
-    {
-        m_r = 1;
-        n_r = N;
-    }
-    else
-    {
-        m_r = N;
-        n_r = 1;
-    }
+        mR;
         
-    
-    mxArray *mxR = 0;
-    
-    if (mxVs == 0)
-    {
-        mxR = mxCreateDoubleMatrix(m_r, n_r, mxREAL);
-        do_repnum(n, ns, mxGetPr(mxR));
-    }
-    else
-    {
-        mxClassID cid = mxGetClassID(mxVs);
-        switch (mxGetClassID(mxVs))
+        switch (mVs.class_id())
         {
             case mxDOUBLE_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (double*)mxGetData(mxVs), ns, (double*)mxGetData(mxR));
+                mR = do_repnum_ex<double>(mVs, mNs);
                 break;
-                
             case mxSINGLE_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (float*)mxGetData(mxVs), ns, (float*)mxGetData(mxR));
-                break;  
-                
+                mR = do_repnum_ex<float>(mVs, mNs);
+                break;
             case mxINT32_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (int*)mxGetData(mxVs), ns, (int*)mxGetData(mxR));
+                mR = do_repnum_ex<int32_t>(mVs, mNs);
                 break;
-                
             case mxUINT32_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (unsigned int*)mxGetData(mxVs), ns, (unsigned int*)mxGetData(mxR));
+                mR = do_repnum_ex<uint32_t>(mVs, mNs);
                 break;
-                
-            case mxINT16_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (short*)mxGetData(mxVs), ns, (short*)mxGetData(mxR));
+            case mxLOGICAL_CLASS:
+                mR = do_repnum_ex<bool>(mVs, mNs);
                 break;
-                
-            case mxUINT16_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (unsigned short*)mxGetData(mxVs), ns, (unsigned short*)mxGetData(mxR));
-                break;
-                
             case mxINT8_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (char*)mxGetData(mxVs), ns, (char*)mxGetData(mxR));
+                mR = do_repnum_ex<int8_t>(mVs, mNs);
                 break;
-                
             case mxUINT8_CLASS:
-                mxR = mxCreateNumericMatrix(m_r, n_r, cid, mxREAL);
-                do_repvals(n, (unsigned char*)mxGetData(mxVs), ns, (unsigned char*)mxGetData(mxR));
+                mR = do_repnum_ex<uint8_t>(mVs, mNs);
                 break;
-                
-            case mxCHAR_CLASS:
-                {
-                    mwSize dims[2] = {m_r, n_r};
-                    mxR = mxCreateCharArray(2, dims);
-                    do_repvals(n, (mxChar*)mxGetData(mxVs), ns, (mxChar*)mxGetData(mxR));
-                }
+            case mxINT16_CLASS:
+                mR = do_repnum_ex<int16_t>(mVs, mNs);
                 break;
-                
+            case mxUINT16_CLASS:
+                mR = do_repnum_ex<uint16_t>(mVs, mNs);
+                break;
+            default:
+                throw mexception("repnum:invalidarg",
+                    "vs should be of numeric or logical type");                
         }
     }
-
-                    
-    delete[] ns;
+    else
+    {
+        throw mexception("repnum:invalidarg", 
+            "The number of inputs to repnum should be 1 or 2.");
+    }
     
-    // output
-    
-    plhs[0] = mxR;
+    plhs[0] = mR.mx_ptr();
         
 }
+
+BCSMEX_MAINDEF
+
+
 
