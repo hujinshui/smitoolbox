@@ -8,12 +8,18 @@
  *
  ********************************************************************/
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
+
+using namespace bcs;
+using namespace bcs::matlab;
 
 
 template<typename T>
-inline T find_median(int n, const T *x, const T *f)  // x: sorted values, // f: cumsum of sorted weights
+inline T find_wmedian(
+        const const_aview1d<T>& x,   // x : sorted values
+        const const_aview1d<T>& f)   // f : cumsum of sorted weights
 {
+    int n = (int)x.nelems();
     T t = f[n-1] / 2;
     
     int i = 0;
@@ -31,56 +37,78 @@ inline T find_median(int n, const T *x, const T *f)  // x: sorted values, // f: 
 
 
 template<typename T>
-void find_medians(int m, int n, const T* X, const T *F, T *M)
+inline marray do_wmedian(const_marray mX, const_marray mF)
 {
-    const T *x = X;
-    const T *f = F;
-    for (int i = 0; i < n; ++i, x += m, f += m)
+    size_t m = mX.nrows();
+    size_t n = mX.ncolumns();
+    
+    if (m > 1)
     {
-        M[i] = find_median(m, x, f);                
+        if (n == 1)
+        {
+            const_aview1d<T> x = view1d<T>(mX);
+            const_aview1d<T> f = view1d<T>(mF);
+            
+            T r = find_wmedian(x, f);
+            
+            return create_mscalar<T>(r);
+        }
+        else
+        {
+            const_aview2d<T, column_major_t> X = view2d<T>(mX);
+            const_aview2d<T, column_major_t> F = view2d<T>(mF);
+            
+            marray mR = create_marray<T>(1, n);
+            aview1d<T> R = view1d<T>(mR);
+            
+            for (index_t i = 0; i < (index_t)n; ++i)
+            {
+                R(i) = find_wmedian(X.column(i), F.column(i));
+            }
+            
+            return mR;
+        }
+    }
+    else
+    {
+        return duplicate(mX);
     }
 }
 
 
 
-
-// main entry
-// Input
-// [0]:     X   (sorted values) (along dim 1)
-// [1]:     F   (cumsum of sorted weights)
-// Output
-// [0]:     M   (weighted median values)
-//
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+/**
+ * main entry
+ * 
+ * Input
+ *  [0]:     X   (sorted values) (along dim 1)
+ *  [1]:     F   (cumsum of sorted weights)
+ * Output
+ *  [0]:     R   (weighted median values)
+ *
+ */
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    const mxArray *mxX = prhs[0];
-    const mxArray *mxF = prhs[1];
+    const_marray mX(prhs[0]);
+    const_marray mF(prhs[1]);
     
-    int m = mxGetM(mxX);
-    int n = mxGetN(mxX);
-    
-    mxArray *mxM = 0;
-    
-    if (mxIsDouble(mxX))
+    marray mR;
+    if (mX.is_double())
     {
-        mxM = mxCreateNumericMatrix(1, n, mxDOUBLE_CLASS, mxREAL);
-        
-        find_medians(m, n, 
-                (const double*)mxGetData(mxX), 
-                (const double*)mxGetData(mxF), 
-                (double*)mxGetData(mxM));
+        mR = do_wmedian<double>(mX, mF);
     }
-    else // single
+    else
     {
-        mxM = mxCreateNumericMatrix(1, n, mxSINGLE_CLASS, mxREAL);
-        
-        find_medians(m, n, 
-                (const float*)mxGetData(mxX), 
-                (const float*)mxGetData(mxF), 
-                (float*)mxGetData(mxM));
+        mR = do_wmedian<float>(mX, mF);
     }
     
-    plhs[0] = mxM;
+    plhs[0] = mR.mx_ptr();
 }
+
+
+BCSMEX_MAINDEF
+
+
+
 
 

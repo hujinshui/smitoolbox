@@ -32,7 +32,9 @@ function [R, I] = top_k(X, op, K, dim)
 
 %   History
 %   -------
-%       Created by Dahua Lin, on Nov 11, 2010
+%       - Created by Dahua Lin, on Nov 11, 2010
+%       - Modified by Dahua Lin, on Mar 28, 2011
+%           - re-implemented the core mex using bcslib
 %
 
 %% verify input 
@@ -60,47 +62,32 @@ end
 K = double(K);
 
 if nargin < 4
-    dim = [];
+    dim = 0;
+else
+    if ~(isnumeric(dim) && isscalar(dim) && (dim == 1 || dim == 2))
+        error('top_k:invalidarg', 'dim should be either 1 or 2.');
+    end
+    dim = double(dim);
 end
 
-% re-form X if necessary
+% check K
 
-do_trans = false;
-
-if isempty(dim)    
+if dim == 0  
     if isvector(X)
         check_K(K, numel(X));
     else
         check_K(K, size(X,1));    
     end            
-else    
-    [m, n] = size(X);    
-    if dim == 1
-        check_K(K, m);        
-    elseif dim == 2
-        check_K(K, n);
-        if m > 1
-            X = X.';
-            do_trans = true;
-        end        
-    else
-        error('top_k:invalidarg', 'The value of dim is invalid.');
-    end
+else
+    check_K(K, size(X, dim));
 end       
 
 %% main
 
 if nargout <= 1
-    R = top_k_cimp(X, K, code);
-    if do_trans
-        R = R.';
-    end
+    R = top_k_cimp(X, K, code, dim);
 else
-    [R, I] = top_k_cimp(X, K, code);
-    if do_trans
-        R = R.';
-        I = I.';
-    end
+    [R, I] = top_k_cimp(X, K, code, dim);
 end
 
             

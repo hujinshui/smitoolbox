@@ -8,165 +8,140 @@
  *
  ********************************************************************/
 
-#include <mex.h>
-#include <string.h>
-#include <algorithm>
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/veccomp/vecstat.h>
+
+using namespace bcs;
+using namespace bcs::matlab;
 
 
 template<typename T>
-T two_mean(T x0, T x1)
+marray do_vec_median(const_marray mX)
 {
-    return x0 + (x1 - x0) / 2;
+    size_t n = mX.nelems();
+    
+    array1d<T> temp(n);
+    temp << view1d<T>(mX);
+    T v = median_inplace(n, temp.pbase());
+    return create_mscalar<T>(v);
 }
 
 
 template<typename T>
-inline T find_median_odd(T *x, int n)        
-{    
-    if (n == 1)
-    {
-        return *x;
-    }
-    else
-    {
-        T *pm = x + (n/2);
-        std::nth_element(x, pm, x+n);
-        return *pm;
-    }
-}
-
-template<typename T>
-inline T find_median_even(T *x, int n)
+marray do_mat_median(const_marray mX, int adim)
 {
-    if (n == 2)
-    {
-        return two_mean(x[0], x[1]);
-    }
-    else
-    {
-        T *pm = x + (n/2);
-        std::nth_element(x, pm, x+n);
+    size_t m = mX.nrows();
+    size_t n = mX.ncolumns();
     
-        T v1 = *pm;
-        T v0 = *(std::max_element(x, pm));
+    const_aview2d<T, column_major_t> X = view2d<T>(mX);
     
-        return two_mean(v0, v1);
-    }
-}
-
-
-template<typename T>
-inline T vec_median(const T *x, int n)
-{        
-    if (n == 1)
+    if (adim == 1)  // columns
     {
-        return *x;
-    }
-    else if (n == 2)
-    {
-        return two_mean(x[0], x[1]);
-    }
-    else
-    {
-        T *y = new T[n];
-        ::memcpy(y, x, n * sizeof(T));
-    
-        T v = n % 2 == 0 ? 
-            find_median_even(y, n) : 
-            find_median_odd(y, n);
-            
-        delete[] y;            
-        return v;
-    }
-}
-
-
-template<typename T>
-void mat_median(const T *x, int m, int n, T *r)
-{
-    T *y = new T[m * n];
-    ::memcpy(y, x, m * n * sizeof(T));
-    
-    if (m % 2 == 0)
-    {
-        for (int i = 0; i < n; ++i)
+        marray mR = create_marray<T>(1, n);
+        aview1d<T> r = view1d<T>(mR);
+        
+        array1d<T> temp(m);
+        for (index_t i = 0; i < (index_t)n; ++i)
         {
-            r[i] = find_median_even(y+i*m, m);
+            temp << X.column(i);
+            r(i) = median_inplace(m, temp.pbase());            
+        }
+        
+        return mR;        
+    }
+    else if (adim == 2)  // rows
+    {
+        marray mR = create_marray<T>(m, 1);
+        aview1d<T> r = view1d<T>(mR);
+        
+        array1d<T> temp(n);
+        for (index_t i = 0; i < (index_t)m; ++i)
+        {
+            temp << X.row(i);
+            r(i) = median_inplace(n, temp.pbase());
+        }
+        
+        return mR;
+    }
+}
+
+
+
+template<typename T>
+inline marray do_median(const_marray mX, int adim)
+{
+    size_t m = mX.nrows();
+    size_t n = mX.ncolumns();
+    
+    if (adim == 0)
+    {
+        if (m == 1 || n == 1)
+        {
+            return do_vec_median<T>(mX);
+        }
+        else
+        {
+            return do_mat_median<T>(mX, 1);
+        }            
+    }
+    
+    
+    if (adim == 1)
+    {
+        if (m == 1)
+        {
+            return duplicate(mX);            
+        }
+        else if (n == 1)
+        {
+            return do_vec_median<T>(mX);
+        }
+        else     
+        {
+            return do_mat_median<T>(mX, 1);
         }
     }
-    else
+    else if (adim == 2)
     {
-        for (int i = 0; i < n; ++i)
+        if (n == 1)
         {
-            r[i] = find_median_odd(y+i*m, m);
+            return duplicate(mX);            
+        }
+        else if (m == 1)
+        {
+            return do_vec_median<T>(mX);
+        }
+        else
+        {
+            return do_mat_median<T>(mX, 2);
         }
     }
-    
-    delete[] y;
-}
-
-
-template<typename T> mxArray* make_mat(int m, int n);
-
-template<> mxArray* make_mat<double>(int m, int n)
-{
-    return mxCreateNumericMatrix(m, n, mxDOUBLE_CLASS, mxREAL);
-}
-
-template<> mxArray* make_mat<float>(int m, int n)
-{
-    return mxCreateNumericMatrix(m, n, mxSINGLE_CLASS, mxREAL);
-}
-
-
-
-template<typename T>
-mxArray* do_median(const mxArray *mxX)
-{
-    int m = (int)mxGetM(mxX);
-    int n = (int)mxGetN(mxX);
-    
-    mxArray *mxR = 0;
-    
-    if (m == 1)
-    {
-        mxR = make_mat<T>(1, 1);
-        *((T*)mxGetData(mxR)) = vec_median((const T*)mxGetData(mxX), n);
-    }
-    else if (n == 1)
-    {
-        mxR = make_mat<T>(1, 1);
-        *((T*)mxGetData(mxR)) = vec_median((const T*)mxGetData(mxX), m);
-    }
-    else
-    {
-        mxR = make_mat<T>(1, n);
-        mat_median((const T*)mxGetData(mxX), m, n, (T*)mxGetData(mxR));
-    }
-    
-    return mxR;
 }
 
 
 
 /**
  * main entry:
- *  [0] X:  the input matrix
+ *  [0] X:      the input matrix
+ *  [1] dim:    the dimension along which median is solved
  *
  * output entry:
  *  [0] r:  the median values
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    const mxArray *mxX = prhs[0];
+    const_marray mX(prhs[0]);
+    const_marray mDim(prhs[1]);
     
-    if (mxIsDouble(mxX))
+    int adim = (int)mDim.get_scalar<double>();
+    
+    if (mX.is_double())
     {
-        plhs[0] = do_median<double>(mxX);
+        plhs[0] = do_median<double>(mX, adim).mx_ptr();
     }
-    else if (mxIsSingle(mxX))
+    else if (mX.is_single())
     {
-        plhs[0] = do_median<float>(mxX);
+        plhs[0] = do_median<float>(mX, adim).mx_ptr();
     }
 }
 
