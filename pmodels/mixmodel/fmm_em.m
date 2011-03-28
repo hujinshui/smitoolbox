@@ -204,7 +204,7 @@ while status.niters < opts.MaxIter
         + sum_w(ddentropy(Q), ws);
     
     if ~isequal(opts.PriCount, 0)
-        objv = objv + safedot(opts.PriCount, log(Pi));
+        objv = objv + sum_xlogy(opts.PriCount, Pi);
     end
     if use_robust
         objv = objv ...

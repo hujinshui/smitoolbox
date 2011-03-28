@@ -26,5 +26,5 @@ end
 
 %% main
 
-v = - safedot(P, log(P));
+v = - sum_xlogy(P, P);
 

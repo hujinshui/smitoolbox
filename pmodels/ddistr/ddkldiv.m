@@ -5,12 +5,12 @@ function v = ddkldiv(P, Q)
 %       computes the Kullback Leibler divergence between the discrete
 %       distributions represented by the columns of P and Q.
 %
-%       P and Q should be matrices with the same number of rows. Each row 
-%       is a vector of non-negative entries that sum to one. The sizes of
-%       P and Q can be both m x n, or in such a way that either one is 
-%       m x 1, while the other one is m x n. For the latter case, the
-%       m x 1 one will be broadcasted. For both cases, the size of v will
-%       be 1 x n.
+%       If P and Q are both vectors, then it returns the K-L divergence
+%       between them.
+%
+%       If P and Q are matrices of size m x n (with m > 1 and n > 1),
+%       then v will be a row vector of size 1 x n, where v(i) is
+%       the divergence between P(:,i) and Q(:,i).
 %
 %   Remarks
 %   -------
@@ -21,26 +21,12 @@ function v = ddkldiv(P, Q)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Sep 14, 2010
+%       - Modified by Dahua Lin, on Mar 28, 2011
 %
 
-%% verify input
-
-if ~(isfloat(P) && isfloat(Q) && ndims(P) == 2 && ndims(Q) == 2 && ...
-        size(P, 1) == size(Q, 1))
-    error('ddkldiv:invalidarg', ...
-        'P and Q should be numeric matrices with the same number of rows.');
-end
-
-n1 = size(P, 2);
-n2 = size(Q, 2);
-
-if ~(n1 == n2 || n1 == 1 || n2 == 1)
-    error('ddkldiv:invalidarg', ...
-        'The number of columns in P and Q are inconsistent.');
-end
 
 %% main
 
-v = safedot(P, log(P)) - safedot(P, log(Q));
+v = sum_xlogy(P, P) - sum_xlogy(P, Q);
    
 
