@@ -50,7 +50,7 @@ if ~isa(w, 'double'); w = double(w); end
 %% main
 
 if isempty(K) || K >= max(G0.o_ds)  % no need to prune
-    G.ew = w;
+    G = set_weights(G0, w);
     return;
 end
 
