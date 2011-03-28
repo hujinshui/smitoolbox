@@ -8,8 +8,10 @@
  *
  ********************************************************************/
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
 
+using namespace bcs;
+using namespace bcs::matlab;
 
 template<typename T>
 void do_pieces_left_u(const T* edges, const T* x, double* y, int n, int m)
@@ -96,46 +98,48 @@ inline void do_pieces(const T* edges, const T* x, double *y, int n, int m,
  *  Output:
  *      [0] y:          the output (int32, 1 x n)
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
-    const mxArray *mxX = prhs[0];
-    const mxArray *mxEdges = prhs[1];
-    const mxArray *mxDir = prhs[2];
-    const mxArray *mxSorted = prhs[3];
+    const_marray mX(prhs[0]);
+    const_marray mEdges(prhs[1]);
+    const_marray mDir(prhs[2]);
+    const_marray mSorted(prhs[3]);
         
-    bool is_left = mxIsLogicalScalarTrue(mxDir);
-    bool is_sorted = mxIsLogicalScalarTrue(mxSorted);
+    bool is_left = mDir.get_scalar<bool>();
+    bool is_sorted = mSorted.get_scalar<bool>();
         
             
     // main
         
-    int nr = (int)mxGetM(mxX);
-    int nc = (int)mxGetN(mxX);
+    int nr = (int)mX.nrows();
+    int nc = (int)mX.ncolumns();
     int n = nr * nc;
-    int m = (int)mxGetNumberOfElements(mxEdges) - 1;
+    int m = (int)mEdges.nelems() - 1;
     
-    mxArray *mxY = mxCreateDoubleMatrix(nr, nc, mxREAL);
-    double *y = mxGetPr(mxY);
+    marray mY = create_marray<double>(nr, nc);
+    double *y = mY.data<double>();
         
-    if (mxIsDouble(mxX))
-    {
-        const double *x = (const double*)mxGetData(mxX);
-        const double *edges = (const double*)mxGetData(mxEdges);
-        
-        do_pieces<double>(edges, x, y, n, m, is_left, is_sorted);
+    if (mX.is_double())
+    {        
+        do_pieces<double>(mEdges.data<double>(), mX.data<double>(), 
+                y, n, m, is_left, is_sorted);
     }
-    else if (mxIsSingle(mxX))
-    {
-        const float *x = (const float*)mxGetData(mxX);
-        const float *edges = (const float*)mxGetData(mxEdges);
-                
-        do_pieces<float>(edges, x, y, n, m, is_left, is_sorted);
+    else if (mX.is_double())
+    {                
+        do_pieces<float>(mEdges.data<float>(), mX.data<float>(), 
+                y, n, m, is_left, is_sorted);
     }    
     
     // output
-    plhs[0] = mxY;
+    plhs[0] = mY.mx_ptr();
     
 }
+
+
+BCSMEX_MAINDEF
+        
+
+
 
