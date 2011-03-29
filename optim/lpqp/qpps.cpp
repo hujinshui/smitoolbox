@@ -8,9 +8,13 @@
  *
  ********************************************************************/
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
 
 #include <algorithm>
+
+using namespace bcs;
+using namespace bcs::matlab;
+
 
 template <typename T>
 struct entry
@@ -32,8 +36,10 @@ struct entry
 
 
 template<typename T>
-void qpps(int d, const T *f, T *x, entry<T> *es)
+void qpps(const_aview1d<T> f, aview1d<T> x, entry<T> *es)
 {
+    int d = (int)f.nelems();
+    
     // pre-condition: x has all zeros
     
     // make and sort entries
@@ -77,24 +83,54 @@ void qpps(int d, const T *f, T *x, entry<T> *es)
 }
 
 
+
+
+
 template<typename T>
-void qpps_all(int d, int n, const T *f, T *x)
+inline marray do_qpps(const_marray mF)
 {
-    // prepare work space
+    size_t m = mF.nrows();
+    size_t n = mF.ncolumns();
     
-    entry<T> *es = new entry<T>[d];
+    marray mX;
+    entry<T> *es = 0;
     
-    // main loop
-    
-    for (int i = 0; i < n; ++i, f += d, x += d)
+    if (m == 1 || n == 1)
     {
-        qpps(d, f, x, es);
+        if (m == 1)
+        {
+            mX = create_marray<T>(1, n);
+            es = new entry<T>[n];
+        }
+        else
+        {
+            mX = create_marray<T>(m, 1);
+            es = new entry<T>[m];
+        }
+        
+        const_aview1d<T> f = view1d<T>(mF);
+        aview1d<T> x = view1d<T>(mX);
+        
+        qpps(f, x, es);        
+    }
+    else
+    {
+        mX = create_marray<T>(m, n);
+        
+        const_aview2d<T, column_major_t> F = view2d<T>(mF); 
+        aview2d<T, column_major_t> X = view2d<T>(mX);
+        
+        es = new entry<T>[m];
+        
+        for (index_t i = 0; i < (index_t)n; ++i)
+        {
+            qpps(F.column(i), X.column(i), es);
+        }
     }
     
-    
-    // release memory
-    
     delete[] es;
+
+    return mX;
 }
 
 
@@ -111,51 +147,45 @@ void qpps_all(int d, int n, const T *f, T *x)
  *    [0]: x  [d x n]
  *
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
     if (nrhs != 1)
-        mexErrMsgIdAndTxt("qpps:invalidarg", "The number of input arguments should be 1 for qpps");
+    {
+        throw mexception("qpps:invalidarg", 
+            "The number of input arguments should be 1 for qpps");
+    }
     
-    const mxArray *mxF = prhs[0];
+    const_marray mF(prhs[0]);
     
-    if (!(mxGetNumberOfDimensions(mxF) == 2 && !mxIsSparse(mxF) && !mxIsComplex(mxF)))
-        mexErrMsgIdAndTxt("qpps:invalidarg", "f must be a non-sparse real matrix");
+    if (!( mF.is_matrix() && mF.is_float() && !mF.is_sparse() && !mF.is_complex() ))
+    {
+        throw mexception("qpps:invalidarg", 
+            "F should be a non-sparse real matrix.");
+    }
+    
     
     // main
     
-    int d = mxGetM(mxF);
-    int n = mxGetN(mxF);
-    mxArray *mxX = 0;
+    marray mX;
     
-    if (mxIsDouble(mxF))
+    if (mF.is_double())
     {
-        const double *f = (const double*)mxGetData(mxF);
-        mxX = mxCreateNumericMatrix(d, n, mxDOUBLE_CLASS, mxREAL);
-        double *x = (double*)mxGetData(mxX);
-        
-        qpps_all(d, n, f, x);        
-    }
-    else if (mxIsSingle(mxF))
-    {
-        const float *f = (const float*)mxGetData(mxF);
-        mxX = mxCreateNumericMatrix(d, n, mxSINGLE_CLASS, mxREAL);
-        float *x = (float*)mxGetData(mxX);
-        
-        qpps_all(d, n, f, x);
+        mX = do_qpps<double>(mF);
     }
     else
     {
-        mexErrMsgIdAndTxt("qpps:invalidarg", "f must be of double or single class.");
+        mX = do_qpps<float>(mF);
     }
     
+    
     // output
-    plhs[0] = mxX;
+    plhs[0] = mX.mx_ptr();
 }
 
 
-
+BCSMEX_MAINDEF
 
 
 
