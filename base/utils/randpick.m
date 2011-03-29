@@ -65,7 +65,7 @@ if k > 0 && k < n
             if n > 4 * k
                 r = rpick_inc(rstream, n, k);
             elseif n > 4 * (n-k)
-                r0 = rpick_inc(rstream, n, k);
+                r0 = rpick_inc(rstream, n, n-k);
                 r = 1 : n;
                 r(r0) = [];
             else
