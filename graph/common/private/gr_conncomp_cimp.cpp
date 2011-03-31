@@ -8,33 +8,52 @@
  *
  *******************************************************************/
 
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/matlab/mgraph.h>
+#include <bcslib/graph/bgl_port.h>
 
-#include "../../clib/graph_mex.h"
+#include <boost/graph/connected_components.hpp>
 
 #include <vector>
 #include <valarray>
 
-#include <boost/graph/connected_components.hpp>
+using namespace bcs;
+using namespace bcs::matlab;
 
-typedef boost::default_color_type color_t;
 
-using namespace smi;
-
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    matlab_graph_repr gr(prhs[0]);    
-    CRefAdjList<no_edge_weight, boost::undirected_tag> g = gr.to_cref_adjlist_ud();
+    // take inputs
     
-    graph_size_t n = num_vertices(g);
-        
+    const_mgraph mG(prhs[0]);    
+    gr_adjlist<gr_undirected> g = to_gr_adjlist<gr_undirected>(mG);
+    
+    gr_size_t n = num_vertices(g);
+    
+    // main
+    
+    typedef boost::default_color_type color_t;
     std::valarray<color_t> colors(boost::white_color, n);
-    std::valarray<graph_size_t> labels(n);
+    std::valarray<gr_size_t> labels(n);
         
-    VertexRefMap<color_t> cmap = &(colors[0]);
-    VertexRefMap<graph_size_t> lmap = &(labels[0]);
+    vertex_ref_map<color_t> cmap = &(colors[0]);
+    vertex_ref_map<gr_size_t> lmap = &(labels[0]);
     
     boost::connected_components(g, lmap, boost::color_map(cmap));
     
-    plhs[0] = iter_to_matlab_row(&(labels[0]), labels.size(), vertex_to_mindex());
+    // output
+    
+    marray mL = create_marray<int32_t>(1, n);
+    int32_t *L = mL.data<int32_t>();
+    for (gr_size_t i = 0; i < n; ++i)
+    {
+        L[i] = (int32_t)(labels[i]) + 1;
+    }
+    
+    plhs[0] = mL.mx_ptr();
+   
 }
+
+
+BCSMEX_MAINDEF
 
