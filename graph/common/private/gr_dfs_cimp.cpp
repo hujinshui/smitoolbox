@@ -239,7 +239,7 @@ void do_dfs(const_mgraph mG, const_aview1d<vertex_t> seeds, DFSRecord& record)
  *  [1]: parents:   parents in the search tree (corresponding to vs)
  *  [2]: dists:     the distances to the root in search tree (corresponding to vs)
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
     // take input
     
@@ -303,7 +303,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 }
 
 
-
+BCSMEX_MAINDEF
 
 
 
