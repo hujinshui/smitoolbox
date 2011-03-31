@@ -9,108 +9,66 @@
  *
  ********************************************************************/
 
-#include "../../clib/graph_mex.h"
-
-#include <vector>
-#include <valarray>
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/matlab/mgraph.h>
+#include <bcslib/graph/bgl_port.h>
 
 #include <boost/graph/dijkstra_shortest_paths.hpp>
+#include <valarray>
 
-using namespace smi;
+using namespace bcs;
+using namespace bcs::matlab;
 
-typedef boost::default_color_type color_t;
 
-
-template<typename TWeight>
-struct DijkstraRecord
+template<typename TWeight, typename TDir>
+void do_dijkstra(const_mgraph mG, const vertex_t& s, int nlhs, mxArray *plhs[])
 {
-    std::vector<vertex_t> vertices;     // the vertices in finished order
+    gr_wadjlist<TWeight, TDir> g = to_gr_wadjlist<TWeight, TDir>(mG);
+    gr_size_t nv = num_vertices(g);
     
-    std::valarray<vertex_t> parent_map;                        
-    std::valarray<TWeight> distance_map;
-    std::valarray<color_t> color_map;
-    
-    DijkstraRecord(graph_size_t n)
-    : parent_map(n)
-    , distance_map(TWeight(0), n)
-    , color_map(boost::color_traits<color_t>::white(), n)
+    if (nlhs <= 1)
     {
-        vertices.reserve(n);
-    }        
-       
-    mxArray *vertices_to_matlab() const
-    {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
-                vertex_to_mindex());
+        using boost::distance_map;
+
+        std::valarray<TWeight> dists(TWeight(0), nv);
+
+        vertex_ref_map<TWeight> dist_map(&(dists[0]));
+
+        boost::dijkstra_shortest_paths(g, vertex_t(0), distance_map(dist_map));
+        
+        marray mDists = create_marray<TWeight>(1, nv); 
+        copy_elements(&(dists[0]), mDists.data<TWeight>(), nv);
+        
+        plhs[0] = mDists.mx_ptr();
         
     }
-    
-    mxArray *parents_to_matlab() const
+    else
     {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(),
-                unary_chain(vertex_to_index(), arr_map(parent_map), vertex_to_mindex()) );                
-    }
-    
-    
-    mxArray *distances_to_matlab() const
-    {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(),
-                unary_chain(vertex_to_index(), arr_map(distance_map)) );                
-    }         
-    
-};
+        using boost::distance_map;
+        using boost::predecessor_map;
 
+        std::valarray<TWeight> dists(TWeight(0), nv);
+        std::valarray<vertex_t> preds(nv);
 
-template<typename TWeight>
-class DijkstraVisitorSimple : public boost::default_dijkstra_visitor
-{
-public:
-    
-    DijkstraVisitorSimple(DijkstraRecord<TWeight>& record)
-    : m_record(record)
-    {        
-    }
-    
-    void finish_vertex(const vertex_t& u, const CRefAdjList<TWeight>& g)
-    {
-        m_record.vertices.push_back(u);
+        vertex_ref_map<TWeight> dist_map(&(dists[0]));
+        vertex_ref_map<vertex_t> pred_map(&(preds[0]));
+
+        boost::dijkstra_shortest_paths(g, vertex_t(0), 
+                distance_map(dist_map).predecessor_map(pred_map));   
+        
+        marray mDists = create_marray<TWeight>(1, nv); 
+        copy_elements(&(dists[0]), mDists.data<TWeight>(), nv);
+        
+        marray mPreds = create_marray<int32_t>(1, nv);
+        int32_t *ps = mPreds.data<int32_t>();
+        for (gr_index_t i = 0; i < (gr_index_t)nv; ++i)
+        {
+            ps[i] = preds[i].index + 1;
+        }
+        
+        plhs[0] = mDists.mx_ptr();
+        plhs[1] = mPreds.mx_ptr();
     }    
-    
-private:
-    DijkstraRecord<TWeight>& m_record;
-};
-
-
-
-
-
-template<typename TWeight>
-void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[])
-{
-    CRefAdjList<TWeight> g = gr.to_cref_wadjlist<TWeight>();
-    
-    DijkstraRecord<TWeight> record(num_vertices(g));    
-    DijkstraVisitorSimple<TWeight> vis(record);
-    
-    using boost::weight_map;
-    using boost::predecessor_map;
-    using boost::distance_map;
-    using boost::color_map;
-    
-    VertexRefMap<vertex_t> pmap = &(record.parent_map[0]);
-    VertexRefMap<TWeight> dmap = &(record.distance_map[0]);
-    VertexRefMap<color_t> cmap = &(record.color_map[0]);
-        
-    boost::dijkstra_shortest_paths(g, vertex_t(s), 
-            predecessor_map(pmap).distance_map(dmap).color_map(cmap).visitor(vis));
-    
-    pmap[0] = -1;
-    
-    plhs[0] = record.vertices_to_matlab();
-    if (nlhs >= 2)
-        plhs[1] = record.parents_to_matlab();
-    if (nlhs >= 3)
-        plhs[2] = record.distances_to_matlab();
 }
 
 
@@ -123,35 +81,73 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
  *  [1]: s:     the source node
  *
  * Outputs:
- *  [0]: vs:        the vertices in discovery order
- *  [1]: parents:   parents in the search tree (corresponding to vs)
- *  [2]: dists:     the distances to the source in search tree (corresponding to vs)
+ *  [0]: parents:   parents in the search tree
+ *  [1]: dists:     the distances to the source in search tree 
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
-    matlab_graph_repr gr(prhs[0]);
-    int s = MArray(prhs[1]).get_scalar<int>();
+    // take input
     
-    switch (gr.weight_class())
+    const_mgraph mG(prhs[0]);
+    vertex_t s = const_marray(prhs[1]).get_scalar<vertex_t>();    
+    char dtype = mG.dtype();
+    
+    // main delegate
+    
+    if (dtype == 'd')
     {
-        case mxDOUBLE_CLASS:
-            main_delegate<double>(gr, s, nlhs, plhs);
-            break;
-            
-        case mxSINGLE_CLASS:
-            main_delegate<float>(gr, s, nlhs, plhs);
-            break;
-            
-        case mxINT32_CLASS:
-            main_delegate<int>(gr, s, nlhs, plhs);
-            break;
-            
-        case mxUINT32_CLASS:
-            main_delegate<unsigned int>(gr, s, nlhs, plhs);
-            break;
-            
-        default:
-            mexErrMsgIdAndTxt("gr_dijkstra_cimp:invalidarg", 
+        switch (mG.weight_type())
+        {
+            case mxDOUBLE_CLASS:
+                do_dijkstra<double, gr_directed>(mG, s, nlhs, plhs);
+                break;
+
+            case mxSINGLE_CLASS:
+                do_dijkstra<float, gr_directed>(mG, s, nlhs, plhs);
+                break;
+
+            case mxINT32_CLASS:
+                do_dijkstra<int32_t, gr_directed>(mG, s, nlhs, plhs);
+                break;
+
+            case mxUINT32_CLASS:
+                do_dijkstra<uint32_t, gr_directed>(mG, s, nlhs, plhs);
+                break;
+
+            default:
+                throw mexception("gr_dijkstra:invalidarg", 
                     "The weight value should be double, single, int32, or uint32.");
+        }
     }
+    else if (dtype == 'u')
+    {
+        switch (mG.weight_type())
+        {
+            case mxDOUBLE_CLASS:
+                do_dijkstra<double, gr_undirected>(mG, s, nlhs, plhs);
+                break;
+
+            case mxSINGLE_CLASS:
+                do_dijkstra<float, gr_undirected>(mG, s, nlhs, plhs);
+                break;
+
+            case mxINT32_CLASS:
+                do_dijkstra<int32_t, gr_undirected>(mG, s, nlhs, plhs);
+                break;
+
+            case mxUINT32_CLASS:
+                do_dijkstra<uint32_t, gr_undirected>(mG, s, nlhs, plhs);
+                break;
+
+            default:
+                throw mexception("gr_dijkstra:invalidarg", 
+                    "The weight value should be double, single, int32, or uint32.");
+        }
+    }
+        
 }
+
+
+BCSMEX_MAINDEF
+
+        
