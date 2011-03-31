@@ -8,14 +8,17 @@
  *
  *******************************************************************/
 
-#include "../../clib/graph_mex.h"
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/matlab/mgraph.h>
+#include <bcslib/graph/bgl_port.h>
 
 #include <boost/graph/breadth_first_search.hpp>
 
 #include <vector>
 #include <valarray>
 
-using namespace smi;
+using namespace bcs;
+using namespace bcs::matlab;
 
 /**
  * The struct to capture the information of BFS running
@@ -24,23 +27,24 @@ struct BFSRecord
 {
     typedef boost::default_color_type color_t;
     
-    BFSRecord(graph_size_t n) 
+    // fields
+    
+    gr_size_t num_vertices;
+    std::valarray<color_t> colors;
+    
+    std::vector<vertex_t> vertices;
+    std::vector<vertex_t> parents;    
+    std::valarray<int32_t> *p_dist_map;
+    
+    // constructors
+    
+    BFSRecord(gr_size_t n) 
     : num_vertices(n), colors(boost::white_color, n), p_dist_map(0) { }
     
     ~BFSRecord()
     {
         if (p_dist_map != 0) delete p_dist_map;
-    }
-        
-    // fields
-    
-    graph_size_t num_vertices;
-    std::valarray<color_t> colors;
-    
-    std::vector<vertex_t> vertices;
-    std::vector<vertex_t> parents;    
-    std::valarray<int> *p_dist_map;
-        
+    }                
     
     // actions
     
@@ -60,22 +64,45 @@ struct BFSRecord
     }
     
     
-    mxArray *vertices_to_matlab() const
+    marray vertices_to_matlab() const
     {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
-                vertex_to_mindex());
+        size_t n = vertices.size();
+        marray mA = create_marray<gr_index_t>(1, n);
+        vertex_t *a = mA.data<vertex_t>();
+        
+        for (size_t i = 0; i < n; ++i)
+        {
+            a[i] = vertices[i].index + 1;
+        }
+        return mA;
     }
     
-    mxArray *parents_to_matlab() const
+    marray parents_to_matlab() const
     {
-        return iter_to_matlab_row(parents.begin(), parents.size(), 
-                vertex_to_mindex());
+        size_t n = parents.size();
+        marray mA = create_marray<gr_index_t>(1, n);
+        vertex_t *a = mA.data<vertex_t>();
+        
+        for (size_t i = 0; i < n; ++i)
+        {
+            a[i] = parents[i].index + 1;
+        }
+        return mA;
     }
     
-    mxArray *distances_to_matlab() const
+    marray distances_to_matlab() const
     {
-        return iter_to_matlab_row(vertices.begin(), vertices.size(), 
-                unary_chain(vertex_to_index(), arr_map(*p_dist_map)));
+        const std::valarray<int>& dist_map = *p_dist_map;
+        
+        size_t n = vertices.size();
+        marray mA = create_marray<int32_t>(1, n);
+        int32_t *a = mA.data<int32_t>();
+        
+        for (size_t i = 0; i < n; ++i)
+        {
+            a[i] = dist_map[vertices[i].index];
+        }
+        return mA;
     }   
     
 };
@@ -94,7 +121,8 @@ public:
     
     void initialize_seed(const vertex_t& u) { }    
     
-    void discover_vertex(const vertex_t& u, const CRefAdjList<no_edge_weight>& g)
+    template<class Graph>
+    void discover_vertex(const vertex_t& u, const Graph& g)
     {
         vertices.push_back(u);
     }
@@ -121,7 +149,8 @@ public:
         parents.push_back(-1);
     }
         
-    void tree_edge(const edge_t& e, const CRefAdjList<no_edge_weight>& g)
+    template<class Graph>
+    void tree_edge(const edge_t& e, const Graph& g)
     {
         vertices.push_back(target(e, g));        
         parents.push_back(source(e, g));
@@ -148,17 +177,18 @@ public:
     {
         vertices.push_back(u);
         parents.push_back(-1);        
-        dists[u.i] = 0;
+        dists[u.index] = 0;
     }
         
-    void tree_edge(const edge_t& e, const CRefAdjList<no_edge_weight>& g)
+    template<class Graph>
+    void tree_edge(const edge_t& e, const Graph& g)
     {
         vertex_t s = source(e, g);
         vertex_t t = target(e, g);
         
         vertices.push_back(t);        
         parents.push_back(s);        
-        dists[t.i] = dists[s.i] + 1;
+        dists[t.index] = dists[s.index] + 1;
     }        
     
 private:
@@ -169,36 +199,35 @@ private:
 
 
 
-/**
- * Core function
- */
-template<typename TVisitor>
-void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int *s)
+// core function
+template<typename TDir, class TVisitor>
+void do_bfs(const_mgraph mG, const_aview1d<vertex_t> seeds, BFSRecord& record)
 {
-    using boost::visitor;
-    using boost::color_map;
+    // take graph
+    
+    gr_adjlist<TDir> g = to_gr_adjlist<TDir>(mG);
+    
+    // prepare params
     
     typedef boost::default_color_type color_t;
-    color_t white = boost::color_traits<color_t>::white();
-    
-    TVisitor vis(record);
-    VertexRefMap<color_t> cmap = &(record.colors[0]);
-                
-    // subsequent search 
     
     boost::queue<vertex_t> Q;
+    TVisitor vis(record);
+    vertex_ref_map<color_t> cmap( &(record.colors[0]) );
     
-    for (int i = 0; i < ns; ++i)
+    for (index_t i = 0; i < (index_t)seeds.nelems(); ++i)
     {
-        vertex_t v = s[i];
-                        
-        if (cmap[v] == white)
+        const vertex_t& v = seeds[i];
+        
+        if (cmap[v] == boost::white_color)
         {
             vis.initialize_seed(v);
-            boost::breadth_first_visit(g, s[i], Q, vis, cmap);
+            boost::breadth_first_visit(g, v, Q, vis, cmap);
         }
-    }    
+    }
+    
 }
+
 
 
 
@@ -214,28 +243,44 @@ void do_bfs(const CRefAdjList<no_edge_weight>& g, BFSRecord& record, int ns, int
  *  [1]: parents:   parents in the search tree (corresponding to vs)
  *  [2]: dists:     the distances to the root in search tree (corresponding to vs)
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
-    CRefAdjList<no_edge_weight> g = matlab_graph_repr(prhs[0]).to_cref_adjlist();
-        
-    MArray mS(prhs[1]);
-    int ns = mS.nelems();
-    int *s = mS.get_data<int>();
+    // take input
     
-    BFSRecord record(num_vertices(g));    
+    const_mgraph mG(prhs[0]);
+    const_aview1d<vertex_t> seeds = view1d<vertex_t>(prhs[1]);
+    
+    char dtype = mG.dtype();
+    
+    // main
+    BFSRecord record(mG.nv());    
        
     if (nlhs <= 1)
     {        
         record.init_vertices();
         
-        do_bfs<BFSVisitorSimple>(g, record, ns, s);
+        if (dtype == 'd')
+        {
+            do_bfs<gr_directed, BFSVisitorSimple>(mG, seeds, record);
+        }
+        else if (dtype == 'u')
+        {
+            do_bfs<gr_undirected, BFSVisitorSimple>(mG, seeds, record);
+        }
     }
     else if (nlhs == 2)
     {
         record.init_vertices();
         record.init_parents();
         
-        do_bfs<BFSVisitorEx>(g, record, ns, s);
+        if (dtype == 'd')
+        {
+            do_bfs<gr_directed, BFSVisitorEx>(mG, seeds, record);
+        }
+        else if (dtype == 'u')
+        {
+            do_bfs<gr_undirected, BFSVisitorEx>(mG, seeds, record);
+        }
     }
     else if (nlhs == 3)
     {
@@ -243,18 +288,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         record.init_parents();
         record.init_distmap();
         
-        do_bfs<BFSVisitorExD>(g, record, ns, s);                
+        if (dtype == 'd')
+        {
+            do_bfs<gr_directed, BFSVisitorExD>(mG, seeds, record); 
+        }
+        else if (dtype == 'u')
+        {
+            do_bfs<gr_undirected, BFSVisitorExD>(mG, seeds, record); 
+        }
     }
         
-    plhs[0] = record.vertices_to_matlab();
+    plhs[0] = record.vertices_to_matlab().mx_ptr();
     if (nlhs >= 2)
-        plhs[1] = record.parents_to_matlab();
+        plhs[1] = record.parents_to_matlab().mx_ptr();
     if (nlhs >= 3)
-        plhs[2] = record.distances_to_matlab();    
+        plhs[2] = record.distances_to_matlab().mx_ptr();    
 }
 
 
-
+BCSMEX_MAINDEF
 
 
 
