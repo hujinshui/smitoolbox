@@ -8,7 +8,7 @@ classdef gr_adjlist < gr_edgelist
     
     properties(GetAccess='public', SetAccess='protected')
         
-        o_ds;   % the out-degree of all nodes [n x 1 int32]
+        o_ds;   % the out-degree of all nodes [n x 1 uint32]
         o_os;   % the section offset for all nodes [n x 1 int32 zero-based]
         o_es;   % the concatenated outgoing edge array [m'x1 int32 zero-based]
         o_ns;   % the concatenated outgoing neighbor array [m'x1 int32 zero-based]
@@ -172,12 +172,12 @@ classdef gr_adjlist < gr_edgelist
                 
                 os = [0; cumsum(ds(1:end-1))];
                 
-                ds = int32(ds);
+                ds = uint32(ds);
                 os = int32(os);
                 es = int32(es) - 1;
                 ns = int32(ns);
             else
-                ds = int32([]);
+                ds = uint32([]);
                 os = int32([]);
                 es = int32([]);
                 ns = int32([]);
