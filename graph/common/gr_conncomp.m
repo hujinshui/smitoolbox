@@ -17,7 +17,7 @@ function ccs = gr_conncomp(G)
 
 %% verify input
 
-if ~(isa(G, 'gr_adjlist') && ~G.is_directed)
+if ~(isa(G, 'gr_adjlist') && G.dtype == 'u')
     error('gr_conncomp:invalidarg', ...
         'G should be a (undirected) gr_adjlist object.');
 end
