@@ -8,8 +8,9 @@
  *
  ********************************************************************/
 
-
-#include "../../clib/graph_mex.h"
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/matlab/mgraph.h>
+#include <bcslib/graph/bgl_port.h>
 
 #include <vector>
 #include <valarray>
@@ -17,110 +18,73 @@
 
 #include <boost/graph/prim_minimum_spanning_tree.hpp>
 
-
-typedef boost::default_color_type color_t;
-
-
-using namespace smi;
-
-template<typename TWeight>
-struct PrimRecord
-{
-    std::vector<vertex_t> vertices;     // the vertices in finished order
-    
-    std::valarray<vertex_t> parent_map;   
-    std::valarray<TWeight> eweight_map;
-    std::valarray<color_t> color_map;
-    std::valarray<graph_size_t> edge_map;
-    
-    PrimRecord(graph_size_t n)
-    : parent_map(n)
-    , eweight_map(n)
-    , color_map(boost::color_traits<color_t>::white(), n)
-    , edge_map(n)
-    {
-        vertices.reserve(n);
-    }        
-       
-    mxArray *vertices_to_matlab() const
-    {
-        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1, 
-                vertex_to_mindex());        
-    }
-    
-    mxArray *edges_to_matlab() const
-    {
-        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
-                unary_chain(vertex_to_index(), arr_map(edge_map), vertex_to_mindex()) );                
-    } 
-    
-    mxArray *parents_to_matlab() const
-    {
-        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
-                unary_chain(vertex_to_index(), arr_map(parent_map), vertex_to_mindex()) );                
-    }    
-    
-    mxArray *eweights_to_matlab() const
-    {
-        return iter_to_matlab_row(++vertices.begin(), vertices.size()-1,
-                unary_chain(vertex_to_index(), arr_map(eweight_map)) );                
-    }         
-    
-};
+using namespace bcs;
+using namespace bcs::matlab;
 
 
-template<typename TWeight>
 class PrimVisitor : public boost::default_dijkstra_visitor
 {
 public:
     
-    PrimVisitor(PrimRecord<TWeight>& record)
-    : m_record(record)
+    PrimVisitor(edge_t *eds): m_edges(eds)
     {        
     }
     
-    void edge_relaxed(const edge_t& e, const CRefAdjList<TWeight, boost::undirected_tag>& g)
-    {
-        vertex_t s = source(e, g);
+    template<class Graph>
+    void edge_relaxed(const edge_t& e, const Graph& g)
+    {        
         vertex_t t = target(e, g);
-        
-        m_record.edge_map[t.i] = e.i;
+        m_edges[t.index] = e;
     }
-    
-    void finish_vertex(const vertex_t& u, const CRefAdjList<TWeight, boost::undirected_tag>& g)
-    {
-        m_record.vertices.push_back(u);                
-    }    
-    
+        
 private:
-    PrimRecord<TWeight>& m_record;
+    edge_t *m_edges;
 };
 
 
 template<typename TWeight>
-void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[])
+void do_prim(const_mgraph mG, const vertex_t& root, int nlhs, mxArray *plhs[])
 {
-    CRefAdjList<TWeight, boost::undirected_tag> g = gr.to_cref_wadjlist_ud<TWeight>();
+    gr_wadjlist<TWeight, gr_undirected> g = to_gr_wadjlist<TWeight, gr_undirected>(mG);
+    gr_size_t nv = num_vertices(g);
     
-    PrimRecord<TWeight> record(num_vertices(g));    
-    PrimVisitor<TWeight> vis(record);
-
-    using boost::root_vertex;
-    using boost::distance_map;
-    using boost::color_map;
+    std::valarray<vertex_t> preds(nv);
     
-    VertexRefMap<vertex_t> pmap = &(record.parent_map[0]);
-    VertexRefMap<TWeight> ewmap = &(record.eweight_map[0]);
-    VertexRefMap<color_t> cmap = &(record.color_map[0]);
+    if (nlhs <= 1)
+    {
+        boost::prim_minimum_spanning_tree(g, vertex_ref_map<vertex_t>(&(preds[0])) );
+    }
+    else
+    {
+        std::valarray<edge_t> erec(nv);      
+        gr_index_t ne = (gr_index_t)g.nedges();
         
-    vertex_t rv(s);
+        boost::prim_minimum_spanning_tree(g, vertex_ref_map<vertex_t>(&(preds[0])),
+                boost::visitor(PrimVisitor(&(erec[0]))) );
+        
+        marray mEdgeMap = create_marray<int32_t>(1, nv);
+        int32_t *eds = mEdgeMap.data<int32_t>();
+        for (gr_size_t i = 0; i < nv; ++i)
+        {
+            gr_index_t ei = erec[i].index + 1;
+            if (ei >= ne)
+            {
+                ei -= ne;
+            }
+            eds[i] = ei; 
+        }
+        
+        plhs[1] = mEdgeMap.mx_ptr();
+    }
     
-    boost::prim_minimum_spanning_tree(g, pmap, 
-             root_vertex(rv).distance_map(ewmap).color_map(cmap).visitor(vis));
+    marray mPredMap = create_marray<int32_t>(1, nv);
+    int32_t *ps = mPredMap.data<int32_t>();
+    for (gr_size_t i = 0; i < nv; ++i)
+    {
+        ps[i] = preds[i].index + 1;
+    }
     
-    pmap[0] = -1;
-    
-    plhs[0] = record.edges_to_matlab();
+    plhs[0] = mPredMap.mx_ptr();
 }
 
 
@@ -133,38 +97,40 @@ void main_delegate(const matlab_graph_repr& gr, int s, int nlhs, mxArray *plhs[]
  *  [1]: r:     the root node of the MST
  *
  * Outputs:
- *  [0]: s:     the sources of edges
- *  [1]: t:     the targets of edges
- *  [2]: w:     the weights of edges
- *  [3]: d:     the distances from each end-node to root
+ *  [0]: preds:  the map of preceding vertices
+ *  [1]: eds:    the map of preceding edges
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
-    matlab_graph_repr gr(prhs[0]);
-    int s = MArray(prhs[1]).get_scalar<int>();
+    const_mgraph mG(prhs[0]);
+    vertex_t root = (gr_index_t)(const_marray(prhs[1]).get_scalar<int32_t>());
     
-    switch (gr.weight_class())
+    switch (mG.weight_type())
     {
         case mxDOUBLE_CLASS:
-            main_delegate<double>(gr, s, nlhs, plhs);
+            do_prim<double>(mG, root, nlhs, plhs);
             break;
             
         case mxSINGLE_CLASS:
-            main_delegate<float>(gr, s, nlhs, plhs);
+            do_prim<float>(mG, root, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            main_delegate<int>(gr, s, nlhs, plhs);
+            do_prim<int32_t>(mG, root, nlhs, plhs);
             break;
             
         case mxUINT32_CLASS:
-            main_delegate<unsigned int>(gr, s, nlhs, plhs);
+            do_prim<uint32_t>(mG, root, nlhs, plhs);
             break;
             
         default:
-            mexErrMsgIdAndTxt("gr_prim_mst:invalidarg", 
-                    "The weight value should be double, single, int32, or uint32.");
+            throw mexception("gr_prim_mst:invalidarg", 
+                "The weight value should be double, single, int32, or uint32.");
     }
 }
+
+BCSMEX_MAINDEF
+
+
 
 
