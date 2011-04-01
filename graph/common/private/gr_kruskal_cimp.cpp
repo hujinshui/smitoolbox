@@ -8,44 +8,41 @@
  *
  ********************************************************************/
 
-#include "../../clib/graph_mex.h"
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/matlab/mgraph.h>
+#include <bcslib/graph/bgl_port.h>
 
 #include <vector>
-#include <valarray>
 #include <iterator>
 
 #include <boost/graph/kruskal_min_spanning_tree.hpp>
 
-using namespace smi;
+using namespace bcs;
+using namespace bcs::matlab;
 
 typedef boost::default_color_type color_t;
 
 
 template<typename TWeight>
-void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
+marray do_kruskal(const_mgraph mG)
 {
-    CRefAdjList<TWeight, boost::undirected_tag> g = gr.to_cref_wadjlist_ud<TWeight>();
+    gr_wadjlist<TWeight, gr_undirected> g = to_gr_wadjlist<TWeight, gr_undirected>(mG);
         
-    graph_size_t n = num_vertices(g);
-    
-    std::valarray<int> ranks(n);
-    std::valarray<vertex_t> preds(n);        
-    
-    VertexRefMap<int> rmap = &(ranks[0]);
-    VertexRefMap<vertex_t> pmap = &(preds[0]);
-        
-    using boost::vertex_index_map;
-    using boost::predecessor_map;
-    using boost::rank_map;
-    
     std::vector<edge_t> mst_edges;
-    mst_edges.reserve(n);
+    mst_edges.reserve(num_vertices(g));
     
-    boost::kruskal_minimum_spanning_tree(g, std::back_inserter(mst_edges), 
-            vertex_index_map(vertex_index_dmap()).rank_map(rmap).predecessor_map(pmap));
+    boost::kruskal_minimum_spanning_tree(g, std::back_inserter(mst_edges));
     
-    plhs[0] = iter_to_matlab_row(mst_edges.begin(), mst_edges.size(),
-            edge_to_mindex());   
+    size_t m = mst_edges.size();
+    marray mEdges = create_marray<int32_t>(1, m);
+    int32_t *eds = mEdges.data<int32_t>();
+    
+    for (size_t i = 0; i < m; ++i)
+    {
+        eds[i] = (int32_t)mst_edges[i].index + 1;
+    }
+    
+    return mEdges;
 }
 
 
@@ -61,32 +58,41 @@ void main_delegate(const matlab_graph_repr& gr, int nlhs, mxArray *plhs[])
  *  [1]: t:     the targets of edges
  *  [2]: w:     the weights of edges
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {    
-    matlab_graph_repr gr(prhs[0]);
+    const_mgraph mG(prhs[0]);
     
-    switch (gr.weight_class())
+    marray mEdges;
+    
+    switch (mG.weight_type())
     {
         case mxDOUBLE_CLASS:
-            main_delegate<double>(gr, nlhs, plhs);
+            mEdges = do_kruskal<double>(mG);
             break;
             
         case mxSINGLE_CLASS:
-            main_delegate<float>(gr, nlhs, plhs);
+            mEdges = do_kruskal<float>(mG);
             break;
             
         case mxINT32_CLASS:
-            main_delegate<int>(gr, nlhs, plhs);
+            mEdges = do_kruskal<int32_t>(mG);
             break;
             
         case mxUINT32_CLASS:
-            main_delegate<unsigned int>(gr, nlhs, plhs);
+            mEdges = do_kruskal<uint32_t>(mG);
             break;
             
         default:
-            mexErrMsgIdAndTxt("gr_kruskal_mst:invalidarg", 
-                    "The weight value should be double, single, int32, or uint32.");
+            throw mexception("gr_kruskal_mst:invalidarg", 
+                "The weight value should be double, single, int32, or uint32.");
     }
+    
+    plhs[0] = mEdges.mx_ptr();
 }
+
+BCSMEX_MAINDEF
+
+
+
 
 
