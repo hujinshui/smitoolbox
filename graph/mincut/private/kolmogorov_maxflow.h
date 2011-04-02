@@ -41,8 +41,6 @@
 #include <string.h>
 #include <assert.h>
 
-namespace smi
-{
     
 namespace vkolmogorov
 {
@@ -1607,7 +1605,6 @@ template <typename captype, typename tcaptype, typename flowtype>
 
 }
 
-}
 
 
 #endif
