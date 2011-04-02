@@ -66,6 +66,11 @@ if isnumeric(D)
     end
     
 elseif isa(D, 'gr_adjlist')    
+    
+    if (~(D.is_weighted && D.dtype == 'u'))
+        error('knng:invalidarg', ...
+        'The input graph should be weighted and undirected.');
+    end    
     n = D.nv;
 end
 
