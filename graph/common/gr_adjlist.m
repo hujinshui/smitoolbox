@@ -47,7 +47,7 @@ classdef gr_adjlist < gr_edgelist
             %
             
             b = G.o_os(i);
-            d = G.o_ds(i);            
+            d = int32(G.o_ds(i));            
             r = G.o_es(b+(1:d)) + 1;            
         end
         
@@ -60,7 +60,7 @@ classdef gr_adjlist < gr_edgelist
             %
             
             b = G.o_os(i);
-            d = G.o_ds(i);
+            d = int32(G.o_ds(i));
             vs = G.o_ns(b+(1:d)) + 1;
             if nargout >= 2
                 eds = G.o_es(b+(1:d)) + 1;

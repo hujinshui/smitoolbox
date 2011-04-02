@@ -8,19 +8,21 @@
  *
  **********************************************************/ 
 
-#include <mex.h>
+#include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/graph/bgl_port.h>
+#include <bcslib/matlab/mgraph.h>
 
-#include "../../clib/graph_mex.h"
 #include <vector>
 #include <functional>
 
-using namespace smi;
+using namespace bcs;
+using namespace bcs::matlab;
 
 template<typename T>
 struct ewinfo
 {
-    int s;
-    int t;
+    int32_t s;
+    int32_t t;
     T w;
     
     bool operator < (const ewinfo<T>& rhs) const
@@ -42,35 +44,36 @@ struct ewinfo
 
 
 template<typename TWeight, template<typename U> class TComp>
-void knng_prune(const CRefAdjList<TWeight>& g, int K, 
+gr_size_t knng_prune(const gr_wadjlist<TWeight, gr_undirected>& g, int K, 
         std::vector<int>& ss,
         std::vector<int>& st, 
         std::vector<TWeight>& sw)
 {
-    graph_size_t n = num_vertices(g);
+    gr_size_t ns = 0;
+    gr_size_t n = num_vertices(g);
     
-    for (graph_size_t i = 0; i < n; ++i)
+    for (gr_size_t i = 0; i < n; ++i)
     {
         vertex_t v(i);
         
-        graph_size_t d = out_degree(v, g);
+        gr_size_t d = out_degree(v, g);
         std::vector<ewinfo<TWeight> > tmp;
         tmp.reserve(d);        
         
-        typedef typename CRefAdjList<TWeight>::out_edge_iterator eiter_t;
+        typedef typename gr_wadjlist<TWeight, gr_undirected>::adj_edge_iterator eiter_t;
         eiter_t eit;
         eiter_t eit_end;
         
         // collect local info
         
-        for (boost::tie(eit, eit_end) = out_edges(v, g); eit != eit_end; ++eit) 
+        for (rbind(eit, eit_end) = out_edges(v, g); eit != eit_end; ++eit) 
         {
             edge_t e = *eit;
             
             ewinfo<TWeight> ew;
-            ew.s = source(e, g).i;
-            ew.t = target(e, g).i;
-            ew.w = g.get_weight(e);
+            ew.s = source(e, g).index;
+            ew.t = target(e, g).index;
+            ew.w = g.weight_of(e);
             
             tmp.push_back(ew);
         }
@@ -98,42 +101,58 @@ void knng_prune(const CRefAdjList<TWeight>& g, int K,
             st.push_back(ew.t);
             sw.push_back(ew.w);            
         } 
+        
+        ns += k;
     }
+    
+    return ns;
 }
 
 
 template<typename TWeight>
-inline void main_delegate(const matlab_graph_repr& gr, int K, bool use_min, 
-        int nlhs, mxArray *plhs[])
+inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plhs[])
 {
-    CRefAdjList<TWeight> g = gr.to_cref_wadjlist<TWeight>();
+    gr_wadjlist<TWeight, gr_undirected> g = to_gr_wadjlist<TWeight, gr_undirected>(mG);
     
-    graph_size_t n = num_vertices(g);
+    gr_size_t n = num_vertices(g);
     
-    std::vector<int> ss;
-    std::vector<int> st;
+    std::vector<int32_t> ss;
+    std::vector<int32_t> st;
     std::vector<TWeight> sw;
         
     ss.reserve(n * K);
     st.reserve(n * K);
     sw.reserve(n * K);
     
+    gr_size_t ns = 0;
+    
     if (use_min)
     {
-        knng_prune<TWeight, std::less>(g, K, ss, st, sw);
+        ns = knng_prune<TWeight, std::less>(g, K, ss, st, sw);
     }
     else
     {
-        knng_prune<TWeight, std::greater>(g, K, ss, st, sw);
+        ns = knng_prune<TWeight, std::greater>(g, K, ss, st, sw);
+    }
+    
+    marray mSS = create_marray<int32_t>(ns, 1);
+    marray mST = create_marray<int32_t>(ns, 1);
+    marray mSW = create_marray<TWeight>(ns, 1);
+    
+    int32_t *p_ss = mSS.data<int32_t>();
+    int32_t *p_st = mST.data<int32_t>();
+    TWeight *p_sw = mSW.data<TWeight>();
+    
+    for (gr_size_t i = 0; i < ns; ++i)
+    {
+        p_ss[i] = ss[i] + 1;
+        p_st[i] = st[i] + 1;
+        p_sw[i] = sw[i];
     }
         
-    plhs[0] = iter_to_matlab_column(ss.begin(), ss.size(), 
-            std::bind2nd(std::plus<int>(), 1));
-    
-    plhs[1] = iter_to_matlab_column(st.begin(), st.size(), 
-            std::bind2nd(std::plus<int>(), 1));
-    
-    plhs[2] = iter_to_matlab_column(sw.begin(), sw.size());
+    plhs[0] = mSS.mx_ptr();    
+    plhs[1] = mST.mx_ptr();    
+    plhs[2] = mSW.mx_ptr();
 }
 
 
@@ -151,41 +170,38 @@ inline void main_delegate(const matlab_graph_repr& gr, int K, bool use_min,
  * [1]: st: the targets of selected edges
  * [2]: sw: the weights of selected edges
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    matlab_graph_repr gr(prhs[0]);    
-    MArray mK(prhs[1]);
-    MArray mUMin(prhs[2]);
+    const_mgraph mG(prhs[0]);    
+    int K = (int)(const_marray(prhs[1]).get_scalar<double>());
+    bool use_min = const_marray(prhs[2]).get_scalar<bool>();
     
-    int K = (int)mK.get_scalar<double>();
-    bool use_min = mUMin.get_scalar<bool>();
-    
-    switch (gr.weight_class())
+    switch (mG.weight_type())
     {
         case mxDOUBLE_CLASS:
-            main_delegate<double>(gr, K, use_min, nlhs, plhs);
+            do_knng<double>(mG, K, use_min, nlhs, plhs);
             break;
             
         case mxSINGLE_CLASS:
-            main_delegate<float>(gr, K, use_min, nlhs, plhs);
+            do_knng<float>(mG, K, use_min, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            main_delegate<int>(gr, K, use_min, nlhs, plhs);
+            do_knng<int32_t>(mG, K, use_min, nlhs, plhs);
             break;
             
         case mxUINT32_CLASS:
-            main_delegate<unsigned int>(gr, K, use_min, nlhs, plhs);
+            do_knng<uint32_t>(mG, K, use_min, nlhs, plhs);
             break;
             
         default:
-            mexErrMsgIdAndTxt("knng_cimp:invalidarg", 
-                    "The weight value should be double, single, int32, or uint32.");
+            throw mexception("knng_cimp:invalidarg", 
+                "The weight value type should be double, single, int32, or uint32.");
     }
     
 }
 
-
+BCSMEX_MAINDEF
 
 
 
