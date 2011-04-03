@@ -8,9 +8,10 @@
  *
  ********************************************************************/
 
-#include "../../../graph/clib/graph_mex.h"
+#include <bcslib/matlab/bcs_mex.h>
 
-using namespace smi;
+using namespace bcs;
+using namespace bcs::matlab;
 
 
 struct prod
@@ -47,41 +48,42 @@ void do_take_values(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
-    int m = (int)mxGetScalar(prhs[1]);
-    MArray mS(prhs[2]);
-    MArray mX(prhs[3]);
+    size_t m = (size_t)(const_marray(prhs[1]).get_scalar<double>());
+    const_marray mS(prhs[2]);
+    const_marray mX(prhs[3]);
     
-    const int *s = mS.get_data<int>();
-    const double *X = mX.get_data<double>();
+    const int32_t *s = mS.data<int32_t>();
     
-    int n = mX.nrows();
-    int K = mX.ncols();
+    size_t n = mX.nrows();
+    size_t K = mX.ncolumns();
     
-    mxArray *mxV = mxCreateDoubleMatrix(m, K, mxREAL);
-    double *V = mxGetPr(mxV);
+    marray mV = create_marray<double>(m, K);
     
     if (K == 1)
     {
-        for (int i = 0; i < m; ++i)
+        const_aview1d<double> x = view1d<double>(mX);
+        aview1d<double> v = view1d<double>(mV);
+        
+        for (index_t i = 0; i < (index_t)m; ++i)
         {
-            V[i] = X[s[i]];
+            v(i) = x(s[i]);
         }
     }
     else
     {
-        for (int k = 0; k < K; ++k)
-        {
-            const double *x = X + n * k;
-            double *v = V + m * k;           
-            
-            for (int i = 0; i < m; ++i)
+        const_aview2d<double, column_major_t> X = view2d<double>(mX);
+        aview2d<double, column_major_t> V = view2d<double>(mV); 
+        
+        for (index_t k = 0; k < K; ++k)
+        {                       
+            for (index_t i = 0; i < m; ++i)
             {
-                v[i] = x[s[i]];
+                V(i, k) = X(s[i], k);
             }
         }
     }
     
-    plhs[0] = mxV;
+    plhs[0] = mV.mx_ptr();
 }
 
 
@@ -103,43 +105,46 @@ void do_compute_at_edges(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prh
 {
     // take input
     
-    int m = (int)mxGetScalar(prhs[1]);
-    MArray mS(prhs[2]);
-    MArray mT(prhs[3]);
-    MArray mX(prhs[4]);
+    size_t m = (size_t)(const_marray(prhs[1]).get_scalar<double>());
+    const_marray mS(prhs[2]);
+    const_marray mT(prhs[3]);
+    const_marray mX(prhs[4]);
     
-    const int *s = mS.get_data<int>();
-    const int *t = mT.get_data<int>();
-    const double *X = mX.get_data<double>();
+    const int32_t *s = mS.data<int32_t>();
+    const int32_t *t = mT.data<int32_t>();
     
-    int n = mX.nrows();
-    int K = mX.ncols();
+    size_t n = mX.nrows();
+    size_t K = mX.ncolumns();
     
-    mxArray *mxV = mxCreateDoubleMatrix(m, K, mxREAL);
-    double *V = mxGetPr(mxV);
+    marray mV = create_marray<double>(m, K);
     
     if (K == 1)
     {
-        for (int i = 0; i < m; ++i)
+        const_aview1d<double> x = view1d<double>(mX);
+        aview1d<double> v = view1d<double>(mV);
+        
+        for (index_t i = 0; i < m; ++i)
         {
-            V[i] = TOp::calc(X[s[i]], X[t[i]]);
+            v(i) = TOp::calc(x(s[i]), x(t[i]));
         }
     }
     else
     {
-        for (int k = 0; k < K; ++k)
-        {
-            const double *x = X + n * k;
-            double *v = V + m * k;           
+        const_aview2d<double, column_major_t> X = view2d<double>(mX);
+        aview2d<double, column_major_t> V = view2d<double>(mV); 
+        
+        for (index_t k = 0; k < K; ++k)
+        {                      
+            const_aview1d<double> x = X.column(k);
             
-            for (int i = 0; i < m; ++i)
+            for (index_t i = 0; i < m; ++i)
             {
-                v[i] = TOp::calc(x[s[i]], x[t[i]]);
+                V(i, k) = TOp::calc(x(s[i]), x(t[i]));
             }
         }
     }
     
-    plhs[0] = mxV;
+    plhs[0] = mV.mx_ptr();
 }
 
 
@@ -153,9 +158,9 @@ void do_compute_at_edges(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prh
  *                  2 - compute (x(s) - x(e)).^2: do_compute_at_edges<dsqr>
  *
  */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    int code = (int)mxGetScalar(prhs[0]);
+    int code = (int)(const_marray(prhs[0]).get_scalar<double>());
     
     if (code == 0)
     {
@@ -170,4 +175,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         do_compute_at_edges<dsqr>(nlhs, plhs, nrhs, prhs);
     }
 }
+
+
+BCSMEX_MAINDEF
+
 
