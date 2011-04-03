@@ -9,10 +9,21 @@
  *
  ********************************************************************/
 
-#include <mex.h>
-#include "ddsample.h"
+#include <bcslib/matlab/bcs_mex.h>
 
-using namespace msp;
+using namespace bcs;
+using namespace bcs::matlab;
+
+
+template<typename T>
+inline int locate_interval(int n, const T *redges, T v)
+{
+    int i = 0;
+    while (i < n && v > redges[i]) ++i;
+    return i;
+}
+
+
 
 /**
  *  K:  the number of classes
@@ -23,7 +34,8 @@ using namespace msp;
  *  
  *  samples: the obtained samples [n x m column-major]
  */
-void do_ddsample(int K, int m, int n, const double *F, const double *V, int *samples)
+void do_ddsample(size_t K, size_t m, size_t n, 
+        const double *F, const double *V, int *samples)
 {
     if (m == 1)
     {
@@ -62,16 +74,16 @@ void do_ddsample(int K, int m, int n, const double *F, const double *V, int *sam
 }
 
 
-mxArray *samples_to_matlab(int n, int m, int *samples)
+marray samples_to_matlab(int n, int m, int *samples)
 {
     int N = n * m;
-    mxArray *mx = mxCreateDoubleMatrix(n, m, mxREAL);
-    double *r = mxGetPr(mx);
+    marray mR = create_marray<double>(n, m);
+    double *r = mR.data<double>();
     
     for (int i = 0; i < N; ++i)
         r[i] = samples[i] + 1;
     
-    return mx;    
+    return mR;
 }
 
 
@@ -91,30 +103,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     // take input
     
-    const mxArray *mxF = prhs[0];
-    const mxArray *mxV = prhs[1];
+    const_marray mF(prhs[0]);
+    const_marray mV(prhs[1]);
     
-    double *F = mxGetPr(mxF);
-    double *V = mxGetPr(mxV);
+    const double *F = mF.data<double>();
+    const double *V = mV.data<double>();
             
-    int K = mxGetM(mxF);
-    int m = mxGetN(mxF);
-    int n = mxGetM(mxV);
+    size_t K = mF.nrows();
+    size_t m = mF.ncolumns();
+    size_t n = mV.nrows();    
     
     // do sampling
     
-    int *s = new int[m * n];
+    block<int> s(m * n);
     
-    do_ddsample(K, m, n, F, V, s);
+    do_ddsample(K, m, n, F, V, s.pbase());
     
     // output
     
-    plhs[0] = samples_to_matlab(n, m, s);
-    
+    plhs[0] = samples_to_matlab(n, m, s.pbase()).mx_ptr();
         
-    // release memory
-    
-    delete[] s;
-    
 }
 
