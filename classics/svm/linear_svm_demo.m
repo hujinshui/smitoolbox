@@ -33,16 +33,12 @@ X1 = gen_data(n, c1(1), c1(2), 3, 1, t);
 X = [X0 X1];
 y = [-1 * ones(1, n), ones(1, n)];
 
-K = X' * X;
-
 C = 10;
-P = kernel_svm_prob(K, y, C);
-alpha = gurobi_solve(P);
 
-w = bsxfun(@times, X, y) * alpha;
-b = - (max(w' * X0) + min(w' * X1)) / 2;
-
-
+kf = @(x1, x2) x1' * x2;
+svm = kernel_svm.train(X, y, kf, C);
+w = svm.Xs * svm.ya';
+b = svm.b;
 
 %% visualize
 
@@ -71,9 +67,8 @@ draw_line(w(1), w(2), b+1, xm0,xm1,ym0,ym1, 'b');
 
 % support vectors
 
-sv = X(:, abs(alpha) > 1e-10);
 hold on;
-plot(sv(1,:), sv(2,:), 'mo', 'LineWidth', 2, 'MarkerSize', 15);
+plot(svm.Xs(1,:), svm.Xs(2,:), 'mo', 'LineWidth', 2, 'MarkerSize', 15);
 
 
 axis([xm0, xm1, ym0, ym1]);
