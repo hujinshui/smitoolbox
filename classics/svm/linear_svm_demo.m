@@ -1,11 +1,14 @@
-function linear_svm_demo(n)
+function linear_svm_demo(n, op)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;
 %   linear_svm_demo(n);
+%   linear_svm_demo(n, 'Lp');
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 50.
+%
+%       If the second argument is 'Lp', it uses LP-variant.
 %
 
 %   Created by Dahua Lin, on April 7, 2011
@@ -17,9 +20,20 @@ if nargin < 1
     n = 50;
 end
 
+if nargin < 2
+    use_Lp = false;
+else
+    if ~(ischar(op) && strcmpi(op, 'Lp'))
+        error('linear_svm_demo:invalidarg', ...
+            'The 2nd argument to linear_svm_demo can only be ''Lp'' if given.');
+    end
+    use_Lp = true;
+end
+
+
 t = rand() * (2 * pi);
 tc = t + pi/2 + randn() * 0.5; 
-d = 4;
+d = 6;
 
 c0 = [cos(tc) sin(tc)] * d;
 c1 = -c0;
@@ -33,17 +47,27 @@ X1 = gen_data(n, c1(1), c1(2), 3, 1, t);
 X = [X0 X1];
 y = [-1 * ones(1, n), ones(1, n)];
 
-C = 10;
+C = 5;
 
 % kf = @(x1, x2) x1' * x2;
 % svm = kernel_svm.train(X, y, kf, C, 'solver', @gurobi_solve);
 % w0 = svm.Xs * svm.ya';
 % b0 = svm.b;
 
-svm = linear_svm.train(X, y, C);
+if ~use_Lp
+    svm = linear_svm.train(X, y, C);
+else    
+    svm_g = linear_svm.train(X, y, C, 'use_Lp', use_Lp, ...
+        'solver', @(P) gurobi_solve(P, gurobi_params('Display', 1)));
+
+    svm = linear_svm.train(X, y, C, 'use_Lp', use_Lp, ...
+        'solver', @(P) mstd_lp(P, optimset('Display', 'iter')) );    
+end
 w = svm.w;
 b = svm.b;
 
+display([svm.w, svm_g.w]);
+display([svm.b, svm_g.b]);
 
 %% visualize
 

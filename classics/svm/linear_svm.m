@@ -81,10 +81,11 @@ classdef linear_svm
     
     methods(Static)
         
-        function obj = from_sol(X, y, sol)
-            % Construct a linear SVM from QP solution
+        function obj = from_sol(X, y, sol, op)
+            % Construct a linear SVM from QP or LP solution
             %
             %   obj = kernel_svm.from_sol(X, y, sol);
+            %   obj = kernel_svm.from_sol(X, y, sol, 'Lp');
             %
             %   Input arguments:
             %   - X:    all training samples [d x n]
@@ -106,16 +107,32 @@ classdef linear_svm
             end
             if size(y, 1) > 1; y = y.'; end
             
-            ds = d + 1 + n;
+            if nargin >= 4
+                if ~(ischar(op) && strcmpi(op, 'Lp'))
+                    error('linear_svm:from_sol:invalidarg', ...
+                        'The 4th argument must be ''Lp'' if given.');
+                end
+                use_Lp = true;
+                ds = 2 * d + 1 + n;
+            else
+                use_Lp = false;
+                ds = d + 1 + n;
+            end
+                
             if ~(isfloat(sol) && isequal(size(sol), [ds, 1]) && isreal(sol))
                 error('linear_svm:from_sol:invalidarg', ...
-                    'sol should be a real vector of size (d+1+n) x 1.');
+                    'sol should be a real vector of proper size.');
             end
             
             % main
             
-            w_ = sol(1:d);
-            b_ = sol(d+1);
+            if ~use_Lp            
+                w_ = sol(1:d);
+                b_ = sol(d+1);
+            else
+                w_ = sol(1:d);
+                b_ = sol(2*d+1);
+            end
             
             v = y .* (w_' * X + b_);
             si = v <= (1 + 1e-5);    
@@ -124,7 +141,7 @@ classdef linear_svm
             
             obj = linear_svm(Xs_, ys_, w_, b_);            
         end
-        
+                        
         
         function obj = train(X, y, c, varargin)
             % Train a linear SVM from data
@@ -142,12 +159,18 @@ classdef linear_svm
             %       One can input additional options in form of name/value
             %       pairs:
             %
+            %       - 'use_Lp': whether to use LP variant. (default =
+            %                   false).
+            %
             %       - 'verbose': whether to show the progress of training.
             %                    (default = false)
             %
             %       - 'solver':  the function handle to solve the
-            %                    qp_problem. (default = '@mstd_qp' with
-            %                    algorithm set to 'interior-point-convex').
+            %                    qp_problem. 
+            %                    (default = '@mstd_qp' with
+            %                       algorithm set to
+            %                       'interior-point-convex',
+            %                     or @mstd_lp when use_Lp is true).
             %
             
             % verify input arguments
@@ -171,9 +194,9 @@ classdef linear_svm
             
             % parse options
             
+            use_Lp = false;
             verbose = false;
-            solver = @(P) mstd_qp(P, ...
-                optimset('Algorithm', 'interior-point-convex', 'Display', 'off'));
+            solver = [];
                         
             if ~isempty(varargin)
                 
@@ -189,7 +212,14 @@ classdef linear_svm
                     cn = onames{i};
                     cv = ovals{i};
                     
-                    switch lower(cn)                            
+                    switch lower(cn)     
+                        case 'use_lp'
+                            if ~(isscalar(cv))
+                                error('linear_svm:train:invalidarg', ...
+                                    'use_Lp should be a logical scalar.');
+                            end
+                            use_Lp = logical(cv);
+                        
                         case 'verbose'
                             if ~(isscalar(cv))
                                 error('linear_svm:train:invalidarg', ...
@@ -211,6 +241,17 @@ classdef linear_svm
                 end
             end
             
+            if isempty(solver)
+                if use_Lp
+                    solver = @(P) mstd_lp(P, optimset('Display', 'off'));
+                else                
+                    solver = @(P) mstd_qp(P, ...
+                        optimset('Algorithm', 'interior-point-convex', ...
+                        'Display', 'off'));
+                end            
+            end
+            
+            
             % main
             
             if verbose
@@ -219,14 +260,21 @@ classdef linear_svm
             
             
             % construct problem
-            if verbose
-                fprintf('\tconstructing QP problem ...\n');
+            if use_Lp
+                if verbose
+                    fprintf('\tconstructing LP problem ...\n');
+                end
+                prb = linear_svm_prob(X, y, c, 'Lp');
+            else
+                if verbose
+                    fprintf('\tconstructing QP problem ...\n');
+                end
+                prb = linear_svm_prob(X, y, c);
             end
-            prb = linear_svm_prob(X, y, c);
             
             % solve the problem
             if verbose
-                fprintf('\tsolving QP problem ...\n');
+                fprintf('\tsolving the problem ...\n');
             end
             sol = solver(prb);
             
@@ -234,7 +282,11 @@ classdef linear_svm
             if verbose
                 fprintf('\tmaking SVM model ...\n');
             end
-            obj = linear_svm.from_sol(X, y, sol);                            
+            if use_Lp
+                obj = linear_svm.from_sol(X, y, sol, 'Lp');
+            else
+                obj = linear_svm.from_sol(X, y, sol);
+            end
                         
             if verbose
                 fprintf('SVM training completed.\n');
