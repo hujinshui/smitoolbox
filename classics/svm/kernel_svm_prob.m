@@ -16,7 +16,7 @@ function P = kernel_svm_prob(K, y, c)
 %       and K(i, j) is the kernel value of x_i and x_j.
 %
 %   
-%   P = kernel_svm_prob(X, y, c);
+%   P = kernel_svm_prob(K, y, c);
 %
 %       constructs a QP problem P as formulated above and returns it.
 %
@@ -34,6 +34,7 @@ function P = kernel_svm_prob(K, y, c)
 %       The output P is a struct representing a QP problem. One can use
 %       any available QP problem solver to solve it, and thus obtain
 %       the alpha vector.
+%       
 %               
 
 %   History
@@ -45,20 +46,21 @@ function P = kernel_svm_prob(K, y, c)
 
 n = size(K, 1);
 if ~(isfloat(K) && ndims(K) == 2 && isreal(K) && ~isempty(K) && size(K,2) == n)
-    error('linear_svm:invalidarg', ...
-        'X should be a non-empty real square matrix.');
+    error('kernel_svm_prob:invalidarg', ...
+        'K should be a non-empty real square matrix.');
 end
 if ~isa(K, 'double'); K = double(K); end
-
+    
+     
 if ~(isnumeric(y) && isvector(y) && isreal(y) && length(y) == n)
-    error('linear_svm:invalidarg', ...
+    error('kernel_svm_prob:invalidarg', ...
         'y should be a real vector of length n.');
 end
 if ~isa(y, 'double'); y = double(y); end
 if size(y, 1) > 1; y = y.'; end   % turn into a row vector
 
 if ~(isfloat(c) && isreal(c) && isscalar(c) && c > 0)
-    error('linear_svm:invalidarg', ...
+    error('kernel_svm_prob:invalidarg', ...
         'c should be a positive real scalar.');
 end
 
@@ -68,5 +70,6 @@ H = bsxfun(@times, bsxfun(@times, K, y), y');
 f = -ones(n, 1);
 
 P = qp_problem(H, f, [], [], y, 0, 0, c);
+
 
 
