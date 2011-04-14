@@ -1,5 +1,5 @@
 function P = kernel_svm_prob(K, y, c)
-% Construct the QP problem for standard linear SVM
+% Construct the dual QP problem for standard kernel SVM
 %
 %   The standard kernel support vector machine problem (in dual form) 
 %   is formulated as follows

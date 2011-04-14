@@ -35,10 +35,15 @@ y = [-1 * ones(1, n), ones(1, n)];
 
 C = 10;
 
-kf = @(x1, x2) x1' * x2;
-svm = kernel_svm.train(X, y, kf, C);
-w = svm.Xs * svm.ya';
+% kf = @(x1, x2) x1' * x2;
+% svm = kernel_svm.train(X, y, kf, C, 'solver', @gurobi_solve);
+% w0 = svm.Xs * svm.ya';
+% b0 = svm.b;
+
+svm = linear_svm.train(X, y, C);
+w = svm.w;
 b = svm.b;
+
 
 %% visualize
 
