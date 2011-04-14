@@ -50,10 +50,10 @@ if isempty(P.A)
     A = [];
     b = [];
 else
-    if isempty(bl)
+    if isempty(P.bl)
         A = P.A;
         b = P.bu;
-    elseif isempty(bu)
+    elseif isempty(P.bu)
         A = -P.A;
         b = -P.bl;
     else
@@ -71,14 +71,7 @@ ub = P.u;
 % solve
 
 if isempty(options);
-    if ( ...
-            (isempty(A) && isempty(Aeq)) || ...
-            (isempty(A) && isempty(lb) && isempty(ub) && size(Aeq,1) <= P.d) )
-        
-        options = optimset('LargeScale', 'on', 'Display', 'off');
-    else
-        options = optimset('LargeScale', 'off', 'Display', 'off');
-    end
+    options = optimset(optimset('quadprog'), 'Display', 'off');
 end
             
     

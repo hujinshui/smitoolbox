@@ -9,7 +9,7 @@ classdef kernel_svm
         
         dim;        % the input space dimension
         ns;         % the number of support vectors
-        Xs;         % support vectors [ns x 1]
+        Xs;         % support vectors [d x ns]
         ys;         % the label of support vectors [1 x ns]
         
         a;          % the coefficients of the support vectors
