@@ -49,10 +49,10 @@ if isempty(P.A)
     A = [];
     b = [];
 else
-    if isempty(bl)
+    if isempty(P.bl)
         A = P.A;
         b = P.bu;
-    elseif isempty(bu)
+    elseif isempty(P.bu)
         A = -P.A;
         b = -P.bl;
     else
