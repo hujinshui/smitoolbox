@@ -1,14 +1,11 @@
-function prb = linear_svm_demo(n, op)
+function linear_svm_demo(n)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;
 %   linear_svm_demo(n);
-%   linear_svm_demo(n, 'Lp');
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 50.
-%
-%       If the second argument is 'Lp', it uses LP-variant.
 %
 
 %   Created by Dahua Lin, on April 7, 2011
@@ -19,17 +16,6 @@ function prb = linear_svm_demo(n, op)
 if nargin < 1
     n = 50;
 end
-
-if nargin < 2
-    use_Lp = false;
-else
-    if ~(ischar(op) && strcmpi(op, 'Lp'))
-        error('linear_svm_demo:invalidarg', ...
-            'The 2nd argument to linear_svm_demo can only be ''Lp'' if given.');
-    end
-    use_Lp = true;
-end
-
 
 t = rand() * (2 * pi);
 tc = t + pi/2 + randn() * 0.5; 
@@ -49,20 +35,10 @@ y = [-1 * ones(1, n), ones(1, n)];
 
 C = 5;
 
-% kf = @(x1, x2) x1' * x2;
-% svm = kernel_svm.train(X, y, kf, C, 'solver', @gurobi_solve);
-% w0 = svm.Xs * svm.ya';
-% b0 = svm.b;
-
-if ~use_Lp
-    svm = linear_svm.train(X, y, C, ...
-        'solver', @(P) mstd_qp(P, ...
-        optimset('Algorithm', 'interior-point-convex', 'Display', 'iter')));
-else    
-    svm = linear_svm.train(X, y, C, 'use_Lp', true, ...
-        'solver', @(P) mstd_lp(P, ...
-        optimset('Algorithm', 'interior-point-convex', 'Display', 'iter')));
-end
+tic;
+svm = linear_svm.train(X, y, C, 'solver', @mosek_lpqp);
+elapsed_t = toc;
+fprintf('Training time on %d points = %f sec\n', size(X, 2), elapsed_t);
 
 w = svm.w;
 b = svm.b;

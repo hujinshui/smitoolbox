@@ -35,8 +35,14 @@ y = [-1 * ones(1, n), ones(1, n)];
 C = 10;
 
 kf = @(x1, x2) exp(- pwsqL2dist(x1, x2) / 32 );
-svm = kernel_svm.train(X, y, kf, C, ...
-    'solver', @(prb) gurobi_solve(prb, gurobi_params('Display', 1)));
+K = kf(X, X);
+K = (K + K') / 2;
+K = adddiag(K, 1e-10);
+
+tic;
+svm = kernel_svm.train(X, y, kf, C, 'kermat', K, 'solver', @gurobi_solve);
+elapsed_t = toc;
+fprintf('Training time on %d samples = %f sec.\n', size(X,2), elapsed_t);
 
 %% visualize
 
