@@ -35,7 +35,8 @@ y = [-1 * ones(1, n), ones(1, n)];
 C = 10;
 
 kf = @(x1, x2) exp(- pwsqL2dist(x1, x2) / 32 );
-svm = kernel_svm.train(X, y, kf, C, 'solver', @gurobi_solve);
+svm = kernel_svm.train(X, y, kf, C, ...
+    'solver', @(prb) gurobi_solve(prb, gurobi_params('Display', 1)));
 
 %% visualize
 

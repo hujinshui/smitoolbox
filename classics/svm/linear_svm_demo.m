@@ -1,4 +1,4 @@
-function linear_svm_demo(n, op)
+function prb = linear_svm_demo(n, op)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;
@@ -55,19 +55,17 @@ C = 5;
 % b0 = svm.b;
 
 if ~use_Lp
-    svm = linear_svm.train(X, y, C);
+    svm = linear_svm.train(X, y, C, ...
+        'solver', @(P) mstd_qp(P, ...
+        optimset('Algorithm', 'interior-point-convex', 'Display', 'iter')));
 else    
-    svm_g = linear_svm.train(X, y, C, 'use_Lp', use_Lp, ...
-        'solver', @(P) gurobi_solve(P, gurobi_params('Display', 1)));
-
-    svm = linear_svm.train(X, y, C, 'use_Lp', use_Lp, ...
-        'solver', @(P) mstd_lp(P, optimset('Display', 'iter')) );    
+    svm = linear_svm.train(X, y, C, 'use_Lp', true, ...
+        'solver', @(P) mstd_lp(P, ...
+        optimset('Algorithm', 'interior-point-convex', 'Display', 'iter')));
 end
+
 w = svm.w;
 b = svm.b;
-
-display([svm.w, svm_g.w]);
-display([svm.b, svm_g.b]);
 
 %% visualize
 
@@ -93,12 +91,6 @@ ym1 = ymax + (ymax - ymin) * 0.05;
 
 draw_line(w(1), w(2), b-1, xm0,xm1,ym0,ym1, 'b');
 draw_line(w(1), w(2), b+1, xm0,xm1,ym0,ym1, 'b');
-
-% support vectors
-
-hold on;
-plot(svm.Xs(1,:), svm.Xs(2,:), 'mo', 'LineWidth', 2, 'MarkerSize', 15);
-
 
 axis([xm0, xm1, ym0, ym1]);
 axis equal;
