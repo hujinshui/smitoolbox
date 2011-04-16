@@ -201,7 +201,7 @@ classdef kernel_svm
             %                    (default = false)
             %
             %       - 'solver':  the function handle to solve the
-            %                    qp_problem. (default = '@mstd_qp')
+            %                    qp_problem. (default = '@mstd_solve')
             %
             
             % verify input arguments
@@ -231,7 +231,7 @@ classdef kernel_svm
             
             K =[];
             verbose = false;
-            solver = @mstd_qp;
+            solver = @mstd_solve;
             
             if ~isempty(varargin)
                 

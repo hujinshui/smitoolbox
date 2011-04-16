@@ -1,12 +1,12 @@
-function [x, fval, flag, info] = mosek_lpqp(P, options)
+function [x, fval, flag, info] = mosek_solve(P, options)
 % The wrapper of MOSEK optimizer for solving LP or QP problem.
 %
-%   x = mosek_lpqp(P);
-%   x = mosek_lpqp(P, options);
+%   x = mosek_solve(P);
+%   x = mosek_solve(P, options);
 %
-%   [x, fval]             = mosek_lpqp( ... );
-%   [x, fval, flag]       = mosek_lpqp( ... );
-%   [x, fval, flag, info] = mosek_lpqp( ... );
+%   [x, fval]             = mosek_solve( ... );
+%   [x, fval, flag]       = mosek_solve( ... );
+%   [x, fval, flag, info] = mosek_solve( ... );
 %
 %   Use MOSEK LP/QP optimizer to solve the LP problem specified by the
 %   lp_problem struct P.
@@ -30,7 +30,7 @@ function [x, fval, flag, info] = mosek_lpqp(P, options)
 %% verify input arguments
 
 if ~(isstruct(P) && isfield(P, 'type') && (strcmp(P.type, 'lp') || strcmp(P.type, 'qp')))
-    error('mosek_lp:invalidarg', 'P should be a lp_problem or qp_problem struct.');
+    error('mosek_solve:invalidarg', 'P should be a lp_problem or qp_problem struct.');
 end
 
 is_qp = strcmp(P.type, 'qp');
@@ -41,7 +41,7 @@ if nargin < 2 || isempty(options)
     options.Display = 'off';
 else
     if ~isstruct(options)
-        error('mosek_lpqp:invalidarg', 'options should be a MOSEK parameter struct.');
+        error('mosek_solve:invalidarg', 'options should be a MOSEK parameter struct.');
     end
 end
 
@@ -114,7 +114,7 @@ prob.bux = P.u;
 
 [rcode, res] = mosekopt(cmd, prob, param);
 
-mskstatus('mosek_lpqp', verbosity, 0, rcode, res);
+mskstatus('mosek_solve', verbosity, 0, rcode, res);
 
 % extract output
 

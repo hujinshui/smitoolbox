@@ -1,4 +1,4 @@
-function circle_svm_demo(n)
+function circle_svm_demo(n, solver)
 % This function demos to use of kernel SVM on circular data
 %
 %   circle_svm_demo;
@@ -6,6 +6,11 @@ function circle_svm_demo(n)
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 100.
+%
+%   circle_svm_demo(n, solver);
+%
+%       User can also specifies a customized solver function handle.
+%       (default is @mstd_solve using interior-point-convex)
 %
 
 %   Created by Dahua Lin, on April 7, 2011
@@ -15,6 +20,11 @@ function circle_svm_demo(n)
 
 if nargin < 1
     n = 100;
+end
+
+if nargin < 2
+    solver = @(P) mstd_solve(P, ...
+        optimset('Algorithm', 'interior-point-convex', 'Display', 'off'));
 end
 
 r0 = 2;
@@ -40,7 +50,7 @@ K = (K + K') / 2;
 K = adddiag(K, 1e-10);
 
 tic;
-svm = kernel_svm.train(X, y, kf, C, 'kermat', K, 'solver', @gurobi_solve);
+svm = kernel_svm.train(X, y, kf, C, 'kermat', K, 'solver', solver);
 elapsed_t = toc;
 fprintf('Training time on %d samples = %f sec.\n', size(X,2), elapsed_t);
 

@@ -1,4 +1,4 @@
-function linear_svm_demo(n)
+function linear_svm_demo(n, solver)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;
@@ -6,6 +6,11 @@ function linear_svm_demo(n)
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 50.
+%
+%   linear_svm_demo(n, solver);
+%
+%       User can also specifies a customized solver function handle.
+%       (default is @mstd_solve)
 %
 
 %   Created by Dahua Lin, on April 7, 2011
@@ -15,6 +20,11 @@ function linear_svm_demo(n)
 
 if nargin < 1
     n = 50;
+end
+
+if nargin < 2
+    solver = @(P) mstd_solve(P, ...
+        optimset('Algorithm', 'interior-point-convex', 'Display', 'off'));
 end
 
 t = rand() * (2 * pi);
@@ -36,7 +46,7 @@ y = [-1 * ones(1, n), ones(1, n)];
 C = 5;
 
 tic;
-svm = linear_svm.train(X, y, C, 'solver', @mosek_lpqp);
+svm = linear_svm.train(X, y, C, 'solver', solver);
 elapsed_t = toc;
 fprintf('Training time on %d points = %f sec\n', size(X, 2), elapsed_t);
 
