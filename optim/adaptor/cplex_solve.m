@@ -1,16 +1,16 @@
-function [x, fval, flag, info] = cplex_lpqp(P, options)
+function [x, fval, flag, info] = cplex_solve(P, options)
 % Adaptor of CPLEX optimizer to solve the LP/QP problem 
 %
-%   x = cplex_lpqp(P);
-%   x = cplex_lpqp(P, options);
+%   x = cplex_solve(P);
+%   x = cplex_solve(P, options);
 %   
 %       Uses quadprog (in optimization toolbox) to solve the LP or QP 
 %       problem given by the struct P (as constructed in lp_problem or 
 %       qp_problem).
 %
-%   [x, fval] = cplex_lpqp( ... );
-%   [x, fval, flag] = cplex_lpqp( ... );
-%   [x, fval, flag, info] = cplex_lpqp( ... );
+%   [x, fval] = cplex_solve( ... );
+%   [x, fval, flag] = cplex_solve( ... );
+%   [x, fval, flag, info] = cplex_solve( ... );
 %
 %       Returns additional outputs.
 %
@@ -26,7 +26,7 @@ function [x, fval, flag, info] = cplex_lpqp(P, options)
 %% verify input arguments
 
 if ~(isstruct(P) && isfield(P, 'type') && (strcmp(P.type, 'lp') || strcmp(P.type, 'qp')))
-    error('cplex_qp:invalidarg', 'P should be a qp_problem struct.');
+    error('cplex_solve:invalidarg', 'P should be a qp_problem struct.');
 end
 
 is_qp = strcmp(P.type, 'qp');
@@ -35,7 +35,7 @@ if nargin < 2
     options = [];
 else
     if ~isstruct(options)
-        error('cplex_lpqp:invalidarg', 'options should be a CPLEX option struct.');
+        error('cplex_solve:invalidarg', 'options should be a CPLEX option struct.');
     end
 end
 

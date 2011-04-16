@@ -167,10 +167,10 @@ classdef linear_svm
             %
             %       - 'solver':  the function handle to solve the
             %                    qp_problem. 
-            %                    (default = '@mstd_qp' with
+            %                    (default = '@mstd_solve' with
             %                       algorithm set to
             %                       'interior-point-convex',
-            %                     or @mstd_lp when use_Lp is true).
+            %                     or @mstd_solve when use_Lp is true).
             %
             
             % verify input arguments
@@ -243,9 +243,9 @@ classdef linear_svm
             
             if isempty(solver)
                 if use_Lp
-                    solver = @(P) mstd_lp(P, optimset('Display', 'off'));
+                    solver = @mstd_solve;
                 else                
-                    solver = @(P) mstd_qp(P, ...
+                    solver = @(P) mstd_solve(P, ...
                         optimset('Algorithm', 'interior-point-convex', ...
                         'Display', 'off'));
                 end            
