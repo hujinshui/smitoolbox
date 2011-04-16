@@ -4,8 +4,9 @@ function [x, fval, flag, info] = mstd_solve(P, options)
 %   x = mstd_solve(P);
 %   x = mstd_solve(P, options);
 %   
-%       Uses linprog (in optimization toolbox) to solve the LP problem
-%       given by the struct P (as constructed in lp_problem or qp_problem).
+%       Uses linprog/quadprog (in optimization toolbox) to solve the 
+%       LP/QP problem given by the struct P (as constructed in lp_problem 
+%       or qp_problem).
 %
 %   [x, fval] = mstd_solve( ... );
 %   [x, fval, flag] = mstd_solve( ... );
