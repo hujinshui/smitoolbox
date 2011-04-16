@@ -1,18 +1,5 @@
-function x = qplec(H, f, A, b)
-% Solves quadratic programming problems with linear equation constraints
-%
-%   x = qplec(H, f);
-%       solves the unconstrained quadratic programming problem as
-%
-%       minimize (1/2) * x' * H * x + f' * x
-%
-%       Let x be in an n-dimensional space, then H and f should respectively
-%       be an n x n positive definite matrix and an n x 1 vector.
-%
-%       As an extension, one can also input f as an n x k matrix, specifying
-%       k different qp programs which share the same H matrix. In this case,
-%       x will be an n x k matrix, with x(:,i) being the solution to the 
-%       problem whose linear term coefficients are given by f(:, i).       
+function [x, lambda] = qplec(H, f, A, b)
+% Solves quadratic programming problems with linear equation constraints      
 %
 %   x = qplec(H, f, A, b);
 %       solves the following constrained quadratic programming problem:
@@ -22,7 +9,8 @@ function x = qplec(H, f, A, b)
 %
 %       Suppose there are m constraints, then size of H should be n x n,
 %       and the size of A should be m x n.
-%       The size of f and b can be configured in either of the following ways:
+%       The size of f and b can be configured in either of the following 
+%       ways:
 %       
 %       (1) f is an n x 1 vector, and b is an m x 1 vector, specifying
 %           a qp problem. In the output, the size of x is n x 1.
@@ -42,9 +30,12 @@ function x = qplec(H, f, A, b)
 %           In the output, the size of x is n x k, where x(:,i)
 %           corresponds to f(:,i) and b(:,i).
 %
+%   [x, lambda] = qplec(H, f, A, b);
+%       also returns the dual solution (lambda). 
+%
 %   Remarks:
 %       - The function directly computes the solution using closed form 
-%         formula.
+%         solution.
 %
 
 % History
@@ -52,6 +43,7 @@ function x = qplec(H, f, A, b)
 %   - Created by Dahua Lin, on Nov 26, 2009
 %   - Modified by Dahua Lin, on Jul 21, 2010
 %       - change the error handling to light weighting
+%   - Modified by Dahua Lin, on April 16, 2011
 %
 
 %% parse and verify input arguments
@@ -70,65 +62,59 @@ if size(f, 1) ~= n
 end
 kf = size(f, 2);
 
-if nargin < 3 || isempty(A)
-    A = [];
-    b = [];
-else
-    if ~(isfloat(A) && isreal(A) && ndims(A) == 2)
-        error('qplec:invalidarg', 'A should be a real valued matrix.');
-    end
-    
-    if ~(isfloat(b) && isreal(b) && ndims(b) == 2)
-        error('qplec:invalidarg', 'b should be a real valued matrix.');
-    end
-    
-    if size(A, 2) ~= n 
-        error('qplec:invalidarg', 'A should have n columns.');
-    end
-    
-    m = size(A, 1);
-    if size(b, 1) ~= m
-        error('qplec:invalidarg', 'b should have m columns.');
-    end
-    
-    kb = size(b, 2);
-    
-    if kf > 1 && kb > 1
-        if kf ~= kb
-            error('qplec:invalidarg', ...
+
+if ~(isfloat(A) && isreal(A) && ndims(A) == 2)
+    error('qplec:invalidarg', 'A should be a real valued matrix.');
+end
+
+if ~(isfloat(b) && isreal(b) && ndims(b) == 2)
+    error('qplec:invalidarg', 'b should be a real valued matrix.');
+end
+
+if size(A, 2) ~= n
+    error('qplec:invalidarg', 'A should have n columns.');
+end
+
+m = size(A, 1);
+if size(b, 1) ~= m
+    error('qplec:invalidarg', 'b should have m columns.');
+end
+
+kb = size(b, 2);
+
+if kf > 1 && kb > 1
+    if kf ~= kb
+        error('qplec:invalidarg', ...
             'when both f and b have multiple columns, the number of columns should be the same.');
-        end
     end
 end
+
 
 
 %% main
 
-x = - (H \ f);
+% solve the unconstraint solution
 
-if ~isempty(A)   % correction
-    
-    if kf == kb
-        D = A * x - b;
-    else
-        D = bsxfun(@minus, A * x, b);
-    end
-    
-    if nnz(D) > 0   % solution do not satisfy constraint, need correction
-        
-        G = A * (H \ A');
-        G = 0.5 * (G + G');
-        
-        lambda = G \ D;
-        
-        if size(f, 2) == size(lambda, 2)
-            cf = f + A' * lambda;
-        else
-            cf = bsxfun(@plus, f, A' * lambda);
-        end
-        
-        x = - (H \ cf);
-    end        
+x0 = - (H \ f);
+
+% solve the dual problem
+
+if kf == kb
+    dif = A * x0 - b;
+else
+    dif = bsxfun(@minus, A * x0, b);
 end
 
+G = H \ A';
+Q = A * G;
+Q = (Q + Q') / 2;
+lambda = Q \ dif;
+
+% derive the primal solution
+
+if size(x0, 2) == size(lambda, 2)
+    x = x0 - G * lambda;
+else
+    x = bsxfun(@minus, x0, G * lambda);
+end
 
