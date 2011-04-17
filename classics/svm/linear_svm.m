@@ -81,11 +81,10 @@ classdef linear_svm
     
     methods(Static)
         
-        function obj = from_sol(X, y, sol, op)
-            % Construct a linear SVM from QP or LP solution
+        function obj = from_sol(X, y, sol)
+            % Construct a linear SVM from QP solution
             %
             %   obj = kernel_svm.from_sol(X, y, sol);
-            %   obj = kernel_svm.from_sol(X, y, sol, 'Lp');
             %
             %   Input arguments:
             %   - X:    all training samples [d x n]
@@ -107,18 +106,7 @@ classdef linear_svm
             end
             if size(y, 1) > 1; y = y.'; end
             
-            if nargin >= 4
-                if ~(ischar(op) && strcmpi(op, 'Lp'))
-                    error('linear_svm:from_sol:invalidarg', ...
-                        'The 4th argument must be ''Lp'' if given.');
-                end
-                use_Lp = true;
-                ds = 2 * d + 1 + n;
-            else
-                use_Lp = false;
-                ds = d + 1 + n;
-            end
-                
+            ds = d + 1 + n;
             if ~(isfloat(sol) && isequal(size(sol), [ds, 1]) && isreal(sol))
                 error('linear_svm:from_sol:invalidarg', ...
                     'sol should be a real vector of proper size.');
@@ -126,13 +114,8 @@ classdef linear_svm
             
             % main
             
-            if ~use_Lp            
-                w_ = sol(1:d);
-                b_ = sol(d+1);
-            else
-                w_ = sol(1:d);
-                b_ = sol(2*d+1);
-            end
+            w_ = sol(1:d);
+            b_ = sol(d+1);
             
             v = y .* (w_' * X + b_);
             si = v <= (1 + 1e-5);    
@@ -159,8 +142,8 @@ classdef linear_svm
             %       One can input additional options in form of name/value
             %       pairs:
             %
-            %       - 'use_Lp': whether to use LP variant. (default =
-            %                   false).
+            %       - 'L2':     whether to use quadratic penalization.
+            %                   (default = false)
             %
             %       - 'verbose': whether to show the progress of training.
             %                    (default = false)
@@ -194,7 +177,7 @@ classdef linear_svm
             
             % parse options
             
-            use_Lp = false;
+            use_L2 = false;
             verbose = false;
             solver = [];
                         
@@ -213,12 +196,12 @@ classdef linear_svm
                     cv = ovals{i};
                     
                     switch lower(cn)     
-                        case 'use_lp'
+                        case 'l2'
                             if ~(isscalar(cv))
                                 error('linear_svm:train:invalidarg', ...
-                                    'use_Lp should be a logical scalar.');
+                                    'use_L2 should be a logical scalar.');
                             end
-                            use_Lp = logical(cv);
+                            use_L2 = logical(cv);
                         
                         case 'verbose'
                             if ~(isscalar(cv))
@@ -260,16 +243,14 @@ classdef linear_svm
             
             
             % construct problem
-            if use_Lp
-                if verbose
-                    fprintf('\tconstructing LP problem ...\n');
-                end
-                prb = linear_svm_prob(X, y, c, 'Lp');
-            else
-                if verbose
-                    fprintf('\tconstructing QP problem ...\n');
-                end
+            
+            if verbose
+                fprintf('\tconstructing QP problem ...\n');
+            end
+            if ~use_L2
                 prb = linear_svm_prob(X, y, c);
+            else
+                prb = linear_svm_prob(X, y, c, 'L2');
             end
             
             % solve the problem
@@ -282,11 +263,7 @@ classdef linear_svm
             if verbose
                 fprintf('\tmaking SVM model ...\n');
             end
-            if use_Lp
-                obj = linear_svm.from_sol(X, y, sol, 'Lp');
-            else
-                obj = linear_svm.from_sol(X, y, sol);
-            end
+            obj = linear_svm.from_sol(X, y, sol);
                         
             if verbose
                 fprintf('SVM training completed.\n');

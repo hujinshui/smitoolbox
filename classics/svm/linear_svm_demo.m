@@ -1,4 +1,4 @@
-function linear_svm_demo(n, solver)
+function linear_svm_demo(n, op, solver)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;
@@ -7,7 +7,13 @@ function linear_svm_demo(n, solver)
 %       Here, n is the number of samples per class. By default it is
 %       set to 50.
 %
-%   linear_svm_demo(n, solver);
+%   linear_svm_demo(n, 'L1');
+%   linear_svm_demo(n, 'L2');
+%   linear_svm_demo(n, 'L1', solver);
+%   linear_svm_demo(n, 'L2', solver);
+%
+%       Here, 'L1' and 'L2' is to choose the form of penalization.
+%       default = 'L2'. 
 %
 %       User can also specifies a customized solver function handle.
 %       (default is @mstd_solve)
@@ -23,6 +29,12 @@ if nargin < 1
 end
 
 if nargin < 2
+    use_L2 = false;
+else
+    use_L2 = strcmpi(op, 'L2');
+end
+
+if nargin < 3
     solver = @(P) mstd_solve(P, ...
         optimset('Algorithm', 'interior-point-convex', 'Display', 'off'));
 end
@@ -46,7 +58,7 @@ y = [-1 * ones(1, n), ones(1, n)];
 C = 5;
 
 tic;
-svm = linear_svm.train(X, y, C, 'solver', solver);
+svm = linear_svm.train(X, y, C, 'L2', use_L2, 'solver', solver);
 elapsed_t = toc;
 fprintf('Training time on %d points = %f sec\n', size(X, 2), elapsed_t);
 
