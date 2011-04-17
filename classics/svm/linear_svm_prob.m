@@ -34,22 +34,19 @@ function P = linear_svm_prob(X, y, c, op)
 %       Let sol be the solution vector, then sol(1:d) is the coefficient
 %       vector, sol(d+1) is b, and sol(d+2:d+n+1) is the slack variables.
 %
-%   P = linear_svm_prob(X, y, c, 'Lp');
+%   P = linear_svm_prob(X, y, c, 'L2');
 %
-%       constructs the variant LP-problem for linear SVM that uses L1-norm
-%       of w.
+%       constructs the variant LP-problem for linear SVM that uses 
+%       quadratic (square L2) penalization of training errors.
 %
-%       The output P is a lp_problem struct.
-%
-%       The solution to the constructed problem is of size 2d + 1 + n.
-%       Let sol be the solution vector:
-%       sol(1:d)     -  w
-%       sol(d+1:2*d) -  abs(w)
-%       sol(2*d+1)   -  b
-%       sol(2*d+2:2*d+n+1) - xi (slack variables)
+%       The output P is a qp_problem struct.
 %
 
-% Created by Dahua Lin, on April 14, 2011
+%   History
+%   -------
+%       - Created by Dahua Lin, on April 14, 2011
+%       - Modified by Dahua Lin, on April 16, 2011
+%           - supports L2 penalization of training errors.
 %
 
 %% verify input arguments
@@ -74,55 +71,48 @@ end
 c = double(c);
 
 if nargin >= 4
-    if ~(ischar(op) && strcmpi(op, 'Lp'))
+    if ~(ischar(op) && strcmpi(op, 'L2'))
         error('linear_svm_prob:invalidarg', ...
-            'The 4th argument must be ''Lp'' if given.');
+            'The 4th argument must be ''L2'' if given.');
     end
-    use_Lp = true;
+    use_L2 = true;
 else
-    use_Lp = false;
+    use_L2 = false;
 end
 
 
 %% main
 
-if ~use_Lp
-    
-    H = sparse(1:d, 1:d, 1, d+1+n, d+1+n);
-    f = [zeros(d+1, 1); c * ones(n, 1)];
-    
-    Xy = bsxfun(@times, X, y);
-    if issparse(Xy) || n > 3 * d  % use sparse construction
-        A = [Xy.', y.', speye(n, n); sparse(n, d+1), speye(n, n)];
-    else  % use dense construction
-        A = [Xy.', y.', eye(n, n); zeros(n, d+1), eye(n, n)];
-    end
-    b = [ones(n, 1); zeros(n, 1)];
-    
-    P = qp_problem(H, f, -A, -b, [], [], [], []);
+% objectives
 
-else
-        
-    f = [zeros(d, 1); ones(d, 1); 0; c * ones(n, 1)];
-    
-    Xy = bsxfun(@times, X, y);
-    
-    if issparse(Xy) || n > 3 * d  % use sparse construction
-        A = [ ...
-            Xy.', sparse(n, d), y.', speye(n, n); ...
-            sparse(n, 2*d+1), speye(n, n); ...
-            speye(d, d), speye(d, d), sparse(d, 1+n); ...
-            - speye(d, d), speye(d, d), sparse(d, 1+n) ];        
-    else
-        A = [ ...
-            Xy.', zeros(n, d), y.', eye(n, n); ...
-            zeros(n, 2*d+1), eye(n, n); ...
-            eye(d, d), eye(d, d), zeros(d, 1+n); ...
-            -eye(d, d), eye(d, d), zeros(d, 1+n)];
-    end
-    b = [ones(n, 1); zeros(n + 2 *d, 1)];
-    
-    P = lp_problem(f, -A, -b, [], [], [], []);
+ds = d+1+n;
+
+if ~use_L2    
+    H = sparse(1:d, 1:d, 1, ds, ds);
+    f = [zeros(d+1, 1); c * ones(n, 1)];    
+else       
+    H = sparse(1:ds, 1:ds, [ones(1,d), 0, c * ones(1,n)], ds, ds);
+    f = zeros(ds, 1);
 end
+
+% constraints
+
+Xy = bsxfun(@times, X, y);
+if issparse(Xy) || n > 3 * d  % use sparse construction
+    A = [Xy.', y.', speye(n, n)];
+else  % use dense construction
+    A = [Xy.', y.', eye(n, n)];
+end
+b = ones(n, 1);
+
+% bounds on vars
+
+lb = [-inf(d+1, 1); zeros(n, 1)];
+
+% construct problem
+
+P = qp_problem(H, f, -A, -b, [], [], lb, []);
+
+
 
 
