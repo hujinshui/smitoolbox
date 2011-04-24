@@ -11,10 +11,10 @@ classdef kernel_svm
         ns;         % the number of support vectors
         Xs;         % support vectors [d x ns]
         ys;         % the label of support vectors [1 x ns]
-        
-        a;          % the coefficients of the support vectors
+                
+        alpha;      % the dual coefficients of the support vectors [1 x ns]
+        beta;       % the primal coefficients of the support vectors [1 x ns]
         b;          % the offset value
-        ya;         % ys .* a; [1 x ns]
         
         kerf;       % the kernel function handle        
     end
@@ -22,7 +22,7 @@ classdef kernel_svm
     
     methods
         
-        function obj = kernel_svm(Xs, ys, a, b, kf)
+        function obj = kernel_svm(Xs, ys, alpha, beta, b, kf)
             % Construct a kernel SVM model
             %
             %   obj = kernel_svm(Xs, ys, a, b, kf)
@@ -31,7 +31,8 @@ classdef kernel_svm
             %       Input arguments:
             %       - Xs:   the support vectors [d x ns]
             %       - ys:   the label of support vectors [1 x ns or ns x 1]
-            %       - a:    the alpha vector
+            %       - alpha:  the alpha vector [1 x ns or ns x 1]
+            %       - beta:   the beta vector [1 x ns or ns x 1]
             %       - b:    the offset value
             %       - kf:   the kernel function handle
             %
@@ -52,11 +53,21 @@ classdef kernel_svm
             if ~isa(ys, 'double'); ys = double(ys); end
             if size(ys, 1) > 1; ys = ys.'; end
             
-            if ~(isfloat(a) && isreal(a) && isequal(size(a), [n 1]))
+            if ~(isfloat(alpha) && isreal(alpha) && ndims(alpha) == 2 ...
+                    && isvector(alpha) && length(alpha) == n)
                 error('kernel_svm:invalidarg', ...
-                    'a should be a real vector of size n x 1.');
+                    'alpha should be a real vector of length n.');
             end
-            if ~isa(a, 'double'); a = double(a); end
+            if ~isa(alpha, 'double'); alpha = double(alpha); end
+            if size(alpha, 1) > 1; alpha = alpha.'; end
+            
+            if ~(isfloat(beta) && isreal(beta) && ndims(beta) == 2 ...
+                    && isvector(beta) && length(beta) == n)
+                error('kernel_svm:invalidarg', ...
+                    'beta should be a real vector of length n.');
+            end
+            if ~isa(beta, 'double'); beta = double(beta); end
+            if size(beta, 1) > 1; beta = beta.'; end
             
             if ~(isfloat(b) && isreal(b) && isscalar(b))
                 error('kernel_svm:invalidarg', ...
@@ -75,9 +86,9 @@ classdef kernel_svm
             obj.ns = n;
             obj.Xs = Xs;
             obj.ys = ys;
-            obj.a = a;
+            obj.alpha = alpha;
+            obj.beta = beta;
             obj.b = b;
-            obj.ya = ys .* a.';
             obj.kerf = kf;                        
         end
         
@@ -91,7 +102,7 @@ classdef kernel_svm
             kf = obj.kerf;
             
             Kx = kf(obj.Xs, X);  % Kx: ns x n
-            r = obj.ya * Kx + obj.b;
+            r = obj.beta * Kx + obj.b;
         end
                 
     end
@@ -102,10 +113,63 @@ classdef kernel_svm
     
     methods(Static)
         
-        function obj = from_sol(X, y, K, alpha, kf, c)
+        function obj = from_psol(X, y, beta, b, kf)
+            % Construct a kernel SVM from primal solution
+            %
+            %   obj = kernel_svm.from_sol(X, y, beta, b, kf);
+            %
+            %   Input arguments:
+            %       - X:        all training samples [d x n]
+            %       - y:        the labels of all training samples 
+            %       - beta:     the solved beta coefficients
+            %       - b:        the offset value
+            %       - kf:       the kernel function handle
+            %
+            
+            % verify inputs
+            
+            if ~(isfloat(X) && ndims(X) == 2 && isreal(X))
+                error('kernel_svm:from_sol:invalidarg', ...
+                    'X should be a 2D real matrix.');
+            end
+            n = size(X, 2);
+            
+            if ~(isfloat(y) && isvector(y) && isreal(y) && length(y) == n)
+                error('kernel_svm:invalidarg', ...
+                    'ys should be a real vector of length ns.');
+            end
+            if size(y, 1) > 1; y = y.'; end;   
+            
+            if ~(isfloat(beta) && isreal(beta) && isvector(beta) && length(beta) == n)
+                error('kernel_svm:invalidarg', ...
+                    'beta should be a real vector of size d x 1.');
+            end
+            if size(beta, 1) > 1; beta = beta.'; end
+            
+            if ~(isfloat(b) && isscalar(b) && isreal(b))
+                error('kernel_svm:invalidarg', ...
+                    'b should be a real scalar.');
+            end
+            
+            if ~isa(kf, 'function_handle')
+                error('kernel_svm:invalidarg', ...
+                    'kf should be a function handle.');
+            end            
+            
+            si = find(beta ~= 0);
+            Xs_ = X(:, si);
+            ys_ = y(:, si);           
+            bv = beta(:, si);
+            av = bv ./ ys_;
+            
+            obj = kernel_svm(Xs_, ys_, av, bv, b, kf);            
+        end
+        
+        
+        function obj = from_dsol(X, y, K, alpha, kf, c)
             % Construct a kernel SVM from dual solution
             %
-            %   obj = kernel_svm.from_sol(X, y, K, alpha, kf, c);
+            %   obj = kernel_svm.from_sol(X, y, K, a, kf, c);
             %
             %   Input arguments:
             %       - X:        all training samples [d x n]
@@ -113,7 +177,7 @@ classdef kernel_svm
             %       - K:        the kernel matrix of X [n x n]
             %       - alpha:    the solved alpha vector [n x 1]
             %       - kf:       the kernel function handle
-            %       - c:        the upper bound on alpha values
+            %       - c:        the upper bound of alpha values
             %
             
             % verify inputs
@@ -135,16 +199,21 @@ classdef kernel_svm
                     'K should be a real matrix of size n x n.');
             end
             
-            if ~(isfloat(alpha) && isreal(alpha) && isequal(size(alpha), [n 1]))
+            if ~(isfloat(alpha) && isreal(alpha) && isvector(alpha) && length(alpha) == n)
                 error('kernel_svm:invalidarg', ...
-                    'alpha should be a real vector of size d x 1.');
+                    'alpha should be a real vector of length n.');
             end
             
-            if ~(isfloat(c) && isreal(c) && isscalar(c) && c > 0)
+            if ~isa(kf, 'function_handle')
                 error('kernel_svm:invalidarg', ...
-                    'c should be a positive real value scalar.');
+                    'kf should be a function handle.');
             end
             
+            if ~(isfloat(c) && isscalar(c) && isreal(c) && c > 0)
+                error('kernel_svm:invalidarg', ...
+                    'c should be a real scalar with c > 0.');
+            end
+               
             % main
             
             % select support vectors
@@ -155,6 +224,9 @@ classdef kernel_svm
             Xs_ = X(:, si);
             ys_ = y(si);
             a_ = alpha(si);
+            if size(a_, 1) > 1
+                a_ = a_.';
+            end
             
             % compute b
             
@@ -162,10 +234,10 @@ classdef kernel_svm
             
             Kb = K(si, sj);
             yb = y(sj);
-            bs = 1 ./ yb - (a_ .* ys_(:))' * Kb; 
+            bs = 1 ./ yb - (a_ .* ys_) * Kb; 
             b_ = mean(bs);
             
-            obj = kernel_svm(Xs_, ys_, a_, b_, kf);            
+            obj = kernel_svm(Xs_, ys_, a_, a_ .* ys_, b_, kf);            
         end
         
         
@@ -301,13 +373,13 @@ classdef kernel_svm
             if verbose
                 fprintf('\tsolving QP problem ...\n');
             end
-            alpha = solver(P);
+            a = solver(P);
             
             % make model
             if verbose
                 fprintf('\tmaking SVM model ...\n');
             end
-            obj = kernel_svm.from_sol(X, y, K, alpha, kf, c);                            
+            obj = kernel_svm.from_dsol(X, y, K, a, kf, c);                            
             
             
             if verbose

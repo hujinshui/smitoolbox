@@ -1,4 +1,4 @@
-function circle_svm_demo(n, solver)
+function svm = circle_svm_demo(n, solver)
 % This function demos to use of kernel SVM on circular data
 %
 %   circle_svm_demo;
@@ -28,7 +28,7 @@ if nargin < 2
 end
 
 r0 = 2;
-r1 = 9;
+r1 = 12;
 r1w = 1;
 
 X0 = randn(2, n) * r0;
@@ -44,10 +44,10 @@ y = [-1 * ones(1, n), ones(1, n)];
 
 C = 10;
 
-kf = @(x1, x2) exp(- pwsqL2dist(x1, x2) / 32 );
+kf = @(x1, x2) exp(- pwsqL2dist(x1, x2) / 56 );
 K = kf(X, X);
 K = (K + K') / 2;
-K = adddiag(K, 1e-10);
+K = adddiag(K, 1e-2);
 
 tic;
 svm = kernel_svm.train(X, y, kf, C, 'kermat', K, 'solver', solver);
