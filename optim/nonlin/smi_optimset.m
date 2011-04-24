@@ -26,7 +26,9 @@ else
         error('smi_optimset:invalidarg', ...
             'The first argument to smi_optimset is invalid.');
     end
+    options = op0;
 end
+
     
 %% Update
 
@@ -84,6 +86,13 @@ if ~isempty(varargin)
                         'InitInvHess should be a numeric square matrix.');
                 end
                 options.InitInvHess = v;
+                
+            case 'directnewton'
+                if ~((isnumeric(v) || islogical(v)) && isscalar(v))
+                    error('smi_optimset:invalidarg', ...
+                        'DirectNewton should be a numeric/logical scalar.');
+                end
+                options.DirectNewton = logical(v);
                 
             otherwise
                 error('smi_optimset:invalidarg', ...

@@ -1,4 +1,4 @@
-function linear_svm_demo(n, op, solver)
+function svm = linear_svm_demo(n, op, solver)
 % This function demos to use of linear SVM
 %
 %   linear_svm_demo;

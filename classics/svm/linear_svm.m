@@ -106,8 +106,8 @@ classdef linear_svm
             end
             if size(y, 1) > 1; y = y.'; end
             
-            ds = d + 1 + n;
-            if ~(isfloat(sol) && isequal(size(sol), [ds, 1]) && isreal(sol))
+            if ~(isfloat(sol) && isreal(sol) && ndims(sol) == 2 && ...
+                    size(sol,2) == 1 && (size(sol,1) == d+1 || size(sol,1) == d+1+n) )
                 error('linear_svm:from_sol:invalidarg', ...
                     'sol should be a real vector of proper size.');
             end

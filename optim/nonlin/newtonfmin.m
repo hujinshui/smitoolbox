@@ -15,6 +15,14 @@ function [x, info] = newtonfmin(f, x0, varargin)
 %       just uses it as H \ g to derive the updating direction. Therefore,
 %       any object that supports left matrix division is fine.
 %
+%       If the option 'DirectNewton' is set to true, then f should support
+%
+%           [v, dx] = f(x);
+%
+%       Here, dx is the Newton direction (-H\g) evaluated at x. 
+%       This is useful when there is some structure of H and g such that
+%       dx can be evaluated more efficiently with special implementation.
+%
 %       x0 is the initial guess of the solution.
 %
 %       One can also specify following options through name/value pairs.
@@ -23,6 +31,8 @@ function [x, info] = newtonfmin(f, x0, varargin)
 %       - TolFun:   the termination tolerance of objective value change {1e-9}
 %       - TolX:     the termination tolerance of solution change {1e-7}
 %       - Display:  the level of display {'none'}|'proc'|'iter'
+%       - DirectNewton: whether f directly outputs the newton direction
+%                       (-H\g) as the second argument. {false}
 %
 %       The function returns the optimized solution.
 %
@@ -47,6 +57,8 @@ function [x, info] = newtonfmin(f, x0, varargin)
 %           - use monitor to replace display level.
 %       - Modified by Dahua Lin, on Jan 5, 2010
 %           - change the way of option setting
+%       - Modified by Dahua Lin, on April 23, 2011
+%           - support DirectNewton.
 %
 
 %% check options
@@ -67,6 +79,12 @@ omon_level = 0;
 if isfield(options, 'Monitor')
     omon = options.Monitor;
     omon_level = omon.level;
+end
+
+if isfield(options, 'DirectNewton')
+    dnewton = options.DirectNewton;
+else
+    dnewton = false;
 end
 
 
@@ -90,8 +108,12 @@ while ~converged && it < options.MaxIter
         omon.on_iter_start(it);
     end
    
-    [v0, g, H] = f(x);
-    step = - (H \ g);
+    if ~dnewton        
+        [v0, g, H] = f(x);
+        step = - (H \ g);
+    else
+        [v0, step] = f(x);
+    end
     
     [x, v, dx] = linesearch(f, x, v0, step, beta, minstep);
     
