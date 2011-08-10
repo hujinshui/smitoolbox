@@ -14,13 +14,11 @@ using namespace bcs;
 using namespace bcs::matlab;
 
 template<typename T>
-inline std::pair<int, int> get_vs(const_marray mRgn)
+inline void get_vs(const_marray mRgn, int& v0, int& v1)
 {
     size_t ne = mRgn.nelems();
     const T *v = mRgn.data<T>();
-    
-    int v0, v1;
-    
+        
     if (ne == 1)
     {
         v0 = 1;
@@ -31,13 +29,11 @@ inline std::pair<int, int> get_vs(const_marray mRgn)
         v0 = (int)(v[0]);
         v1 = (int)(v[1]);
     }
-    
-    return std::make_pair(v0, v1);
 }
 
 
 
-inline std::pair<int, int> get_range(const_marray mRgn)
+inline void get_range(const_marray mRgn, int& v0, int& v1)
 {
     size_t ne = mRgn.nelems();
     
@@ -49,15 +45,15 @@ inline std::pair<int, int> get_range(const_marray mRgn)
     
     if (mRgn.is_double())
     {
-        return get_vs<double>(mRgn);
+        get_vs<double>(mRgn, v0, v1);
     }
     else if (mRgn.is_single())
     {
-        return get_vs<float>(mRgn);
+        get_vs<float>(mRgn, v0, v1);
     }
     else if (mRgn.is_int32())
     {
-        return get_vs<int32_t>(mRgn);
+        get_vs<int32_t>(mRgn, v0, v1);
     }
     else
     {
@@ -137,7 +133,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     const_marray mVals(prhs[1]);
 
     int v0, v1;
-    rbind(v0, v1) = get_range(mRgn);
+    get_range(mRgn, v0, v1);
 
     plhs[0] = do_count(v0, v1, mVals).mx_ptr();
 

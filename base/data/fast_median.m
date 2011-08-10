@@ -44,7 +44,35 @@ end
 %% main
 
 if ~isempty(X)    
-    r = fast_median_cimp(X, dim);
+
+    if dim == 0
+        
+        if isvector(X)
+            r = fast_median_cimp(X, 0);
+        else
+            r = fast_median_cimp(X, 1);
+        end
+        
+    elseif dim == 1
+        
+        if size(X,1) == 1
+            r = X;
+        elseif size(X,2) == 1
+            r = fast_median_cimp(X, 0);
+        else
+            r = fast_median_cimp(X, 1);
+        end
+            
+    else % dim == 2
+        
+        if size(X,2) == 1
+            r = X;
+        elseif size(X,1) == 1
+            r = fast_median_cimp(X, 0);
+        else
+            r = fast_median_cimp(X.', 1).';
+        end
+    end
     
 else
     % let median itself to deal with empty cases for conformant behavior

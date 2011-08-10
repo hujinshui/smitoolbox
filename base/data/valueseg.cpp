@@ -26,12 +26,13 @@ void find_seg(size_t n, const T *v, std::vector<int>& offsets)
 }
 
 
-std::pair<marray, marray> do_make_segs(int n, const std::vector<int>& offsets, bool make_row)
+void do_make_segs(int n, const std::vector<int>& offsets, bool make_row, 
+        marray& mSp, marray& mEp)
 {        
     size_t m = offsets.size() - 1;
         
-    marray mSp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);        
-    marray mEp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);
+    mSp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);        
+    mEp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);
         
     double *sp = mSp.data<double>();
     double *ep = mEp.data<double>();
@@ -44,8 +45,6 @@ std::pair<marray, marray> do_make_segs(int n, const std::vector<int>& offsets, b
     
     sp[m] = offsets[m] + 1;
     ep[m] = n;   
-    
-    return std::make_pair(mSp, mEp);
 }
 
 
@@ -120,7 +119,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     
     marray mSp, mEp;
-    rbind(mSp, mEp) = do_make_segs(n, offsets, make_row);
+    do_make_segs(n, offsets, make_row, mSp, mEp);
     
     // output
     

@@ -62,10 +62,21 @@ if ~(isnumeric(K) && isscalar(K) && K >= 1)
 end
 K = double(K);
 
-if ~(isnumeric(I) && ~issparse(I) && isreal(I) && ...
-    (isequal(size(I), [m 1]) || isequal(size(I), [1 n])) )
+if ~(isnumeric(I) && ~issparse(I) && isreal(I) && isvector(I))
     error('aggreg:invalidarg', ...
-        'I should be a non-sparse real vector of size m x 1 or 1 x n.');
+        'I should be a real non-sparse real vector.');
+end
+[mI, nI] = size(I);
+
+I_form = 0;
+if mI == 1 && nI == n % 1 x n
+    I_form = 1;
+elseif mI == m && nI == 1 % m x 1
+    I_form = 2;
+end
+if ~I_form
+    error('aggreg:invalidarg', ...
+        'I should be a vector of size 1 x n or size m x 1.');
 end
 
 if nargin < 4
@@ -77,6 +88,10 @@ else
 end
 
 %% main
+
+if I_form == 2
+    X = X.';
+end
 
 switch fun
     case 'sum'
@@ -100,6 +115,10 @@ switch fun
     otherwise
         error('aggreg:invalidarg', 'The fun name is invalid.');
         
+end
+
+if I_form == 2
+    R = R.';
 end
 
 
