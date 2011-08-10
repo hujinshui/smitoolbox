@@ -136,122 +136,81 @@ struct max_ag<bool>
 };
 
 
-template<class Aggregator, typename TIn, class TIndexerIn, typename TOut, class TIndexerOut>
-inline void aggreg_vector(
-        int n, int K, Aggregator ag, 
-        const_aview1d<TIn, TIndexerIn> x, 
-        const const_aview1d<int32_t>& I, 
-        aview1d<TOut, TIndexerOut> r)
-{
-    for (int i = 0; i < n; ++i)
-    {
-        int k = I[i];
-        if (k >= 0 && k < K)
-        {
-            ag(r[k], x[i]);
-        }
-    }
-}
 
-// do aggregation
 
 template<typename T, class Aggregator>
-marray do_aggreg_rows(const_marray mX, const_marray mI, size_t K, Aggregator ag)
-{    
-    index_t m = (index_t)mX.nrows();
-    index_t n = (index_t)mX.ncolumns();
- 
-    typedef typename Aggregator::result_type TOut;    
-    marray mR = create_marray<TOut>((size_t)m, K); 
+marray aggreg(const_marray mX, const_marray mI, int K)
+{
+    typedef typename Aggregator::result_type Tout;
     
-    const_aview1d<int32_t> I = view1d<int32_t>(mI); 
+    index_t m = (index_t)mX.nrows();
+    marray mR = create_marray<T>((size_t)m, (size_t)K);
+    
+    caview1d<int32_t> I = view1d<int32_t>(mI);
+    
+    Aggregator ag;
     
     if (m == 1)
     {
-        const_aview1d<T> x = view1d<T>(mX);
-        aview1d<TOut> r = view1d<TOut>(mR);
-        fill(r, ag.init());
+        caview1d<T> x = view1d<T>(mX);
+        index_t n = x.nelems();
         
-        aggreg_vector(n, (int)K, ag, x, I, r);
-    }
-    else
-    {
-        const_aview2d<T, column_major_t> X = view2d<T>(mX);
-        aview2d<TOut, column_major_t> R = view2d<TOut>(mR);
-        fill(R, ag.init());
-        
-        for (index_t i = 0; i < m; ++i)
-        {
-            aggreg_vector(n, (int)K, ag, X.row(i), I, R.row(i));
-        }
-    }
-   
-    return mR;
-}
-
-
-template<typename T, class Aggregator>
-marray do_aggreg_columns(const_marray mX, const_marray mI, size_t K, Aggregator ag)
-{
-    size_t m = mX.nrows();
-    size_t n = mX.ncolumns();
-    
-    typedef typename Aggregator::result_type TOut;    
-    marray mR = create_marray<TOut>((size_t)K, n); 
-    
-    const_aview1d<int32_t> I = view1d<int32_t>(mI); 
-    
-    if (n == 1)
-    {
-        const_aview1d<T> x = view1d<T>(mX);
-        aview1d<TOut> r = view1d<TOut>(mR);
-        fill(r, ag.init());
-        
-        aggreg_vector(m, (int)K, ag, x, I, r);
-    }
-    else
-    {
-        const_aview2d<T, column_major_t> X = view2d<T>(mX);
-        aview2d<TOut, column_major_t> R = view2d<TOut>(mR);
-        fill(R, ag.init());
+        aview1d<Tout> r = view1d<Tout>(mR);
+        r.fill(ag.init());
         
         for (index_t i = 0; i < n; ++i)
         {
-            aggreg_vector(m, (int)K, ag, X.column(i), I, R.column(i));
+            int k = I(i);
+            if (k >= 0 && k < K)
+            {
+                ag(r(k), x(i)); 
+            }
         }
     }
-   
+    else
+    {
+        caview2d<T, column_major_t> X = view2d<T>(mX);
+        index_t n = X.ncolumns();
+        
+        aview2d<Tout, column_major_t> R = view2d<Tout>(mR);
+        R.fill(ag.init());
+        
+        for (index_t i = 0; i < n; ++i)
+        {
+            int k = I(i);
+            
+            if (k >= 0 && k < K)
+            {
+                caview1d<T> x = X.column(i);
+                aview1d<Tout> r = R.column(k);
+            
+                for (index_t j = 0; j < m; ++j)
+                {
+                    ag(r(j), x(j));
+                }
+            }
+        }
+    }
+    
     return mR;
 }
 
 
 template<typename T>
-inline marray do_aggreg(const_marray mX, const_marray mI, size_t K, int code)
+inline marray do_aggreg(const_marray mX, const_marray mI, int K, int code)
 {    
-    if (mI.nrows() != 1)
+    if (code == 1)
     {
-        switch (code)
-        {
-            case SUM_CODE:
-                return do_aggreg_columns<T, sum_ag<T> >(mX, mI, K, sum_ag<T>());
-            case MIN_CODE:
-                return do_aggreg_columns<T, min_ag<T> >(mX, mI, K, min_ag<T>());
-            case MAX_CODE:
-                return do_aggreg_columns<T, max_ag<T> >(mX, mI, K, max_ag<T>());                
-        }        
+        return aggreg<T, sum_ag<T> >(mX, mI, K);
     }
-    else
+    else if (code == 2)
     {
-        switch (code)
-        {
-            case SUM_CODE:
-                return do_aggreg_rows<T, sum_ag<T> >(mX, mI, K, sum_ag<T>());
-            case MIN_CODE:
-                return do_aggreg_rows<T, min_ag<T> >(mX, mI, K, min_ag<T>());
-            case MAX_CODE:
-                return do_aggreg_rows<T, max_ag<T> >(mX, mI, K, max_ag<T>());                
-        }
-    }    
+        return aggreg<T, min_ag<T> >(mX, mI, K);
+    }
+    else // code == 3
+    {
+        return aggreg<T, max_ag<T> >(mX, mI, K);
+    }
 }
 
 
@@ -278,7 +237,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     const_marray mI(prhs[2]);
     const_marray mCode(prhs[3]);
      
-    size_t K = (size_t)mK.get_scalar<double>();
+    int K = (int)mK.get_scalar<double>();
     int code = (int)mCode.get_scalar<double>();
     
     // main delegate
