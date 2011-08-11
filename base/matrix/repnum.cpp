@@ -9,30 +9,29 @@
  ********************************************************************/
 
 #include <bcslib/matlab/bcs_mex.h>
-#include <bcslib/array/array_eval.h>
 
 using namespace bcs;
 using namespace bcs::matlab;
 
 
 template<typename T0>
-array1d<size_t> get_nums(const_marray mNs)
+array1d<int32_t> get_nums(const_marray mNs)
 {
     size_t n = mNs.nelems();
-    array1d<size_t> ns(n);
+    array1d<int32_t> ns(n);
     
     const T0 *in = mNs.data<T0>();
     
     for (index_t i = 0; i < (index_t)n; ++i)
     {
-        ns(i) = (size_t)(in[i]);
+        ns(i) = (int32_t)(in[i]);
     }
     
     return ns;
 }
 
 
-array1d<size_t> do_get_nums(const_marray mNs)
+array1d<int32_t> do_get_nums(const_marray mNs)
 {
     if (!(mNs.is_vector() && !mNs.is_sparse()))
     {
@@ -83,21 +82,22 @@ void check_vs_size(const_marray mNs, const_marray mVs)
 
 marray do_repnum(const_marray mNs)
 {
-    array1d<size_t> ns = do_get_nums(mNs);
+    array1d<int32_t> ns = do_get_nums(mNs);
     
-    size_t n = ns.nelems();
-    size_t N = sum(ns);
+    index_t n = ns.nelems();
+    int32_t N = 0;
+    for (index_t i = 0; i < n; ++i) N += ns[i];
     
     marray mR = mNs.nrows() == 1 ? 
-        create_marray<double>(1, N) :
-        create_marray<double>(N, 1);
+        create_marray<double>(1, (size_t)N) :
+        create_marray<double>(N, (size_t)1);
         
     double *r = mR.data<double>();
     
-    for (size_t i = 0; i < n; ++i)
+    for (index_t i = 0; i < n; ++i)
     {
         double v = i + 1;
-        for (size_t j = 0; j < ns(i); ++j)
+        for (int32_t j = 0; j < ns(i); ++j)
         {                        
             *(r++) = v;
         }
@@ -111,11 +111,12 @@ template<typename T>
 marray do_repnum_ex(const_marray mVs, const_marray mNs)
 {
     check_vs_size(mNs, mVs);    
-    array1d<size_t> ns = do_get_nums(mNs);
-    const_aview1d<T> vs = view1d<T>(mVs);
+    array1d<int32_t> ns = do_get_nums(mNs);
+    caview1d<T> vs = view1d<T>(mVs);
     
-    size_t n = ns.nelems();
-    size_t N = sum(ns);
+    index_t n = ns.nelems();
+    int32_t N = 0;
+    for (index_t i = 0; i < n; ++i) N += ns[i];
     
     marray mR = mNs.nrows() == 1 ? 
         create_marray<T>(1, N) :
@@ -123,10 +124,10 @@ marray do_repnum_ex(const_marray mVs, const_marray mNs)
         
     T *r = mR.data<T>();
     
-    for (size_t i = 0; i < n; ++i)
+    for (index_t i = 0; i < n; ++i)
     {
         double v = vs(i);
-        for (size_t j = 0; j < ns(i); ++j)
+        for (int32_t j = 0; j < ns(i); ++j)
         {                        
             *(r++) = v;
         }
@@ -169,8 +170,6 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         const_marray mVs(prhs[0]);
         const_marray mNs(prhs[1]);
-        
-        mR;
         
         switch (mVs.class_id())
         {

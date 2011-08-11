@@ -70,24 +70,37 @@ else
     dim = double(dim);
 end
 
-% check K
+% check K and get d (vector or matrix form)
 
 if dim == 0  
-    if isvector(X)
-        check_K(K, numel(X));
+    if size(X, 1) > 1
+        dim = 1;
     else
-        check_K(K, size(X,1));    
-    end            
-else
-    check_K(K, size(X, dim));
-end       
+        dim = 2;
+    end
+end
+
+check_K(K, size(X, dim)); 
 
 %% main
 
+if dim == 2
+    X = X.';
+end
+
 if nargout <= 1
-    R = top_k_cimp(X, K, code, dim);
+    R = top_k_cimp(X, K, code);
+    
+    if dim == 2
+        R = R.';
+    end    
 else
-    [R, I] = top_k_cimp(X, K, code, dim);
+    [R, I] = top_k_cimp(X, K, code);
+    
+    if dim == 2
+        R = R.';
+        I = I.';
+    end
 end
 
             

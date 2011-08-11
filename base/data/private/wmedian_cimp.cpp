@@ -16,8 +16,8 @@ using namespace bcs::matlab;
 
 template<typename T>
 inline T find_wmedian(
-        const const_aview1d<T>& x,   // x : sorted values
-        const const_aview1d<T>& f)   // f : cumsum of sorted weights
+        const caview1d<T>& x,   // x : sorted values
+        const caview1d<T>& f)   // f : cumsum of sorted weights
 {
     int n = (int)x.nelems();
     T t = f[n-1] / 2;
@@ -46,8 +46,8 @@ inline marray do_wmedian(const_marray mX, const_marray mF)
     {
         if (n == 1)
         {
-            const_aview1d<T> x = view1d<T>(mX);
-            const_aview1d<T> f = view1d<T>(mF);
+            caview1d<T> x = view1d<T>(mX);
+            caview1d<T> f = view1d<T>(mF);
             
             T r = find_wmedian(x, f);
             
@@ -55,8 +55,8 @@ inline marray do_wmedian(const_marray mX, const_marray mF)
         }
         else
         {
-            const_aview2d<T, column_major_t> X = view2d<T>(mX);
-            const_aview2d<T, column_major_t> F = view2d<T>(mF);
+            caview2d<T, column_major_t> X = view2d<T>(mX);
+            caview2d<T, column_major_t> F = view2d<T>(mF);
             
             marray mR = create_marray<T>(1, n);
             aview1d<T> R = view1d<T>(mR);

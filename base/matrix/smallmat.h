@@ -82,7 +82,7 @@ inline bool test_size(const mxArray *mxA, int nr, int nc, int& n)
 {
     if (nc == 1)
     {
-        if (mxGetNumberOfDimensions(mxA) == 2 && mxGetM(mxA) == nr)
+        if (mxGetNumberOfDimensions(mxA) == 2 && (int)mxGetM(mxA) == nr)
         {
             n = mxGetN(mxA);
             return true;
@@ -97,7 +97,7 @@ inline bool test_size(const mxArray *mxA, int nr, int nc, int& n)
         int ndim = mxGetNumberOfDimensions(mxA);
         if (ndim == 2)
         {
-            if (mxGetM(mxA) == nr && mxGetN(mxA) == nc)
+            if ((int)mxGetM(mxA) == nr && (int)mxGetN(mxA) == nc)
             {            
                 n = 1;
                 return true;

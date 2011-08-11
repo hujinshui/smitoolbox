@@ -108,7 +108,7 @@ marray groups_to_cells(size_t ng, const std::vector<double>* gs)
 {    
     marray mC = create_mcell_array(1, ng);
     
-    for (int i = 0; i < ng; ++i)
+    for (int i = 0; i < (int)ng; ++i)
     {
         mC.set_cell(i, to_matlab_row(gs[i]));
     }
