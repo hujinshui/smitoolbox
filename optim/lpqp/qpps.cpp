@@ -36,7 +36,7 @@ struct entry
 
 
 template<typename T>
-void qpps(const_aview1d<T> f, aview1d<T> x, entry<T> *es)
+void qpps(caview1d<T> f, aview1d<T> x, entry<T> *es)
 {
     int d = (int)f.nelems();
     
@@ -89,8 +89,8 @@ void qpps(const_aview1d<T> f, aview1d<T> x, entry<T> *es)
 template<typename T>
 inline marray do_qpps(const_marray mF)
 {
-    size_t m = mF.nrows();
-    size_t n = mF.ncolumns();
+    index_t m = mF.nrows();
+    index_t n = mF.ncolumns();
     
     marray mX;
     entry<T> *es = 0;
@@ -99,30 +99,30 @@ inline marray do_qpps(const_marray mF)
     {
         if (m == 1)
         {
-            mX = create_marray<T>(1, n);
+            mX = create_marray<T>(1, (size_t)n);
             es = new entry<T>[n];
         }
         else
         {
-            mX = create_marray<T>(m, 1);
+            mX = create_marray<T>((size_t)m, 1);
             es = new entry<T>[m];
         }
         
-        const_aview1d<T> f = view1d<T>(mF);
+        caview1d<T> f = view1d<T>(mF);
         aview1d<T> x = view1d<T>(mX);
         
         qpps(f, x, es);        
     }
     else
     {
-        mX = create_marray<T>(m, n);
+        mX = create_marray<T>((size_t)m, (size_t)n);
         
-        const_aview2d<T, column_major_t> F = view2d<T>(mF); 
+        caview2d<T, column_major_t> F = view2d<T>(mF); 
         aview2d<T, column_major_t> X = view2d<T>(mX);
         
         es = new entry<T>[m];
         
-        for (index_t i = 0; i < (index_t)n; ++i)
+        for (index_t i = 0; i < n; ++i)
         {
             qpps(F.column(i), X.column(i), es);
         }
