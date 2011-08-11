@@ -59,6 +59,8 @@ inline mxArray* do_sqrtm2x2(const mxArray *mxA)
     {
         mexErrMsgIdAndTxt("sqrtm2x2:invalidarg", "The size of input array is invalid.");
     }
+    
+    return NULL;
 }
 
 

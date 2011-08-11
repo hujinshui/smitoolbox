@@ -1,3 +1,4 @@
+function r = sum_xlogy(X, Y, dim)
 % Compute the sum of the terms x * log(y) in a safe way
 %
 %   r = sum_xlogy(X, Y);
@@ -26,4 +27,21 @@
 %   -------
 %       - Created by Dahua Lin, on Mar 28, 2011
 %
+
+%% verify input arguments
+
+if ~(isfloat(X) && ndims(X) == 2 && isfloat(Y) && isequal(size(X), size(Y)))
+    error('sum_xlogy:invalidarg', ...
+        'X and Y should be numeric matrices of the same size.');
+end
+
+%% main
+
+Y(X == 0) = 1;
+
+if nargin < 3
+    r = dot(X, log(Y));
+else
+    r = dot(X, log(Y), dim);
+end
 

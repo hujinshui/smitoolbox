@@ -60,6 +60,8 @@ inline mxArray* do_inv2x2(const mxArray *mxA)
     {
         mexErrMsgIdAndTxt("inv2x2:invalidarg", "The size of input array is invalid.");
     }
+    
+    return NULL;
 }
 
 

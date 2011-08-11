@@ -29,7 +29,7 @@ void find_seg(size_t n, const T *v, std::vector<int>& offsets)
 void do_make_segs(int n, const std::vector<int>& offsets, bool make_row, 
         marray& mSp, marray& mEp)
 {        
-    size_t m = offsets.size() - 1;
+    int m = (int)offsets.size() - 1;
         
     mSp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);        
     mEp = make_row ? create_marray<double>(1, m+1) : create_marray<double>(m+1, 1);

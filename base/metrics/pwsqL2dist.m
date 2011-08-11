@@ -36,12 +36,17 @@ if nargin < 2
     X2 = [];
 end
 
-if ndims(X1) ~= 2 || ~isreal(X1)
+if ~(ndims(X1) == 2 && isfloat(X1) && isreal(X1))
     error('pwsqL2dist:invalidarg', 'X1 should be a real matrix.');
 end
 
-if ~isempty(X2) && (ndims(X2) ~= 2 || ~isreal(X2))
-    error('pwsqL2dist:invalidarg', 'X2 should be a matrix.');
+if ~isempty(X2) 
+    if ~(ndims(X2) == 2 && isfloat(X2) && isreal(X2))
+        error('pwsqL2dist:invalidarg', 'X2 should be a matrix.');
+    end
+    if size(X1,1) ~= size(X2,1)
+        error('pwsqL2dist:invalidarg', 'X1 and X2 should have the same #rows.');
+    end
 end
 
 if nargin < 3 || isempty(w)

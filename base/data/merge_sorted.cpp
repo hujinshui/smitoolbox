@@ -104,11 +104,11 @@ marray do_merge_multi(int K, const mxArray *srcs[], int dim)
     for (size_t i = 0; i < N; ++i)
     {
         int sk = -1;
-        T cv;
+        T cv = 0;
         
         for (int k = 0; k < K; ++k)
         {
-            if (ps[k] < ns[k])
+            if (ps[k] < (int)ns[k])
             {
                 if (sk < 0 || ptrs[k][ps[k]] < cv)
                 {
@@ -167,9 +167,9 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         int K = nrhs;
         
         int dim = 0;
-        mxClassID cid;
         
         // check inputs and determine dim
+        mxClassID cid = (mxClassID)(0);
         
         for (int k = 0; k < K; ++k)
         {
@@ -180,7 +180,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                 throw mexception("merge_sorted:invalidarg", 
                     "each input should be a numeric vector.");
             }
-            
+                        
             if (k == 0)
             {
                 cid = mS.class_id();                                
