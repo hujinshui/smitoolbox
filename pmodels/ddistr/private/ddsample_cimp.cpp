@@ -34,7 +34,7 @@ inline int locate_interval(int n, const T *redges, T v)
  *  
  *  samples: the obtained samples [n x m column-major]
  */
-void do_ddsample(size_t K, size_t m, size_t n, 
+void do_ddsample(size_t K, int m, int n, 
         const double *F, const double *V, int *samples)
 {
     if (m == 1)
@@ -76,7 +76,7 @@ void do_ddsample(size_t K, size_t m, size_t n,
 
 marray samples_to_matlab(int n, int m, int *samples)
 {
-    int N = n * m;
+    int N = (int)(n * m);
     marray mR = create_marray<double>(n, m);
     double *r = mR.data<double>();
     
@@ -109,9 +109,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     const double *F = mF.data<double>();
     const double *V = mV.data<double>();
             
-    size_t K = mF.nrows();
-    size_t m = mF.ncolumns();
-    size_t n = mV.nrows();    
+    int K = (int)mF.nrows();
+    int m = (int)mF.ncolumns();
+    int n = (int)mV.nrows();    
     
     // do sampling
     
