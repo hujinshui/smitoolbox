@@ -12,7 +12,7 @@
 
 #include <functional>
 #include <algorithm>
-
+#include <bcslib/array/array1d.h>
 
 using namespace bcs;
 using namespace bcs::matlab;

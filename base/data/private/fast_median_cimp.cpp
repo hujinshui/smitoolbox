@@ -9,6 +9,7 @@
  ********************************************************************/
 
 #include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/array/array2d.h>
 #include <algorithm>
 
 using namespace bcs;

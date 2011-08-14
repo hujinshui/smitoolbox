@@ -7,13 +7,13 @@
  *******************************************************************/
 
 #include <bcslib/matlab/bcs_mex.h>
-#include <random>
+#include <tr1/random>
 #include <set>
 
 using namespace bcs;
 using namespace bcs::matlab;
 
-typedef std::mt19937 rand_engine_t;
+typedef std::tr1::mt19937 rand_engine_t;
 
 inline int randi(rand_engine_t& eng, int m)
 {
