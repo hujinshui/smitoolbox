@@ -115,7 +115,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     // do sampling
     
-    block<int> s(m * n);
+    scoped_buffer<int> s(m * n);
     
     do_ddsample(K, m, n, F, V, s.pbase());
     

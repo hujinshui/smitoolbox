@@ -156,7 +156,7 @@ marray aggreg(const_marray mX, const_marray mI, int K)
         index_t n = x.nelems();
         
         aview1d<Tout> r = view1d<Tout>(mR);
-        r.fill(ag.init());
+        fill(r, ag.init());
         
         for (index_t i = 0; i < n; ++i)
         {
@@ -173,7 +173,7 @@ marray aggreg(const_marray mX, const_marray mI, int K)
         index_t n = X.ncolumns();
         
         aview2d<Tout, column_major_t> R = view2d<Tout>(mR);
-        R.fill(ag.init());
+        fill(R, ag.init());
         
         for (index_t i = 0; i < n; ++i)
         {
