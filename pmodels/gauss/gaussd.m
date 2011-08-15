@@ -7,7 +7,7 @@ classdef gaussd
     %
     %   Mean parameters include
     %   - mu:       the mean vector 
-    %   - sigma:    the covariance matrix object
+    %   - C:        the covariance matrix object
     %
     %   Information parameters include
     %   - c0:      the constant term
@@ -37,26 +37,43 @@ classdef gaussd
     %       - Created by Dahua Lin, on June 19, 2010
     %       - Modified by Dahua Lin, on Sep 15, 2010
     %       - Modified by Dahua Lin, on Nov 12, 2010
-    %           
+    %       - Modified by Dahua Lin, on Aug 14, 2011    
     %
     
     
     %% Properties
     
     properties(GetAccess='public', SetAccess='private')        
-        dim;    % the dimension of the vector space
-        num;    % the number of models contained in the object
-                        
+        dim;    % the dimension of the vector space (d)
+        num;    % the number of models contained in the object (n)
+        cform;  % the form of covariance matrix 
+                % 's':  isotropic covariance represented by scalar(s)
+                % 'd':  diagonal covariance represented by a vector of
+                %       diagonal entries
+                % 'f':  full covariance matrix(ces)
+                                   
         mu;     % the mean vector(s)
-        sigma;  % the covariance matrix object(s)
+                % in general, it is a d x n matrix
+                % when there is one model with zero mean vector, 
+                % mu can be represented as a zero scalar
+                
+        C;      % the covariance matrix(ces) in a possibly compressed form
+                % cform == 's': scalar or 1 x n row vector
+                % cform == 'd': d x 1 vector or d x n matrix
+                % cform == 'f': d x d matrix or d x d x n array
         
-        c0;     % the constant term(s) in information parameters
-        h;      % the potential vector
-        J;      % the information matrix       
+        c0;     % the constant term(s) (= mu * J * mu) 
+        h;      % the potential vector(s) (= J * mu)
+        J;      % the information matrix(ces) (= inv(cov))
+                % Note: J can be represented in a compressed form 
+                % depending on the value of cform
+                
         ldcov;  % the value of log(det(cov))
         
         has_mp = false; % whether the mean parameters are available
         has_ip = false; % whether the information parameters are available
+        shared_cov = false; % whether the covariance is shared
+        zmean = false;  % test whether it is a single model with zero mean
     end
     
     
@@ -64,69 +81,95 @@ classdef gaussd
     
     methods(Static)
         
-        function G = from_mp(mu, sigma, uip)
+        function G = from_mp(cf, mu, C, use_ip)
             % Create Gaussian distribution(s) from mean parameterization
             %
-            %   G = gaussd.from_mp(mu, sigma);
+            %   G = gaussd.from_mp(cf, mu, C);
             %       creates an object to represent Gaussian distributions
             %       using mean parameterization.
             %
             %       Input:
+            %       - cf:   the form of covariance matrix
             %       - mu:   the mean vector(s) [d x n matrix]
-            %               if the mean vector is zero, if can be simply
-            %               specified as a scalar 0 (in this case, sigma
-            %               can contain only one matrix).
-            %       - sigma: the covariance matrix. It should be an
-            %                object of a symmetric matrix class.
-            %                (udmat, dmat, gsymat, etc).
+            %       - C:    the covariance matrix represented in
+            %               the form specified by cf
             %
-            %   G = gaussd.from_mp(mu, sigma, 'ip');
+            %       The form of C:
+            %       cf == 's':  the covariance is like cov = c * I.
+            %                   As input, C is a scalar or 1 x n row
+            %                   vector, when n models are to be packed in
+            %                   this object.
+            %       cf == 'd':  the covariance is a diagonal matrix.
+            %                   As input, C is a dx1 column vector to 
+            %                   represent the diagonal entries, or 
+            %                   a d x n matrix when there are n models.
+            %       cf == 'f':  the covariance is in full matrix form.
+            %                   As input, C is a d x d covariance matrix,
+            %                   or a d x d x n array when with n models.
+            %
+            %   G = gaussd.from_mp(cf, mu, C, 'ip');
             %       additionally derives the information parameters.
             %                                    
             
             % verify input types
             
-            if ~(isfloat(mu) && ndims(mu) == 2)
+            if ~(ischar(cf) && isscalar(cf))
                 error('gaussd:from_mp:invalidarg', ...
-                    'mu should be a numeric matrix.');
+                    'cf should be a char scalar.');
             end
             
-            if ~(isobject(sigma))
+            if ~(isfloat(mu) && isreal(mu) && ndims(mu) == 2 && ~isempty(mu))
                 error('gaussd:from_mp:invalidarg', ...
-                    'sigma should be an object of symmetric matrix.');
+                    'mu should be a real matrix.');
+            end
+            
+            if ~(isfloat(C) && isreal(C) && ~isempty(mu))
+                error('gaussd:from_mp:invalidarg', ...
+                    'C should be a real array.');
             end
             
             % determine d and n
             
-            if isequal(mu, 0)
-                d = sigma.d;
-                if sigma.n ~= 1
+            [d, n] = size(mu);
+            
+            % verify the size of C
+            
+            switch cf
+                case 's'
+                    csiz1 = [1, 1];
+                    csiz = [1, n];
+                case 'd'
+                    csiz1 = [d, 1];
+                    csiz = [d, n];
+                case 'f'
+                    csiz1 = [d, d];
+                    if n == 1
+                        csiz = [d, d];
+                    else
+                        csiz = [d, d, n];
+                    end
+                otherwise
                     error('gaussd:from_mp:invalidarg', ...
-                        'sigma must be a single-matrix object when mu is 0.');
-                end
-                n = 1;
-            else
-                [d, n] = size(mu);
-                if sigma.d ~= d
-                    error('gaussd:from_mp:invalidarg', ...
-                        'The dimension of sigma does not match that of mu.');
-                end
-                
-                sn = sigma.n;
-                if sn > 1 && sn ~= n
-                    error('gaussd:from_mp:invalidarg', ...
-                        'The sigma.n does not match size(mu, 2).');
-                end
+                        'The argument cf is invalid.');
             end
+                    
+            if isequal(size(C), csiz1)
+                sn = 1;
+            elseif isequal(size(C), csiz)
+                sn = n;
+            else
+                error('gaussd:from_mp:invalidarg', ...
+                    'The size of C is incorrect.');
+            end                
             
-            % determine whether to use ip
+            % determine whether to use ip (information parameter)
             
-            if nargin >= 3
-                if strcmp(uip, 'ip')
+            if nargin >= 4
+                if strcmpi(use_ip, 'ip')
                     uip = true;
                 else
                     error('gaussd:from_mp:invalidarg', ...
-                        'The 3rd argument should be ''ip''.');
+                        'The 4th argument can only be ''ip''.');
                 end
             else
                 uip = false;
@@ -138,25 +181,26 @@ classdef gaussd
             
             G.dim = d;
             G.num = n;
+            G.cform = cf;   
+            
             G.mu = mu;
-            G.sigma = sigma;
+            G.C = C;
             G.has_mp = true;
+            
+            G.shared_cov = (sn == 1);
+            G.zmean = (n == 1 && all(mu == 0));
                             
             % derive canonical parameters (if requested)
             
-            if uip
-                Jm = inv(sigma);
-                ldc = lndet(sigma);
+            if uip                
+                Jm = gmat_inv(cf, C);
+                ldc = gmat_lndet(cf, d, C);
                 
-                if isequal(mu, 0)
+                if G.zmean
                     hv = 0;
                     cv = 0;
                 else
-                    if sn == 1
-                        hv = Jm * mu; %#ok<MINV>
-                    else
-                        hv = cmv(Jm, mu);
-                    end
+                    hv = gmat_mvmul(cf, Jm, mu);                    
                     cv = dot(hv, mu, 1);
                 end
                 
@@ -169,49 +213,53 @@ classdef gaussd
         end        
         
         
-        function G = from_ip(h, J, c0, ump)
+        function G = from_ip(cf, h, J, c0, use_mp)
             % Create Gaussian distribution(s) from information parameters
             %
-            %   G = gaussd.from_ip(h, J);
-            %   G = gaussd.from_ip(h, J, c0);
+            %   G = gaussd.from_ip(cf, h, J);
+            %   G = gaussd.from_ip(cf, h, J, c0);
             %       creates an object to represent Gaussian distributions
             %       using information parameterization.
             %
             %       Input:
-            %       - h:    the potential vectors [d x n matrix]
-            %               For the models with zero means, h can be
-            %               simply input as a scalar 0.            
-            %       - J:    the information matrix object
-            %       - c0:   the constant term. The function will compute
-            %               c0 if it is not specified.
+            %       - cf:   the form of covariance matrix
+            %       - h:    the potential vector(s) [d x n matrix]
+            %       - J:    the information matrix in specified form (cf)
+            %       - c0:   the pre-computed constant term. 
+            %               The function will compute it if not given.
             %
-            %   G = gaussd.from_ip(h, J, [], 'mp');
-            %   G = gaussd.from_ip(h, J, c0, 'mp');
+            %   G = gaussd.from_ip(cf, h, J, [], 'mp');
+            %   G = gaussd.from_ip(cf, h, J, c0, 'mp');
             %       additionally derives the mean parameters.
             %
             
             % verify input types
             
-            if ~(isfloat(h) && ndims(h) == 2)
-                error('gaussd:from_cp:invalidarg', ...
-                    'h should be a numeric matrix.');
+            if ~(ischar(cf) && isscalar(cf))
+                error('gaussd:from_ip:invalidarg', ...
+                    'cf should be a char scalar.');
             end
             
-            if ~isobject(J)
-                error('gaussd:from_cp:invalidarg', ...
-                    'J should be an object of symmetric matrix.');
+            if ~(isfloat(h) && isreal(h) && ndims(h) == 2)
+                error('gaussd:from_ip:invalidarg', ...
+                    'h should be a real matrix.');
             end
             
-            if nargin < 3
+            if ~(isfloat(J) && isreal(J))
+                error('gaussd:from_ip:invalidarg', ...
+                    'J should be an array of real values.');
+            end
+            
+            if nargin < 4
                 c0 = [];
             end
             
-            if nargin >= 4
-                if strcmp(ump, 'mp')
+            if nargin >= 5
+                if strcmpi(use_mp, 'mp')
                     ump = true;
                 else
-                    error('gaussd:from_cp:invalidarg', ...
-                        'The 4th argument should be ''mp''.');
+                    error('gaussd:from_ip:invalidarg', ...
+                        'The 5th argument can only be ''mp''.');
                 end
             else
                 ump = false;
@@ -219,82 +267,86 @@ classdef gaussd
             
             % determine d and n
             
-            if isequal(h, 0)
-                d = J.d;
-                n = J.n;             
-            else
-                [d, n] = size(h);
-                if J.d ~= d
-                    error('gaussd:from_cp:invalidarg', ...
-                        'The dimension of J does not match that of h.');
-                end
-                
-                sn = J.n;
-                if sn > 1 && sn ~= n
-                    error('gaussd:from_cp:invalidarg', ...
-                        'The J.n does not match size(h, 2).');
-                end
-            end
+            [d, n] = size(h);
             
+            % verify the size of J
             
-            % determine mu and sigma                       
-            
-            if ump                
-                sigma_ = inv(J);
-                if isequal(h, 0)
-                    mu_ = 0;
-                else
-                    if sn == 1
-                        mu_ = sigma_ * h; %#ok<MINV>
+            switch cf
+                case 's'
+                    jsiz1 = [1, 1];
+                    jsiz = [1, n];
+                case 'd'
+                    jsiz1 = [d, 1];
+                    jsiz = [d, n];
+                case 'f'
+                    jsiz1 = [d, d];
+                    if n == 1
+                        jsiz = [d, d];
                     else
-                        mu_ = cmv(sigma_, h);
+                        jsiz = [d, d, n];
                     end
-                end                
-            else
-                if isequal(h, 0)
-                    mu_ = 0;
-                else
-                    if sn == 1
-                        mu_ = J \ h;
-                    else
-                        mu_ = cdv(J, h);
-                    end
-                end
+                otherwise
+                    error('gaussd:from_ip:invalidarg', ...
+                        'The argument cf is invalid.');
             end
+                    
+            if isequal(size(J), jsiz1)
+                sn = 1;
+            elseif isequal(size(J), jsiz)
+                sn = n;
+            else
+                error('gaussd:from_ip:invalidarg', ...
+                    'The size of J is incorrect.');
+            end 
                         
-            % determine c0 and ldc
-                                                                                    
-            if ~isempty(c0)
-                if ~(isfloat(c0) && isequal(size(c0), [1 n]))
-                    error('gaussd:from_cp:invalidarg', ...
-                        'c0 should be a numeric vector of size 1 x n.');
-                end
-            else                
-                if isequal(h, 0)
-                    c0 = 0;
-                else
-                    c0 = dot(h, mu_, 1);
-                end
-            end                      
-            
-            ldc = -lndet(J);
-            
             % construct Gaussian object
             
             G = gaussd();
             
             G.dim = d;
             G.num = n;
-            G.c0 = c0;
+            G.cform = cf;
+                    
             G.h = h;
             G.J = J;
-            G.ldcov = ldc;
-            
+            G.ldcov = - gmat_lndet(cf, d, J);
             G.has_ip = true;
             
+            G.shared_cov = (sn == 1);
+            G.zmean = (n == 1 && all(h == 0));
+            
+            % derive mean parameters                     
+            
+            if ump                
+                Cm = gmat_inv(cf, J);
+                if isequal(h, 0)
+                    mv = 0;
+                else
+                    mv = gmat_mvmul(cf, Cm, h);
+                end                
+            end
+                        
+            % determine c0 and ldc
+                                                                                    
+            if ~isempty(c0)
+                if ~(isfloat(c0) && isreal(c0) && isequal(size(c0), [1 n]))
+                    error('gaussd:from_ip:invalidarg', ...
+                        'c0 should be a real vector of size 1 x n.');
+                end
+            else                
+                if G.zmean
+                    c0 = 0;
+                else
+                    c0 = dot(h, mv, 1);
+                end
+            end          
+            G.c0 = c0;
+            
+            % construct Gaussian object         
+            
             if ump
-                G.mu = mu_;
-                G.sigma = sigma_;
+                G.mu = mv;
+                G.C = Cm;
                 G.has_mp = true;
             end           
         end
@@ -323,8 +375,8 @@ classdef gaussd
             %
             
             if ~G.has_ip
-                error('gaussd:sqmahdist:nocp', ...
-                    'Information parameters are required.');
+                error('gaussd:sqmahdist:noip', ...
+                    'Information parameters are needed.');
             end
             
             % take parameters
@@ -332,32 +384,30 @@ classdef gaussd
             c0_ = G.c0;
             h_ = G.h;
             J_ = G.J;
+            zm = G.zmean;
+            scov = G.shared_cov;
             
             if nargin >= 3
-                c0_ = c0_(:, si);
-                if ~isequal(h_, 0)
+                c0_ = c0_(1, si);
+                if ~zm
                     h_ = h_(:, si);
                 end
-                if J_.n ~= 1
-                    J_ = J_.take(si);
+                if ~scov
+                    J_ = gmat_sub(cf, J_, si);
                 end
             end                        
                 
             % compute 
             
-            t2 = quad(J_, X, X);
+            t2 = gmat_quad(cf, J_, X, X);
             
-            if isequal(h_, 0)
+            if zm
                 D = t2;
             else
-                if isequal(h_, 0)
-                    t1 = 0;
-                else
-                    t1 = h_' * X;
-                end
+                t1 = h_' * X;
                 
-                n1 = size(h_, 2);
-                n2 = J_.n;
+                n1 = size(t1, 1);
+                n2 = size(t2, 1);
                 if n1 == 1
                     D = t2 - 2 * t1 + c0_;
                 else
@@ -370,75 +420,7 @@ classdef gaussd
                 end
             end
         end
-        
-        
-        function D = sqmahdist_map(G, X, M)
-            % Compute the squared Mahalanobis distances to remapped centers
-            %
-            %   D = G.sqmahdist_remap(X, M);
-            %       
-            %       Suppose X comprises n samples, then M should be
-            %       a vector of 1 x n, and the output D is also a
-            %       vector of size 1 x n.
-            %
-            %       D(i) equals the squared Mahalanobis distance between
-            %       X(:,i) the the M(i)-th center of the object.
-            %
-            
-            if ~G.has_ip
-                error('gaussd:sqmahdist_remap:nocp', ...
-                    'Information parameters are required.');
-            end
-            
-            nx = size(X, 2);
-            if nx ~= size(M, 2)
-                error('gaussd:sqmahdist_remap:invalidarg', ...
-                    'The sizes of X and M are inconsistent.');
-            end            
-            
-            % take parameters
-            
-            c0_ = G.c0;
-            h_ = G.h;
-            J_ = G.J;
-            
-            % compute
-            
-            if isequal(h_, 0)
-                t1 = 0;
-            else
-                t1 = dot(h_(:, M), X, 1);
-            end
-            
-            if J_.n == 1
-                t2 = quad(J_, X, X);                
-            else                
-                K = J_.n;
-                t2 = zeros(1, nx);
                 
-                if nx <= 2 * K
-                    for i = 1 : nx
-                        cx = X(:, i);
-                        t2(i) = quad(J_.take(M(i)), cx, cx);
-                    end
-                else
-                    gs = intgroup(K, M);                
-                    for k = 1 : K
-                        cg = gs{k};
-                        cX = X(:,cg);
-                        t2(cg) = quad(J_.take(k), cX, cX);
-                    end
-                end
-            end
-            
-            if ~isscalar(c0_)
-                c0_ = c0_(M);
-            end
-            
-            D = t2 - 2 * t1 + c0_;
-        end
-        
-        
         
         function L = logpdf(G, X, si)
             % Compute logarithm of PDF of given samples
@@ -465,11 +447,12 @@ classdef gaussd
                 a0 = G.ldcov + G.dim * log(2 * pi);
             else
                 D = sqmahdist(G, X, si);
-                if G.J.n == 1
-                    a0 = G.ldcov + G.dim * log(2 * pi);
+                if G.shared_cov
+                    ldc = G.ldcov;
                 else
-                    a0 = G.ldcov(:, si) + G.dim * log(2 * pi);
+                    ldc = G.ldcov(1, si);
                 end
+                a0 = ldc + G.dim * log(2 * pi);
             end
             
             if isscalar(a0)
@@ -479,31 +462,7 @@ classdef gaussd
             end
         end
         
-        
-        function L = logpdf_map(G, X, M)
-            % Compute log-pdf of samples with respect to mapped Gaussians
-            %
-            %   L = logpdf_map(G, X, M);
-            %       
-            %       Suppose X comprises n samples, then M should be
-            %       a vector of 1 x n, and the output D is also a
-            %       vector of size 1 x n.
-            %
-            %       L(i) equals the log-pdf of X(:,i) with respect to
-            %       the M(i)-the Gaussian contained in G.
-            %
-            
-            D = sqmahdist_map(G, X, M);
-            if G.J.n == 1
-                a0 = G.ldcov + G.dim * log(2 * pi);
-            else
-                a0 = G.ldcov(M) + G.dim * log(2 * pi);
-            end
-            
-            L = -0.5 * (D + a0);
-        end
-                        
-        
+                                     
         function P = pdf(G, X, si)
             % Compute the probability density function
             %                        
@@ -530,23 +489,7 @@ classdef gaussd
                 P = exp(logpdf(G, X, si));
             end            
         end                              
-        
-        
-        function P = pdf_map(G, X, M)
-            % Compute pdf of samples with respect to mapped Gaussians
-            %
-            %   P = logpdf_map(G, X, M);
-            %       
-            %       Suppose X comprises n samples, then M should be
-            %       a vector of 1 x n, and the output D is also a
-            %       vector of size 1 x n.
-            %
-            %       P(i) equals the pdf of X(:,i) with respect to
-            %       the M(i)-the Gaussian contained in G.
-            %
-            
-            P = logpdf_map(G, X, M);
-        end
+                
     end
     
     
@@ -571,22 +514,26 @@ classdef gaussd
             %
             
             if ~G.has_ip
-                error('gaussd:inject:nocp', 'Information parameters are required.');
+                error('gaussd:inject:noip', ...
+                    'Information parameters are needed.');
             end
             
             h0 = G.h;
             J0 = G.J;
+            zm = G.zmean;
+            scov = G.shared_cov;
+            
             if nargin >= 4 && ~isempty(i)
-                if ~isequal(h0, 0)
+                if ~zm
                     h0 = h0(:, i);
                 end
                 
-                if J0.n ~= 1
+                if ~scov
                     J0 = J0.take(i);
                 end
             end
             
-            if isequal(h0, 0)
+            if zm
                 h1 = ha;
             else
                 if size(h0, 2) == size(ha, 2)
@@ -626,9 +573,9 @@ classdef gaussd
             end
             
             if nargin < 5
-                Gpos = gaussd.from_ip(h1, J1);
+                Gpos = gaussd.from_ip(G.cf, h1, J1);
             else
-                Gpos = gaussd.from_ip(h1, J1, [], ump);
+                Gpos = gaussd.from_ip(G.cf, h1, J1, [], ump);
             end                        
         end
         
@@ -654,15 +601,15 @@ classdef gaussd
             end
             
             if nargout < 2
-                M = cdv(J1, h1);
+                M = gmat_lsolve(G.cf, J1, h1);
             else
                 C = inv(J1);
-                M = cmv(C, h1);
+                M = gmat_mvmul(G.cf, C, h1);
             end            
         end
 
         
-        function X = sample(G, n, i, rstream)
+        function X = sample(G, n, i)
             % Samples from the Gaussian distribution
             %
             %   X = G.sample();                                
@@ -690,50 +637,39 @@ classdef gaussd
             %
             %       When i is a vector, then n can be a vector of the 
             %       same size. In this case, it draws n(j) samples from
-            %       the i(j)-th distribution.
-            %
-            %   X = G.sample(n, [], rstream);
-            %   X = G.sample(n, i, rstream);
-            %       one can further specifies the random number stream
-            %       to be used in the sampling.            
+            %       the i(j)-th distribution.                     
             %
             
             if ~G.has_mp
-                error('gaussd:sample:invalidarg', ...
-                    'Mean parameters are required.');
+                error('gaussd:sample:nomp', ...
+                    'Mean parameters are needed.');
             end
             
             if nargin < 2; n = 1; end
             if nargin < 3; i = []; end
-            if nargin < 4; rstream = []; end
             
-            X = gsample(G.mu, G.sigma, n, i, rstream);         
+            X = gsample(G.mu, G.C, n, i);         
         end
         
         
-        function X = pos_sample(G, ha, Ja, n, i, rstream)
+        function X = pos_sample(G, ha, Ja, n, i)
             % Samples from posterior distribution                  
             %
             %   X = G.pos_sample(ha, Ja);
             %   X = G.pos_sample(ha, Ja, n, i);             
-            %   X = G.pos_sample(ha, Ja, n, [], rstream);
-            %   X = G.pos_sample(ha, Ja, n, i, rstream);
             %
             %       draws a sample from the posterior distribution 
             %       conditioned on the observations injected through
             %       ha and Ja (addends to the potential vector and
             %       information matrix).                        
             %
-            %       please refer to the help of the sample method for 
-            %       details of what different syntax means.
             %
 
             if nargin < 4; n = 1; end
             if nargin < 5; i = []; end
-            if nargin < 6; rstream = []; end
                         
-            [M, C] = pos_mean(G, ha, Ja, i);
-            X = gsample(M, C, n, [], rstream);
+            [Mu, Cm] = pos_mean(G, ha, Ja, i);
+            X = gsample(Mu, Cm, n, []);
         end
         
     end
@@ -756,21 +692,25 @@ classdef gaussd
                     'The model should have G.has_mp and G.dim == 2.');
             end            
             
-            mu_ = G.mu;
-            sigma_ = G.sigma;
+            mu_ = double(G.mu);
+            C_ = double(G.C); 
+            n = G.num;
+            scov = G.shared_cov;
+            cf_ = G.cf;
             
-            for i = 1 : G.num
+            for i = 1 : n
                 
-                if sigma_.n == 1
-                    C = sigma_;
+                if scov || n == 1
+                    cc = C_;
                 else
-                    C = sigma_.take(i);
+                    cc = gmat_sub(cf_, C_, i);
                 end                
                 u = mu_(:, i);                                
                 
                 ns = 500;
                 t = linspace(0, 2*pi, ns);
-                x = bsxfun(@plus, C.choltrans([cos(t); sin(t)]) * r, u);
+                x0 = [cos(t); sin(t)];
+                x = bsxfun(@plus, gmat_choltrans(cf_, cc, x0) * r, u);
                 
                 hold on;
                 plot(x(1,:), x(2,:), varargin{:});                
