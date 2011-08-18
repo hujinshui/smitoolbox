@@ -6,12 +6,20 @@ function R = gmat_choltrans(cf, C, X)
 
 switch cf
     case 's'
-        R = sqrt(C) * X;
+        if C == 1
+            R = X;
+        else
+            R = sqrt(C) * X;
+        end
         
     case 'd'
         d = size(C, 1);
         if d == 1
-            R = sqrt(C) * X;
+            if C == 1
+                R = X;
+            else
+                R = sqrt(C) * X;
+            end
         else
             R = bsxfun(@times, sqrt(C), X);
         end
@@ -20,8 +28,10 @@ switch cf
         d = size(C, 1);
         if d == 1
             R = sqrt(C) * X;
+        elseif d == 2
+            R = chol2x2(C) * X;
         else
-            R = chol(C) * X;
+            R = chol(C, 'lower') * X;
         end
             
 end
