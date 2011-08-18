@@ -14,12 +14,12 @@ function G = gaussmle(X, W, varargin)
 %
 %       One can specify additional parameters
 %
-%       - 'cov_type':   the covariance type, which can be either of 
+%       - 'cform':      the covariance form, which can be either of 
 %                       the following: 
-%                       - 'full':   full covariance matrix
-%                       - 'diag':   diagonal covariance
-%                       - 'iso':    isotropic covariance, i.e. eye(d) * v
-%                       default = 'full'
+%                       - 's':  isotropic covariance, i.e. eye(d) * v
+%                       - 'd':  diagonal covariance
+%                       - 'f':  full covariance matrix                                             
+%                       default = 'f'
 %
 %       - 'tie_cov':    whether to tie the covariance of all models
 %                       together in estimation.
@@ -51,23 +51,20 @@ else
     end
 end
 
-opts = struct('cov_type', 'full', 'tie_cov', false, 'use_ip', false);
+opts = struct('cform', 'f', 'tie_cov', false, 'use_ip', false);
 if nargin > 2
     opts = parlist(opts, varargin{:});
 end
 
-%% preparation
+cf = opts.cform;
+if ~(ischar(cf) && isscalar(cf) && (cf == 's' || cf == 'd' || cf == 'f'))
+    error('gaussmle:invalidarg', ...
+        'cform should be either ''s'' or ''d'' or ''f''.');
+end
 
-switch opts.cov_type
-    case 'iso'
-        ctype = 1;
-    case 'diag'
-        ctype = 2;
-    case 'full'
-        ctype = 3;
-    otherwise
-        error('Invalid covariance type %s', opts.cov_type);
-end        
+%% main
+
+% preparation
 
 if isscalar(W)
     Wt = [];
@@ -80,54 +77,52 @@ else
     K = size(W, 1);
 end
 
-%% do computation
-
 % estimate mean vectors
 
 mu = mean_w(X, Wt);
 
 % estimate variance / covariance
 
-if ctype == 1
-    ex2 = mean_w(dot(X, X, 1), Wt);
-    v = ex2 - dot(mu, mu, 1);    
-    if K > 1 && opts.tie_cov
-        v = mean_w(v, sw);
-    end    
-    sigma = udmat(d, v / d);
-    
-elseif ctype == 2
-    ex2 = mean_w(X.^2, Wt);
-    v = ex2 - mu .^ 2;
-    if K > 1 && opts.tie_cov
-        v = mean_w(v, sw);
-    end
-    sigma = dmat(v);
-    
-elseif ctype == 3
-    if K == 1
-        C = calc_cov(X, mu, Wt);
-    else        
-        if opts.tie_cov
-            C = zeros(d, d);
-            for k = 1 : K
-                C = C + sw(k) * calc_cov(X, mu(:,k), Wt(:,k));
-            end
-        else
-            C = zeros(d, d, K);
-            for k = 1 : K
-                C(:,:,k) = calc_cov(X, mu(:,k), Wt(:,k));
-            end
+switch cf
+    case 's'
+        ex2 = mean_w(dot(X, X, 1), Wt);
+        v = ex2 - dot(mu, mu, 1);
+        if K > 1 && opts.tie_cov
+            v = mean_w(v, sw);
         end
-    end
-    sigma = gsymat(C);
-    
+        C = v / d;
+        
+    case 'd'
+        ex2 = mean_w(X.^2, Wt);
+        v = ex2 - mu .^ 2;
+        if K > 1 && opts.tie_cov
+            v = mean_w(v, sw);
+        end
+        C = v;
+                
+    case 'f'
+        if K == 1
+            C = calc_cov(X, mu, Wt);
+        else
+            if opts.tie_cov
+                C = zeros(d, d);
+                for k = 1 : K
+                    C = C + sw(k) * calc_cov(X, mu(:,k), Wt(:,k));
+                end
+            else
+                C = zeros(d, d, K);
+                for k = 1 : K
+                    C(:,:,k) = calc_cov(X, mu(:,k), Wt(:,k));
+                end
+            end
+        end        
 end
 
+
 if opts.use_ip
-    G = gaussd.from_mp(mu, sigma, 'ip');
+    G = gaussd.from_mp(cf, mu, C, 'ip');
 else
-    G = gaussd.from_mp(mu, sigma);
+    G = gaussd.from_mp(cf, mu, C);
 end
 
 

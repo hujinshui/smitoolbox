@@ -197,7 +197,7 @@ classdef gaussd
                 ldc = gmat_lndet(cf, d, C);
                 
                 if G.zmean
-                    hv = 0;
+                    hv = zeros(d, n, class(mu));
                     cv = 0;
                 else
                     hv = gmat_mvmul(cf, Jm, mu);                    
@@ -319,11 +319,11 @@ classdef gaussd
             
             if ump                
                 Cm = gmat_inv(cf, J);
-                if isequal(h, 0)
-                    mv = 0;
+                if G.zmean
+                    mv = zeros(d, n, class(h));
                 else
                     mv = gmat_mvmul(cf, Cm, h);
-                end                
+                end 
             end
                         
             % determine c0 and ldc
@@ -337,7 +337,8 @@ classdef gaussd
                 if G.zmean
                     c0 = 0;
                 else
-                    c0 = dot(h, mv, 1);
+                    mv = gmat_lsolve(cf, J, h);
+                    c0 = dot(h, mv, 1);                    
                 end
             end          
             G.c0 = c0;
@@ -381,6 +382,7 @@ classdef gaussd
             
             % take parameters
             
+            cf = G.cform;
             c0_ = G.c0;
             h_ = G.h;
             J_ = G.J;
@@ -420,7 +422,7 @@ classdef gaussd
                 end
             end
         end
-                
+        
         
         function L = logpdf(G, X, si)
             % Compute logarithm of PDF of given samples
@@ -496,118 +498,116 @@ classdef gaussd
     %% Inference and Sampling
     
     methods
-        
-        
-        function [h1, J1] = inject(G, ha, Ja, i)
-            % Compute the posterior with injected observations
+        function [hp, Jp, cfp] = add_info(G, ho, Jo, cfo, i)
+            % Adds information params to the current model
             %
-            %   [h1, J1] = inject(G, ha, Ja);
-            %   [h1, J1] = inject(G, ha, Ja, i);
-            %       computes the information parameters of the posterior 
-            %       Gaussian distribution with the observations 
-            %       injected with ha and Ja, which are quantities to be 
-            %       added to h and J respectively.            
+            %   [hp, Jp, cfp] = G.add_info(ho, Jo, cfo);
+            %       adds the information parameters that reflect the 
+            %       feedback of the observations, to obtain the posterior
+            %       information parameters.
             %
-            %       The output h1 and J1 are respectively the potential
-            %       vector and information matrix of the posterior
-            %       Gaussian distribution.
+            %   [hp, Jp, cfp] = G.add_info(ho, Jo, cfo, i);
+            %       the information are to be added to the i-th model
+            %       in this object.
             %
             
+            % verify input arguments
+            
             if ~G.has_ip
-                error('gaussd:inject:noip', ...
+                error('gaussd:add_info:noip', ...
                     'Information parameters are needed.');
             end
             
-            h0 = G.h;
-            J0 = G.J;
-            zm = G.zmean;
-            scov = G.shared_cov;
+            [d, n] = size(ho);
+            if d ~= G.dim
+                error('gaussd:add_info:invalidarg', ...
+                    'The input dimension does not match the model dimension.');
+            end                        
+            if gmat_num(cfo, Jo) ~= n
+                error('gaussd:add_info:invalidarg', ...
+                    'The #components of the inputs ho and Jo are inconsistent.');
+            end 
             
-            if nargin >= 4 && ~isempty(i)
-                if ~zm
-                    h0 = h0(:, i);
+            cf0 = G.cform;                                      
+            if nargin < 5 || isempty(i)
+                n0 = G.num;
+                if ~(n0 == 1 || n0 == n)
+                    error('gaussd:add_info:invalidarg', ...
+                        'The #components of the inputs do not match the models.');
+                end
+                                
+                h0 = G.h;
+                J0 = G.J;
+            else
+                if ~(isnumeric(i) && isscalar(i) && i == fix(i) && i >= 1)
+                    error('gaussd:add_info:invalidarg', ...
+                        'The index i should be an integer scalar.');
+                end
+                if n ~= 1
+                    error('gaussd:add_info:invalidarg', ...
+                        'The #components of input must be one when i is specified.');
                 end
                 
-                if ~scov
-                    J0 = J0.take(i);
-                end
+                n0 = 1;
+                h0 = G.h(:, i);
+                J0 = gmat_sub(cf0, G.J, i);
             end
+             
+            % main
             
-            if zm
-                h1 = ha;
+            if n == n0
+                hp = h0 + ho;            
             else
-                if size(h0, 2) == size(ha, 2)
-                    h1 = h0 + ha;
-                else
-                    h1 = bsxfun(@plus, h0, ha);
-                end
+                hp = bsxfun(@plus, h0, ho);
             end
             
-            J1 = J0 + Ja; 
+            [cfp, Jp] = gmat_plus(cf0, J0, cfo, Jo); 
         end
         
         
-        function Gpos = posterior(G, ha, Ja, i, ump)
-            % Compute the posterior Gaussian distribution
+        function Mp = pos_mean(G, ho, Jo, cfo, i)
+            % Get the posterior mean(s) given observed information
             %
-            %   Gpos = posterior(G, ha, Ja);
-            %   Gpos = posterior(G, ha, Ja, i);
-            %       Gets the posterior Gaussian given the observations
-            %       summarized by ha and Ja, which are to be injected
-            %       to the information parameters of the prior.
-            %       
-            %       By default, the returned object is with only
-            %       information parameters.                        
-            %   
-            %   Gpos = posterior(G, ha, Ja, [], 'mp');
-            %   Gpos = posterior(G, ha, Ja, i, 'mp');                  
-            %       Returns the posterior distribution object with
-            %       both information parameters together with
-            %       mean parameters.
+            %   Mp = G.pos_mean(ho, Jo, cfo);
+            %   Mp = G.pos_mean(ho, Jo, cfo, i);
             %
-            
-            if nargin < 4 || isempty(i)
-                [h1, J1] = inject(G, ha, Ja);
-            else
-                [h1, J1] = inject(G, ha, Ja, i);
-            end
             
             if nargin < 5
-                Gpos = gaussd.from_ip(G.cf, h1, J1);
+                [hp, Jp, cfp] = inject(G, ho, Jo, cfo);
             else
-                Gpos = gaussd.from_ip(G.cf, h1, J1, [], ump);
-            end                        
-        end
-        
-        
-        function [M, C] = pos_mean(G, ha, Ja, i)
-            % Compute the mean parameters of posterior distribution
-            %
-            %   M = G.posterior_mean(G, ha, Ja);
-            %   M = G.posterior_mean(G, ha, Ja, i);
-            %
-            %       solves the mean of the posterior Gaussian distribution.
-            %       
-            %   [M, C] = G.posterior_mean(G, ha, Ja);
-            %   [M, C] = G.posterior_mean(G, ha, Ja, i);
-            %
-            %       additionally returns the covariance object.
-            %
-            
-            if nargin < 4 || isempty(i)
-                [h1, J1] = inject(G, ha, Ja);
-            else
-                [h1, J1] = inject(G, ha, Ja, i);
+                [hp, Jp, cfp] = inject(G, ho, Jo, cfo, i);
             end
             
-            if nargout < 2
-                M = gmat_lsolve(G.cf, J1, h1);
-            else
-                C = inv(J1);
-                M = gmat_mvmul(G.cf, C, h1);
-            end            
+            Mp = gmat_lsolve(cfp, Jp, hp);            
         end
-
+        
+        
+        function X = pos_sample(G, ho, Jo, cfo, n, i)
+            % sample from posterior Gaussian distribution
+            %
+            %   X = pos_sample(G, ho, Jo, cfo, n);
+            %   X = pos_sample(G, ho, Jo, cfo, n, i);
+            %       draws n samples from the model given observed
+            %       information.
+            %
+            
+            if size(ho, 2) ~= 1
+                error('gaussd:pos_sample:invalidarg', ...
+                    'The #components of the input must be 1.');
+            end
+            
+            if nargin < 6
+                [hp, Jp, cfp] = inject(G, ho, Jo, cfo);
+            else
+                [hp, Jp, cfp] = inject(G, ho, Jo, cfo, i);
+            end
+            
+            C_p = gmat_inv(Jp);
+            mu_p = gmat_mvmul(cfp, Jp, hp);
+            
+            X = gsample(cfp, mu_p, C_p, n);            
+        end        
+        
         
         function X = sample(G, n, i)
             % Samples from the Gaussian distribution
@@ -643,35 +643,16 @@ classdef gaussd
             if ~G.has_mp
                 error('gaussd:sample:nomp', ...
                     'Mean parameters are needed.');
-            end
-            
+            end            
             if nargin < 2; n = 1; end
-            if nargin < 3; i = []; end
             
-            X = gsample(G.mu, G.C, n, i);         
+            if nargin < 3
+                X = gmat_sample(G.cform, G.mu, G.C, n);
+            else
+                X = gmat_sample(G.cform, G.mu, G.C, n, i);
+            end
         end
-        
-        
-        function X = pos_sample(G, ha, Ja, n, i)
-            % Samples from posterior distribution                  
-            %
-            %   X = G.pos_sample(ha, Ja);
-            %   X = G.pos_sample(ha, Ja, n, i);             
-            %
-            %       draws a sample from the posterior distribution 
-            %       conditioned on the observations injected through
-            %       ha and Ja (addends to the potential vector and
-            %       information matrix).                        
-            %
-            %
-
-            if nargin < 4; n = 1; end
-            if nargin < 5; i = []; end
-                        
-            [Mu, Cm] = pos_mean(G, ha, Ja, i);
-            X = gsample(Mu, Cm, n, []);
-        end
-        
+                
     end
     
     
@@ -696,21 +677,21 @@ classdef gaussd
             C_ = double(G.C); 
             n = G.num;
             scov = G.shared_cov;
-            cf_ = G.cf;
+            cf = G.cform;
             
             for i = 1 : n
                 
                 if scov || n == 1
                     cc = C_;
                 else
-                    cc = gmat_sub(cf_, C_, i);
+                    cc = gmat_sub(cf, C_, i);
                 end                
                 u = mu_(:, i);                                
                 
                 ns = 500;
                 t = linspace(0, 2*pi, ns);
                 x0 = [cos(t); sin(t)];
-                x = bsxfun(@plus, gmat_choltrans(cf_, cc, x0) * r, u);
+                x = bsxfun(@plus, gmat_choltrans(cf, cc, x0) * r, u);
                 
                 hold on;
                 plot(x(1,:), x(2,:), varargin{:});                

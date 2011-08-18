@@ -13,10 +13,10 @@ function gaussgm_demo()
 A = randn(2, 2);
 b = randn(2, 1);
 
-prior = gaussd.from_mp(0, gsymat(eye(2) * 1e+6), 'ip');
+prior = gaussd.from_mp('f', zeros(2, 1), eye(2) * 1e6, 'ip');
 
-sigma = udmat(2, 0.1);
-noise = gaussd.from_mp(0, sigma);
+sigma = 0.1;
+noise = gaussd.from_mp('s', zeros(2, 1), sigma);
 
 gm = gaussgm_gp(prior, A, sigma);
 
