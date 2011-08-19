@@ -561,7 +561,7 @@ classdef gaussd
                 hp = bsxfun(@plus, h0, ho);
             end
             
-            [cfp, Jp] = gmat_plus(cf0, J0, cfo, Jo); 
+            [Jp, cfp] = gmat_plus(J0, cf0, Jo, cfo); 
         end
         
         
@@ -573,9 +573,9 @@ classdef gaussd
             %
             
             if nargin < 5
-                [hp, Jp, cfp] = inject(G, ho, Jo, cfo);
+                [hp, Jp, cfp] = add_info(G, ho, Jo, cfo);
             else
-                [hp, Jp, cfp] = inject(G, ho, Jo, cfo, i);
+                [hp, Jp, cfp] = add_info(G, ho, Jo, cfo, i);
             end
             
             Mp = gmat_lsolve(cfp, Jp, hp);            
@@ -597,13 +597,13 @@ classdef gaussd
             end
             
             if nargin < 6
-                [hp, Jp, cfp] = inject(G, ho, Jo, cfo);
+                [hp, Jp, cfp] = add_info(G, ho, Jo, cfo);
             else
-                [hp, Jp, cfp] = inject(G, ho, Jo, cfo, i);
+                [hp, Jp, cfp] = add_info(G, ho, Jo, cfo, i);
             end
             
-            C_p = gmat_inv(Jp);
-            mu_p = gmat_mvmul(cfp, Jp, hp);
+            C_p = gmat_inv(cfp, Jp);
+            mu_p = gmat_mvmul(cfp, C_p, hp);
             
             X = gsample(cfp, mu_p, C_p, n);            
         end        

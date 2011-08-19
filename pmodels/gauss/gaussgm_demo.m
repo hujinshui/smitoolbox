@@ -10,45 +10,33 @@ function gaussgm_demo()
 
 %% model configuration
 
-A = randn(2, 2);
-b = randn(2, 1);
-
-prior = gaussd.from_mp('f', zeros(2, 1), eye(2) * 1e6, 'ip');
+prior = gaussd.from_mp('f', zeros(2, 1), eye(2) * 1e4, 'ip');
 
 sigma = 0.1;
-noise = gaussd.from_mp('s', zeros(2, 1), sigma);
-
-gm = gaussgm_gp(prior, A, sigma);
+gm = gaussgm_gp(prior, sigma);
 
 %% generate data
 
-n = 100;
+n = 60;
 theta = randn(2, 1);
-x = bsxfun(@plus, A * theta + b, noise.sample(n));
+x = bsxfun(@plus, theta, gm.gnoise.sample(n));
 
 %% do inference
 
-y = bsxfun(@minus, x, b);
-
-pos = gm.get_posterior(y, 1, [], 'mp');
-emap = gm.estimate_map(y);
-
-sp = gm.pos_sample(y, 1, 50);
+theta_map = gm.estimate_map(x);
+sp = gm.pos_sample(x, 1, 50);
 
 
 %% visualize
 
 figure;
 
-plot(sp(1,:), sp(2,:), 'm+', 'MarkerSize', 5);
+plot(x(1,:), x(2,:), 'b.', 'MarkerSize', 12);
 
 hold on;
-plot(emap(1,:), emap(2,:), 'b+', 'MarkerSize', 10);
+plot(theta_map(1), theta_map(2), 'ro', 'MarkerSize', 20, 'LineWidth', 2);
 
 hold on;
-plot(theta(1), theta(2), 'r.', 'MarkerSize', 20);
-
-plot_ellipse(pos, 1, 'm-');
-plot_ellipse(pos, 3, 'm-');
+plot(sp(1,:), sp(2,:), 'm+', 'MarkerSize', 10);
 
 axis equal;
