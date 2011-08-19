@@ -87,7 +87,7 @@ classdef gaussgm_gp
             
             % compute marginal distribution of x
                         
-            [Cmg, mgf] = gmat_plus(prior.cform, prior.C, cfx, Cx);            
+            [Cmg, mgf] = gmat_plus(prior.C, prior.cform, Cx, cfx);            
             obj.gmargin = gaussd.from_mp(mgf, prior.mu, Cmg, 'ip');            
         end
         
@@ -232,12 +232,11 @@ classdef gaussgm_gp
         end
                                 
         
-        function theta = estimate_map(obj, X, w, pri_map)
+        function theta = estimate_map(obj, X, w)
             % Performs MAP estimation of parameter
             %
             %   theta = obj.infer(X);
             %   theta = obj.infer(X, w);
-            %   theta = obj.infer(X, w, pri_map);
             %
             %       solves the maximum-a-posteriori estimation of
             %       parameters based on observed data given in X.            
@@ -258,22 +257,19 @@ classdef gaussgm_gp
             if nargin < 3
                 w = 1;
             end
-            if nargin < 4
-                pri_map = [];
-            end
             
             K = size(w, 1);
-            A = [];
             Jx = obj.gnoise.J;
+            cf = obj.gnoise.cform;
             
             if K == 1            
-                [ha, Ja] = gcondupdate(A, X, Jx, w);
-                theta = obj.prior.pos_mean(ha, Ja, pri_map);
+                [ha, Ja] = gcondupdate([], X, Jx, cf, w);
+                theta = obj.prior.pos_mean(ha, Ja, cf);
             else
                 theta = zeros(obj.pdim, K);
                 for k = 1 : K
-                    [ha, Ja] = gcondupdate(A, X, Jx, w(k,:));
-                    theta(:,k) = obj.prior.pos_mean(ha, Ja, pri_map);
+                    [ha, Ja] = gcondupdate([], X, Jx, cf, w(k,:));
+                    theta(:,k) = obj.prior.pos_mean(ha, Ja, cf);
                 end
             end            
         end                        
@@ -303,7 +299,7 @@ classdef gaussgm_gp
         function Y = pri_sample(obj, n, k)
             % Draw samples from the parameter priors
             %
-            %   Y = obj.pri_sample(n, k);
+            %   Y = obj.pri_sample(n);
             %
             
             if nargin < 3
@@ -339,10 +335,10 @@ classdef gaussgm_gp
             % do sampling
             
             if ~isempty(X)
-                A = [];
                 Jx = obj.gnoise.J;
-                [ha, Ja] = gcondupdate(A, X, Jx, w);
-                Y = obj.prior.pos_sample(ha, Ja, n, k);
+                cf = obj.gnoise.cform;
+                [ha, Ja] = gcondupdate([], X, Jx, cf, w);
+                Y = obj.prior.pos_sample(ha, Ja, cf, n, k);
             else
                 Y = obj.prior.sample(n, k);
             end
