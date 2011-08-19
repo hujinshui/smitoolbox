@@ -550,7 +550,11 @@ classdef gaussd
                 
                 n0 = 1;
                 h0 = G.h(:, i);
-                J0 = gmat_sub(cf0, G.J, i);
+                if G.shared_cov
+                    J0 = G.J;
+                else
+                    J0 = gmat_sub(cf0, G.J, i);
+                end
             end
              
             % main
@@ -646,7 +650,7 @@ classdef gaussd
             end            
             if nargin < 2; n = 1; end
             
-            if nargin < 3
+            if nargin < 3 || isempty(i)
                 X = gmat_sample(G.cform, G.mu, G.C, n);
             else
                 X = gmat_sample(G.cform, G.mu, G.C, n, i);
