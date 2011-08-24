@@ -74,9 +74,8 @@ function test_fmm_on_gaussgm_gp(K, n)
 % model config
 
 d = 2;
-prior = gaussd.from_mp(0, udmat(d, 25), 'ip');
-noise_C = udmat(d, 1);
-gm = gaussgm_gp(prior, [], noise_C);
+prior = gaussd.from_mp('s', zeros(d, 1), 25, 'ip');
+gm = gaussgm_gp(prior, 1);
 
 % data
 

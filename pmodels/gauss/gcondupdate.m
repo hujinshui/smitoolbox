@@ -102,7 +102,7 @@ if isscalar(w)
     end
     Ja = icov * (n * w);
 else
-    ha = gmat_mvmul(icov, (X * w'));
+    ha = gmat_mvmul(cf, icov, (X * w'));
     Ja = icov * sum(w);
 end
 
