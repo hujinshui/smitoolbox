@@ -28,7 +28,8 @@ classdef xgs_model < handle
     properties(GetAccess='private', SetAccess='private')
         
         var_map;        % the map: var name -> var id        
-        comp_funcs;     % the compiled functions
+        func_map;       % the map: func name -> func id
+        instructions;   % the compiled instructions
     end
     
     
@@ -81,28 +82,24 @@ classdef xgs_model < handle
         end
         
         
-        function add_func(model, name, func, conn)
+        function add_func(model, name, func)
             % Add a named function to the model and connect with variables
             %
-            %   model.add_func(name, func, 
-            %       {'slot_name1', 'var_name1'; 
-            %        'slot_name2', 'var_name2'; ...} );
+            %   model.add_func(name, func);
             %
-            %       Adds a step of the input name to the model.
-            %       Each step is uniquely identified by its name, which
-            %       must be a valid matlab variable name.
-            %       
-            %       The argument func must be an object of a class that
-            %       is a derived class of xgs_func.
+            %       registers a named function to the model that could 
+            %       be used by sampling steps. The function should be
+            %       an instance of a derived class of xgs_func.
             %
-            %       Each step is connected with a set of named variables
-            %       via its named slots. The 3rd argument is to set up
-            %       such connections between slots and variables.
+            %       Note one can add function objects of the same
+            %       class multiple times, provided that they are 
+            %       with a different name, as each function object
+            %       are uniquely identified with its name.
             %
             
             if model.is_compiled
                 error('xgs_model:invalidarg', ...
-                    'Cannot add step to a compiled model.');
+                    'Cannot add function to a compiled model.');
             end
             
             if ~isvarname(name)
@@ -114,54 +111,126 @@ classdef xgs_model < handle
                 error('xgs_model:invalidarg', ...
                     'The input func must be an xgs_func object.');
             end            
-            
-            if ~(iscell(conn) && ~isempty(conn) && ...
-                    ndims(conn) == 2 && size(conn,2) == 2)
-                error('xgs_model:invalidarg', ...
-                    'conn should be a cell array with two columns.');
-            end
-            
-            if ~all(cellfun(@isvarname, conn(:)))
-                error('xgs_model:invalidarg', ...
-                    'Some element in conn is not a valid name.');
-            end                        
-            
+                                                        
             nf = model.num_funcs;            
             new_func.name = name;
             new_func.func = func;
-            new_func.slots = conn(:, 1);
-            new_func.vars = conn(:, 2);
             model.funcs = [model.funcs; new_func];
             model.num_funcs = nf+1;            
         end
         
         
-        function set_cycle(model, seq)
-            % Set the sequence of steps performed in each cycle
+        function add_steps(model, seq, nrepeat)
+            % add one or multiple steps to each cycle
             %
-            %   model.set_cycle(seq);
+            %   model.add_steps(model, step);
+            %       appends one step to the end of each cycle
             %
-            %       Sets the sequence of steps performed in each cycle
-            %       of sampling. 
+            %   model.add_steps(model, step, nr);
+            %       appends the input step, repeated nr times, to 
+            %       the end of each cycle.
             %
-            %       The input argument seq should be a vector of numbers,
-            %       each being the index of a step.
+            %   model.add_steps(model, seq);
+            %       appends a sequence of steps, in form of a cell
+            %       array of steps, to the end of each cycle.
             %
-            %       The cycle can be set before and after compilation.
+            %   model.add_steps(model, seq, nr);
+            %       appends the input sequence of steps, repeated
+            %       nr times as a whole, to the end of each cycle.
+            %
+            %   Each step is a char string in the following format:
+            %
+            %       <func_name> [slot-var-pairs]
+            %
+            %   Different slot-var-pairs are delimited by empty space,
+            %   each pair is in form of <slot_name>:<var_name>.
+            %   No space is allowed surrounding ':'.
             %
             
-            if ~(isnumeric(seq) && isvector(seq) && ~issparse(seq))
+            if model.is_compiled
                 error('xgs_model:invalidarg', ...
-                    'The cycle sequence should be a numeric vector.');
+                    'Cannot add step to a compiled model.');
             end
             
-            if ~isa(seq, 'int32'); seq = double(seq); end            
-            if size(seq, 1) > 0; seq = seq.'; end
-                        
-            model.cycle_seq = seq;            
-        end
-           
+            if ischar(seq) && ~isempty(seq) && ndims(seq) == 2 && size(seq,1) == 1
+                seq = { seq };
+            else
+                if ~(iscellstr(seq) && isvector(seq))
+                    error('xgs_model:invalidarg', ...
+                        'seq must be a char string or a cell array of strings.');
+                end    
+                
+                if size(seq, 2) > 1
+                    seq = seq.';
+                end
+            end
+                                 
+            if nargin >= 3
+                if ~(isnumeric(nrepeat) && isscalar(nrepeat) && ...
+                        nrepeat == fix(nrepeat) && nrepeat >= 0)
+                    error('xgs_model:invalidarg', ...
+                        'nrepeat must be a non-negative integer scalar.');
+                end
+                
+                if nrepeat == 0
+                    return;
+                end
+            else
+                nrepeat = 1;
+            end
+            
+            ns = length(seq);
+            ss = repmat( ...
+                struct('func_name', [], 'slots', [], 'vars', []), ...
+                ns, 1);
+            
+            for i = 1 : ns
+                [ss(i).func_name, ss(i).slots, ss(i).vars] = ...
+                    xgs_model.parse_step(seq{i});
+            end
+            
+            if nrepeat > 1
+                ss = repmat(ss, nrepeat, 1);
+            end
+            
+            model.cycle_seq = [model.cycle_seq; ss];
+        end           
     end
+    
+    
+    methods(Static, Access='private')
+        
+        function [fname, slots, vs] = parse_step(statement)
+            
+            s = strtrim(statement);
+            
+            if isempty(s)
+                error('xgs_model:parse_err', ...
+                    'empty statement encountered .');
+            end
+            
+            [fname, remain] = strtok(s);
+            
+            if ~isvarname(fname)
+                error('xgs_model:parse_err', ...
+                    'Invalid statement: %s', s);
+            end
+            
+            ret = regexp(remain, '([\w\d]+):([\w\d]+)', 'tokens');
+            np = numel(ret);
+            
+            slots = cell(np, 1);
+            vs = cell(np, 1);
+            
+            for i = 1 : np
+                slots{i} = ret{i}{1};
+                vs{i} = ret{i}{2};
+            end            
+        end        
+        
+    end
+        
+    
     
     %% methods for displaying
     
@@ -228,22 +297,19 @@ classdef xgs_model < handle
                 fprintf(fid, '  [%d] %s: class %s\n', ...
                     i, f.name, class(fo));
                 
-                cf = model.comp_funcs(i);
+                n_in = fo.num_input_slots;
+                n_out = fo.num_output_slots;
                 
-                for j = 1 : cf.n_in
-                    if cf.v_in(j) > 0
-                        fprintf(fid, '\t[in %d] %s <= %s\n', ...
-                            j, fo.get_slot_name('in', j), ...
-                            model.vars(cf.v_in(j)).name);
-                    end
+                for j = 1 : n_in
+                    slinfo = fo.get_slot_info('in', j);
+                    fprintf(fid, '\t [in %d] %s: %s %s\n', ...
+                        j, slinfo.name, slinfo.type, xgs_vsize2str(slinfo.size));
                 end
                 
-                for j = 1 : cf.n_out
-                    if cf.v_out(j) > 0                                                
-                        fprintf(fid, '\t[out %d] %s => %s\n', ...
-                            j, fo.get_slot_name('out', j), ...
-                            model.vars(cf.v_out(j)).name);
-                    end
+                for j = 1 : n_out
+                    slinfo = fo.get_slot_info('out', j);
+                    fprintf(fid, '\t [in %d] %s: %s %s\n', ...
+                        j, slinfo.name, slinfo.type, xgs_vsize2str(slinfo.size));
                 end
             end
                                     
@@ -254,22 +320,22 @@ classdef xgs_model < handle
             
             cseq = model.cycle_seq;
             for i = 1 : length(cseq)
-                f = model.funcs(cseq(i));
-                cf = model.comp_funcs(cseq(i));
+                ci = model.instructions(i);
+                f = model.funcs(ci.f_id);
                 
                 fprintf(fid, '  (%d) %s:', i, f.name);
                 
-                for j = 1 : cf.n_in
-                    if cf.v_in(j) > 0
-                        fprintf(fid, ' %s', model.vars(cf.v_in(j)).name);                        
+                for j = 1 : ci.n_in
+                    if ci.v_in(j) > 0
+                        fprintf(fid, ' %s', model.vars(ci.v_in(j)).name);                        
                     end
                 end
                 
                 fprintf(fid, ' ->');
                 
-                for j = 1 : cf.n_out
-                    if cf.v_out(j) > 0
-                        fprintf(fid, ' %s', model.vars(cf.v_out(j)).name);
+                for j = 1 : ci.n_out
+                    if ci.v_out(j) > 0
+                        fprintf(fid, ' %s', model.vars(ci.v_out(j)).name);
                     end
                 end                
                 fprintf(fid, '\n');
@@ -303,15 +369,14 @@ classdef xgs_model < handle
             end
            
             vmap = xgs_model.build_idmap({model.vars.name});           
-            cfuncs = xgs_model.compile_funcs(model.funcs, model.vars, vmap); 
+            fmap = xgs_model.build_idmap({model.funcs.name});
+            insts = xgs_model.compile_steps(model.cycle_seq, ...
+                model.vars, vmap, model.funcs, fmap); 
             
             model.var_map = vmap;
-            model.comp_funcs = cfuncs;
-            
-            if isempty(model.cycle_seq)
-                model.cycle_seq = 1 : model.num_funcs;
-            end
-            
+            model.func_map = fmap;
+            model.instructions = insts;
+
             model.is_compiled = true;
         end                
     end
@@ -334,21 +399,31 @@ classdef xgs_model < handle
         end
         
         
-        function cfuncs = compile_funcs(F, V, vmap)
+        function insts = compile_steps(steps, V, vmap, F, fmap)
+            % compile steps into instructions
             
-            nf = numel(F);
-            cfuncs = repmat( struct( ...
+            ns = numel(steps);
+            insts = repmat( struct( ...
+                'f_id', [], ...
                 'n_in', [], ...
                 'v_in', [], ...
                 'n_out', [], ...
                 'v_out', [], ...
                 'out_flags', []), ...
-                nf, 1);
+                ns, 1);
             
-            for i = 1 : nf                
-                fo = F(i).func; 
-                ss = F(i).slots;
-                vs = F(i).vars;                
+            for i = 1 : ns
+                
+                fname = steps(i).func_name;
+                ss = steps(i).slots;
+                vs = steps(i).vars;
+                
+                if ~isfield(fmap, fname)
+                    error('xgs_model:compile_err', ...
+                        'Undeclared function name %s', fname);
+                end
+                f_id = fmap.(fname);
+                fo = F(f_id).func;
                 
                 n_in = fo.num_input_slots;
                 n_out = fo.num_output_slots;                                                
@@ -359,26 +434,32 @@ classdef xgs_model < handle
                                                
                 ni = numel(ss);
                 for j = 1 : ni
-                   si = fo.get_slot_info(ss{j});
-                   vid = vmap.(vs{j});
-                   
-                   if ~isempty(si.in_id)
-                       v_in(si.in_id) = vid;
-                       if ~(xgs_is_vcompatible(V(vid), si))
-                           error('xgs_model:compile_err', ...
-                               'Mismatch var %s => slot %s of function %s', ...
-                               vs{j}, ss{j}, F(i).name);
-                       end
-                   end
-                   
-                   if ~isempty(si.out_id)                       
-                       v_out(si.out_id) = vid;
-                       if ~(xgs_is_vcompatible(si, V(vid)))
-                           error('xgs_model:compile_err', ...
-                               'Mismatch var %s <= slot %s of function %s', ...
-                               vs{j}, ss{j}, F(i).name);
-                       end
-                   end
+                    [sdir, sid] = fo.get_slot_id(ss{j});
+                    si = fo.get_slot_info(sdir, sid);
+                    vname = vs{j};
+                    if ~isfield(vmap, vname)
+                        error('xgs_model:compile_err', ...
+                            'Undeclared variable name %s', vname);
+                    end
+                    vid = vmap.(vname);
+                    
+                    if strcmpi(sdir, 'in')
+                        v_in(sid) = vid;
+                        if ~(xgs_is_vcompatible(V(vid), si))
+                            error('xgs_model:compile_err', ...
+                                'Mismatch var %s => slot %s of function %s', ...
+                                vs{j}, ss{j}, F(i).name);
+                        end
+                        
+                    elseif strcmpi(sdir, 'out')
+                        v_out(sid) = vid;
+                        if ~(xgs_is_vcompatible(si, V(vid)))
+                            error('xgs_model:compile_err', ...
+                                'Mismatch var %s <= slot %s of function %s', ...
+                                vs{j}, ss{j}, F(i).name);
+                        end
+                        
+                    end
                 end                                
                 
                 % test whether slots are properly connected
@@ -392,11 +473,12 @@ classdef xgs_model < handle
                 % test whether type matches
                                                                 
                 % store info
-                cfuncs(i).n_in = n_in;              
-                cfuncs(i).v_in = v_in;                
-                cfuncs(i).n_out = n_out;
-                cfuncs(i).v_out = v_out;
-                cfuncs(i).out_flags = v_out > 0;
+                insts(i).f_id = f_id;
+                insts(i).n_in = n_in;              
+                insts(i).v_in = v_in;                
+                insts(i).n_out = n_out;
+                insts(i).v_out = v_out;
+                insts(i).out_flags = v_out > 0;
             end
             
         end
@@ -517,7 +599,7 @@ classdef xgs_model < handle
             clen = numel(cseq);
             
             fs = model.funcs;
-            cfs = model.comp_funcs;
+            insts = model.instructions;
             vmap = model.var_map;
             
             T0 = opts.burnin;
@@ -570,25 +652,25 @@ classdef xgs_model < handle
                 for i = 1 : clen 
                                         
                     % pick the current step
-                    f = fs(cseq(i)).func;
-                    cf = cfs(cseq(i));                   
+                    st = insts(i);
+                    f = fs(st.f_id).func;                  
                     
                     if displevel >= 4
                         disp([dprefix, sprintf('    step %d: %s', ...
-                            i, fs(cseq(i)).name)]);
+                            i, fs(st.f_id).name)]);
                     end
                     
                     % form inputs                                        
-                    vin = xgs_from_repr(repr, cf.v_in);
+                    vin = xgs_from_repr(repr, st.v_in);
                     
                     % do update computation
-                    vout = cell(1, cf.n_out);
-                    [vout{:}] = f.evaluate(cf.out_flags, vin{:});
+                    vout = cell(1, st.n_out);
+                    [vout{:}] = f.evaluate(st.out_flags, vin{:});
                     
                     % put the results back to repr
-                    for j = 1 : cf.n_out
-                        if cf.v_out(j) > 0
-                            repr{cf.v_out(j)} = vout{j};
+                    for j = 1 : st.n_out
+                        if st.v_out(j) > 0
+                            repr{st.v_out(j)} = vout{j};
                         end
                     end
                 end       
