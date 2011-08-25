@@ -12,28 +12,26 @@ classdef xgs_func
     
     
     methods(Abstract)
-        name = get_slot_name(obj, dir, i);
-        % Gets the name of a slot
+        [dir, id] = get_slot_id(obj, name);
+        % Retrieve the integer id of a slot
         %
-        %   obj.get_slot_name('in', i);
-        %       returns the name of the i-th input slot
-        %
-        %   obj.get_slot_name('out', i);
-        %       returns the name of the i-th output slot
+        %   [dir, id] = get_slot_name(name);
+        %       returns the direction and id of the named slot.        
         %
         
-        info = get_slot_info(obj, name);
-        % Retrieves the information of a slot given its name
+        info = get_slot_info(obj, dir, i);
+        % Retrieves the information of a slot
         % 
-        %   info = obj.get_slot_info(name);
+        %   info = obj.get_slot_info('in', i);
+        %       get the information of the i-th input slot
+        %
+        %   info = obj.get_slot_info('out', i);
+        %       get the information of the i-out output slot
         %
         %       The returned info is a struct comprised of at least 
         %       the following fields:
         %
-        %       - in_id:    the index of the named slot in input slots
-        %                   ([] if the slot is not for input)
-        %       - out_id:   the index of the named slot in output slots
-        %                   ([] if the slot is not for output)
+        %       - name:     the name of the slot
         %       - type:     the type(class) of variable to be transfered
         %                   via this slot
         %       - size:     the size of the variable to be transfered via

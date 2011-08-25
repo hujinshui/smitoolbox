@@ -72,66 +72,54 @@ classdef toy_spfunc < xgs_func
             obj.out_dims = [qs{:}];
         end
         
-        
-        function name = get_slot_name(obj, dir, i)
-            % Gets the name of a slot
+        function [dir, id] = get_slot_id(obj, name)
+            % Retrieve the integer id of a slot
             %
-            %   obj.get_slot_name('in', i);
-            %       returns the name of the i-th input slot
-            %
-            %   obj.get_slot_name('out', i);
-            %       returns the name of the i-th output slot
+            %   [dir, id] = get_slot_name(name);
+            %       returns the direction and id of the named slot.        
             %
             
-            if strcmpi(dir, 'in')
-                name = obj.inlet_names{i};
+            [tf, id] = ismember(name, obj.inlet_names);
+            
+            if tf
+                dir = 'in';
+                return;
             else
-                name = obj.outlet_names{i};
-            end                
+                [tf, id] = ismember(name, obj.outlet_names);
+                if tf
+                    dir = 'out';
+                    return;
+                else
+                    error('toy_spfunc:invalidname', ...
+                        'The input name %s is not a slot name.', name);
+                end
+            end                            
         end
         
-        
-        function info = get_slot_info(obj, name)
+               
+        function info = get_slot_info(obj, dir, id)
             % Get the information of a slot
             %
-            %   info = obj.get_slot_info(name);
-            %       gets the information of a slot with the input name.
-            %
-            %       info is a struct with the following fields:
-            %       - in_id:    The index of the slot in the inputs.
-            %                   ([] if the named slot is not for input)
-            %       - out_id:   The index of the slot in the outputs.
-            %                   ([] if the named slot is not for output)
+            %   info = obj.get_slot_info(dir, id);
+            %       gets the information of a slot with the input name.           
             %
             %       The function raises an error if the given name
             %       is not the same of any slot.
             %
             
-            if ~ischar(name)
-                error('toy_spfunc:invalidarg', ...
-                    'The slot name must be a char string.');
-            end
-                                                
-            [tf_i, id_i] = ismember(name, obj.inlet_names);
-            
-            if tf_i
-                info.in_id = id_i;
-                info.out_id = [];
+            if strcmpi(dir, 'in')
+                info.name = obj.inlet_names{id};
                 info.type = 'double';
-                info.size = obj.in_dims(id_i);
-                return;
-            end
-            
-            [tf_o, id_o] = ismember(name, obj.outlet_names);
-            
-            if tf_o
-                info.in_id = [];
-                info.out_id = id_o;
+                info.size = obj.in_dims(id);
+                
+            elseif strcmpi(dir, 'out')
+                info.name = obj.outlet_names{id};
                 info.type = 'double';
-                info.size = obj.out_dims(id_o);                
+                info.size = obj.out_dims(id);
+                
             else
                 error('toy_spfunc:invalidname', ...
-                    'The input name %s is not a slot name.', name);
+                    'The input dir is invalid.');
             end
         end
         
