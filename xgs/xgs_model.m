@@ -15,7 +15,7 @@ classdef xgs_model < handle
         
         num_vars = 0;       % the number of variables
         num_funcs = 0;      % the number of distinct sampling steps
-        cycle_seq = 0;      % the sequence of steps performed per cycle
+        cycle_seq = [];     % the sequence of steps performed per cycle
                 
         vars = [];          % the struct array comprised of variable specs        
         funcs = [];         % the struct array comprised of function specs
@@ -73,16 +73,18 @@ classdef xgs_model < handle
             end
                                         
             nv = model.num_vars;
-            new_var = struct('name', vname, 'type', vtype, 'size', vsize);
-            model.vars(nv+1, 1) = new_var;
+            new_var.name = vname;
+            new_var.type = vtype;
+            new_var.size = vsize;
+            model.vars = [model.vars; new_var];
             model.num_vars = nv+1;                   
         end
         
         
-        function add_step(model, name, func, conn)
-            % Add a named step to the model
+        function add_func(model, name, func, conn)
+            % Add a named function to the model and connect with variables
             %
-            %   model.add_step(name, func, 
+            %   model.add_func(name, func, 
             %       {'slot_name1', 'var_name1'; 
             %        'slot_name2', 'var_name2'; ...} );
             %
@@ -124,12 +126,12 @@ classdef xgs_model < handle
                     'Some element in conn is not a valid name.');
             end                        
             
-            nf = model.num_funcs;
-            model.funcs(nf+1, 1) = struct( ...
-                'name', name, ...
-                'func', func, ...
-                'slots', conn(:, 1), ...
-                'vars', conn(:, 2));
+            nf = model.num_funcs;            
+            new_func.name = name;
+            new_func.func = func;
+            new_func.slots = conn(:, 1);
+            new_func.vars = conn(:, 2);
+            model.funcs = [model.funcs; new_func];
             model.num_funcs = nf+1;            
         end
         
@@ -148,7 +150,7 @@ classdef xgs_model < handle
             %       The cycle can be set before and after compilation.
             %
             
-            if ~(isnumeric(seq) && isvector(seq) && isfull(seq))
+            if ~(isnumeric(seq) && isvector(seq) && ~issparse(seq))
                 error('xgs_model:invalidarg', ...
                     'The cycle sequence should be a numeric vector.');
             end
@@ -180,6 +182,7 @@ classdef xgs_model < handle
             fprintf('\t# variables = %d\n', model.num_vars);
             fprintf('\t# functions = %d\n', model.num_funcs);
             fprintf('\t  cycle len = %d\n', length(model.cycle_seq));
+            fprintf('\n');
         end        
         
         
@@ -220,48 +223,49 @@ classdef xgs_model < handle
             fprintf(fid, 'Functions:\n');
             fprintf(fid, '------------\n');
             for i = 1 : model.num_funcs
-                f = mode.funcs(i);
+                f = model.funcs(i);
                 fo = f.func;
                 fprintf(fid, '  [%d] %s: class %s\n', ...
                     i, f.name, class(fo));
                 
-                cs = model.comp_steps(i);
+                cf = model.comp_funcs(i);
                 
-                fprintf(fid, '  input slots:\n');
-                for j = 1 : cs.n_in
-                    if cs.v_in(j) > 0
-                        fprintf(fid, '    [%d] %s <= %s\n', ...
-                            j, fo.get_slotname('in', j), ...
-                            model.vars(cs.v_in(j)).name);
+                for j = 1 : cf.n_in
+                    if cf.v_in(j) > 0
+                        fprintf(fid, '\t[in %d] %s <= %s\n', ...
+                            j, fo.get_slot_name('in', j), ...
+                            model.vars(cf.v_in(j)).name);
                     end
                 end
                 
-                fprintf(fid, '  output slots:\n');
-                for j = 1 : cs.n_out
-                    if cs.v_out(j) > 0                                                
-                        fprintf(fid, '    [%d] %s => %s\n', ...
-                            j, fo.get_slotname('out', j), ...
-                            model.vars(cs.v_out(j)).name);
+                for j = 1 : cf.n_out
+                    if cf.v_out(j) > 0                                                
+                        fprintf(fid, '\t[out %d] %s => %s\n', ...
+                            j, fo.get_slot_name('out', j), ...
+                            model.vars(cf.v_out(j)).name);
                     end
                 end
             end
                                     
             % display cycle
             
+            fprintf(fid, 'Cycle:\n');
+            fprintf(fid, '------------\n');
+            
             cseq = model.cycle_seq;
             for i = 1 : length(cseq)
-                f = model.funcs(i);
-                cf = model.comp_funcs(i);
+                f = model.funcs(cseq(i));
+                cf = model.comp_funcs(cseq(i));
                 
                 fprintf(fid, '  (%d) %s:', i, f.name);
                 
                 for j = 1 : cf.n_in
                     if cf.v_in(j) > 0
-                        fprintf(fid, ' %s', model.vars(cf.v_in(j)).name);
+                        fprintf(fid, ' %s', model.vars(cf.v_in(j)).name);                        
                     end
                 end
                 
-                fprintf(fid, ' ~');
+                fprintf(fid, ' ->');
                 
                 for j = 1 : cf.n_out
                     if cf.v_out(j) > 0
@@ -298,11 +302,17 @@ classdef xgs_model < handle
                 return;
             end
            
-            vmap = xgs_model.build_idmap([model.vars.name]);           
+            vmap = xgs_model.build_idmap({model.vars.name});           
             cfuncs = xgs_model.compile_funcs(model.funcs, model.vars, vmap); 
             
             model.var_map = vmap;
             model.comp_funcs = cfuncs;
+            
+            if isempty(model.cycle_seq)
+                model.cycle_seq = 1 : model.num_funcs;
+            end
+            
+            model.is_compiled = true;
         end                
     end
     
@@ -333,15 +343,15 @@ classdef xgs_model < handle
                 'n_out', [], ...
                 'v_out', [], ...
                 'out_flags', []), ...
-                ns, 1);
+                nf, 1);
             
             for i = 1 : nf                
                 fo = F(i).func; 
                 ss = F(i).slots;
                 vs = F(i).vars;                
                 
-                n_in = o.num_input_slots;
-                n_out = o.num_output_slots;                                                
+                n_in = fo.num_input_slots;
+                n_out = fo.num_output_slots;                                                
                 v_in = zeros(1, n_in);
                 v_out = zeros(1, n_out);
                                                     
@@ -382,9 +392,9 @@ classdef xgs_model < handle
                 % test whether type matches
                                                                 
                 % store info
-                cfuncs(i).n_in = m_in;              
+                cfuncs(i).n_in = n_in;              
                 cfuncs(i).v_in = v_in;                
-                cfuncs(i).n_out = m_out;
+                cfuncs(i).n_out = n_out;
                 cfuncs(i).v_out = v_out;
                 cfuncs(i).out_flags = v_out > 0;
             end
@@ -420,13 +430,13 @@ classdef xgs_model < handle
                                                 
             opts = xgs_options(opts);
             
-            if ~(isstruct(cfg) && isscalar(cfg))
+            if ~(isstruct(initcfg) && isscalar(initcfg))
                 error('xgs_model:invalidarg', ...
                     'initcfg should be a struct scalar.');
             end
-            repr = preprocess_sample(model, initcfg, []);
+            repr = preprocess_sample(model, initcfg);
             
-            S = do_run(opts, repr);            
+            S = do_run(model, opts, repr, 0);            
         end
         
         function R = par_run(model, opts, initcfgs)
@@ -453,20 +463,26 @@ classdef xgs_model < handle
             
             opts = xgs_options(opts);
                         
-            if ~isstruct(cfg)
+            if opts.display > 2
+                warning('xgs_model:displayadjust', ...
+                    'opts.display is adjusted to 2 for par_run.');
+                opts.display = 2;
+            end
+            
+            if ~isstruct(initcfgs)
                 error('xgs_model:invalidarg', ...
                     'initcfgs should be a struct array.');
             end
             nc = numel(initcfgs); 
             
-            C = cell(sizeof(initcfgs));            
+            C = cell(size(initcfgs));            
             parfor i = 1 : nc
-                C{i} = preprocess_sample(model, initcfgs(i), i);
+                C{i} = preprocess_sample(model, initcfgs(i));
             end
             
-            R = cell(sizeof(initcfgs));
+            R = cell(size(initcfgs));
             parfor i = 1 : nc
-                R{i} = do_run(opts, C{i});
+                R{i} = do_run(model, opts, C{i}, i);
             end
         end
                 
@@ -475,40 +491,24 @@ classdef xgs_model < handle
     
     methods(Access='private')
         
-        function repr = preprocess_sample(model, cfg, icfg)
-            % form internal representation and verify validity
+        function repr = preprocess_sample(model, cfg)
+            % form internal representation and verify
             
             nv = model.num_vars;
             vs = model.vars;
             
             % form internal representation
             repr = cell(1, nv);
-            for i = 1 : n
+            for i = 1 : nv
                 vn = vs(i).name;
                 if isfield(cfg, vn)
                     repr{i} = cfg.(vn);
                 end
-            end
-            
-            % verify validity
-            for i = 1 : n
-                o = model.steps(i).obj;
-                cs = model.comp_steps(i);
-                
-                a = xgs_from_repr(repr, cs.v_in);                
-                if ~(o.verify_args(cs.out_flags, a{:}))
-                    if isempty(icfg)
-                        error('The initial-config is not valid for step %d.', i);
-                    else
-                        error('The %d-th initial-config is not valid for step %d.', ...                            
-                            icfg, i);
-                    end
-                end
-            end            
+            end                       
         end
         
         
-        function S = do_run(opts, repr)
+        function S = do_run(model, opts, repr, ithread)
             % run with a single config
                  
             % extract fields
@@ -520,9 +520,18 @@ classdef xgs_model < handle
             cfs = model.comp_funcs;
             vmap = model.var_map;
             
-            T0 = opts.burn_in_cycles;
-            N = opts.num_samples;
-            nc = opts.cycles_per_sample;
+            T0 = opts.burnin;
+            N = opts.nsamples;
+            nc = opts.cps;
+            displevel = opts.display;
+            
+            if displevel >= 1
+                if ithread > 0
+                    dprefix = ['[[thread ' int2str(ithread), ']] '];
+                else
+                    dprefix = '';
+                end
+            end
             
             % get ids of variable to be output to samples
             if isempty(opts.output_vars)
@@ -542,22 +551,39 @@ classdef xgs_model < handle
             Tstart = -T0;
             Tend = (nc - 1) * N;
             
+            if displevel >= 2
+                disp([dprefix, 'simulation started']);
+            end
+            
             c = 0; % sample counter            
             for t = Tstart : Tend
-                              
+                
+                if t == 0 && displevel >= 2
+                    disp([dprefix, 'burn-in finished']);
+                end
+                
+                if displevel >= 3                    
+                    disp([dprefix, sprintf('  cycle %d ...', t)]);
+                end
+                                              
                 % do update cycle
-                for i = 1 : clen                    
-                    
+                for i = 1 : clen 
+                                        
                     % pick the current step
                     f = fs(cseq(i)).func;
                     cf = cfs(cseq(i));                   
+                    
+                    if displevel >= 4
+                        disp([dprefix, sprintf('    step %d: %s', ...
+                            i, fs(cseq(i)).name)]);
+                    end
                     
                     % form inputs                                        
                     vin = xgs_from_repr(repr, cf.v_in);
                     
                     % do update computation
                     vout = cell(1, cf.n_out);
-                    [vout{:}] = f.run(cf.out_flags, vin{:});
+                    [vout{:}] = f.evaluate(cf.out_flags, vin{:});
                     
                     % put the results back to repr
                     for j = 1 : cf.n_out
@@ -565,12 +591,11 @@ classdef xgs_model < handle
                             repr{cf.v_out(j)} = vout{j};
                         end
                     end
-                end                                
-                
+                end       
+                                                
                 % collect sample                
                 if t >= 0 && mod(t, nc) == 0
-                    c = c + 1;
-
+                    c = c + 1;                    
                     for i = 1 : numel(ovars)
                         sp.(ovars{i}) = repr{ovar_ids(i)};
                     end
@@ -579,7 +604,12 @@ classdef xgs_model < handle
             end
             
             % convert results to struct form
-            S = vertcat(S{:});            
+            S = vertcat(S{:});  
+            
+            if displevel >= 1
+                disp([dprefix, 'simulation done']);
+            end
+            
         end
         
     end
