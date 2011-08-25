@@ -1,5 +1,5 @@
-classdef toy_spstep
-    % This is a toy sampling step class
+classdef toy_spfunc < xgs_func
+    % This is a toy sampling function class
     %
     % The purposes of this class:
     %   - for debugging and/or testing a xgs model framework
@@ -39,8 +39,8 @@ classdef toy_spstep
     
     methods
         
-        function obj = toy_spstep(ins, outs)
-            % Construct a toy_spstep object
+        function obj = toy_spfunc(ins, outs)
+            % Construct a toy_spfunc object
             %
             %   obj = toy_spstep(ins, outs);
             %       constructs the object by specifying the input
@@ -53,12 +53,12 @@ classdef toy_spstep
             %
             
             if ~(isstruct(ins) && isscalar(ins))
-                error('toy_spstep:invalidarg', ...
+                error('toy_spfunc:invalidarg', ...
                     'ins should be a struct scalar.');
             end
             
             if ~(isstruct(outs) && isscalar(outs))
-                error('toy_spstep:invalidarg', ...
+                error('toy_spfunc:invalidarg', ...
                     'outs should be a struct scalar.');
             end
             
@@ -70,6 +70,24 @@ classdef toy_spstep
             
             qs = struct2cell(outs);
             obj.out_dims = [qs{:}];
+        end
+        
+        
+        function name = get_slot_name(obj, dir, i)
+            % Gets the name of a slot
+            %
+            %   obj.get_slot_name('in', i);
+            %       returns the name of the i-th input slot
+            %
+            %   obj.get_slot_name('out', i);
+            %       returns the name of the i-th output slot
+            %
+            
+            if strcmpi(dir, 'in')
+                name = obj.inlet_names{i};
+            else
+                name = obj.outlet_names{i};
+            end                
         end
         
         
@@ -90,23 +108,31 @@ classdef toy_spstep
             %
             
             if ~ischar(name)
-                error('toy_spstep:invalidarg', ...
+                error('toy_spfunc:invalidarg', ...
                     'The slot name must be a char string.');
             end
-            
+                                                
             [tf_i, id_i] = ismember(name, obj.inlet_names);
-            [tf_o, id_o] = ismember(name, obj.outlet_names);
             
-            if ~tf_i && ~tf_o
-                error('toy_spstep:invalidname', ...
-                    'The input name %s is not a slot name.', name);
+            if tf_i
+                info.in_id = id_i;
+                info.out_id = [];
+                info.type = 'double';
+                info.size = obj.in_dims(id_i);
+                return;
             end
             
-            if ~tf_i; id_i = []; end
-            if ~tf_o; id_o = []; end
+            [tf_o, id_o] = ismember(name, obj.outlet_names);
             
-            info.in_id = id_i;
-            info.out_id = id_o;
+            if tf_o
+                info.in_id = [];
+                info.out_id = id_o;
+                info.type = 'double';
+                info.size = obj.out_dims(id_o);                
+            else
+                error('toy_spfunc:invalidname', ...
+                    'The input name %s is not a slot name.', name);
+            end
         end
         
         
@@ -120,56 +146,20 @@ classdef toy_spstep
             n_out = obj.num_output_slots;
             
             if ~(islogical(inflags) && isequal(size(inflags), [1, n_in]))
-                error('toy_spstep:invalidarg', ...
+                error('toy_spfunc:invalidarg', ...
                     'outflags should be a logical vector of size 1 x n_out.');
             end
             
             if ~(islogical(outflags) && isequal(size(outflags), [1, n_out]))
-                error('toy_spstep:invalidarg', ...
+                error('toy_spfunc:invalidarg', ...
                     'outflags should be a logical vector of size 1 x n_out.');
             end
             
             tf = true; 
         end
         
-        
-        function tf = verify_args(obj, outflags, varargin)
-            % Verify whether the input arguments are valid
-            %
-            %   tf = obj.verify_args(outflags, ...);
-            %       If the input arguments are valid and sufficient
-            %       for the desired output patterns, it returns true;
-            %       otherwise, false.
-            %
-            
-            n_out = obj.num_output_slots;
-            if ~(islogical(outflags) && isequal(size(outflags), [1, n_out]))
-                error('toy_spstep:invalidarg', ...
-                    'outflags should be a logical vector of size 1 x n_out.');
-            end
-            
-            n_in = obj.num_input_slots;            
-            idims = obj.in_dims;
-            
-            if numel(varargin) ~= n_in
-                error('toy_spstep:invalidarg', ...
-                    'The number of inputs are not valid.');
-            end
-            
-            tf = true;
-            for i = 1 : n_in
-                v = varargin{i};
-                tf = isempty(v) || ...
-                    (isfloat(v) && ndims(v) == 2 && ...
-                    size(v,1) == idims(i) && size(v,2) == 1);
-                if ~tf
-                    return;
-                end
-            end            
-        end
-        
-        
-        function varargout = run(obj, outflags, varargin)
+                
+        function varargout = evaluate(obj, outflags, varargin)
             % Run the sampling step
             %
             %   [out1, out2, ...] = obj.run(outflags, in1, in2, ...);
@@ -187,11 +177,20 @@ classdef toy_spstep
             %       set it to empty.
             %
             
+            n_in = obj.num_input_slots;
             n_out = obj.num_output_slots;
             varargout = cell(1, n_out);
             
+            idims = obj.in_dims;
+            for i = 1 : n_in
+                cv = varargin{i};
+                if ~isempty(cv) && ~isequal(size(cv), [idims(i), 1])
+                    error('toy_spfunc:invalidarg', 'Invalid input argument');
+                end
+            end            
+            
             odims = obj.out_dims;
-            for i = 1 : n                
+            for i = 1 : n_out                
                 if outflags(i) 
                     varargout{i} = rand(odims(i), 1);                    
                 end                
