@@ -90,6 +90,31 @@ for i = 1 : n
     assert(norm(Sm * c - Rm) < 1e-15);    
 end
 
+if n == 1
+    K = 5;
+    c = rand(1, K);
+    R = pdmat_scale(S, c);
+    check_valid(R, ty, d, K);
+    
+    Sm = pdmat_fullform(S);
+    for i = 1 : K
+        Rm = pdmat_fullform(R, i);
+        assert(norm(Sm * c(i) - Rm) < 1e-15);
+    end
+    
+else
+    c = rand(1, n);
+    R = pdmat_scale(S, c);
+    check_valid(R, ty, d, n);
+    
+    for i = 1 : n
+        Sm = pdmat_fullform(S, i);
+        Rm = pdmat_fullform(R, i);
+        assert(norm(Sm * c(i) - Rm) < 1e-15);
+    end    
+end
+
+
 
 function test_inv(ty, d, n)
 
