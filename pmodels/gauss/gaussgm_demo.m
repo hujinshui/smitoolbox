@@ -10,7 +10,7 @@ function gaussgm_demo()
 
 %% model configuration
 
-prior = gaussd.from_mp('f', zeros(2, 1), eye(2) * 1e4, 'ip');
+prior = gaussd.from_mp(0, pdmat('s', 2, 1e4), 'ip');
 
 sigma = 0.1;
 gm = gaussgm_gp(prior, sigma);
