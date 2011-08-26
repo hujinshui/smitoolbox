@@ -1,28 +1,32 @@
-function test_gaussd(cf, ds, ms)
+function test_gaussd()
 % A unit-test function to test the correctness of gaussd implementation
 %
-%   test_gaussd(symatclassname, ds, ms);
+%   test_gaussd;
 %       Tests the correctness of implementation of gaussd with a 
 %       specified covariance matrix class.
-%
-%       In the input, symatclassname is the name of the class for
-%       representing the covariance matrix. ds and ms are vectors
-%       of dimensions and model numbers for testing.
 %
 
 %   History
 %   -------
 %       - Created by Dahua Lin, on Jun 19, 2010
 %       - Modified by Dahua Lin, on Aug 17, 2011
+%       - Modified by Dahua Lin, on Aug 25, 2011
 %
 
 %% main skeleton
 
-for d = ds
-    for m = ms
-        test_on_config(cf, d, m, 0, 0);
-        test_on_config(cf, d, m, 0, 1);
-        test_on_config(cf, d, m, 1, 0);
+cfs = {'s', 'd', 'f'};
+ds = [1, 2, 5];
+ms = [1, 3];
+
+for icf = 1 : numel(cfs)
+    cf = cfs{icf};
+    for d = ds
+        for m = ms
+            test_on_config(cf, d, m, 0, 0);
+            test_on_config(cf, d, m, 0, 1);
+            test_on_config(cf, d, m, 1, 0);
+        end
     end
 end
         
@@ -54,8 +58,8 @@ end
     
 sigma = randpdm(cf, d, m2);
 
-g_mp0 = gaussd.from_mp(cf, mu, sigma);
-g_mp1 = gaussd.from_mp(cf, mu, sigma, 'ip');
+g_mp0 = gaussd.from_mp(mu, sigma);
+g_mp1 = gaussd.from_mp(mu, sigma, 'ip');
 
 assert(g_mp0.zmean == is_zeromean);
 assert(g_mp0.shared_cov == (m2 == 1));
@@ -66,11 +70,11 @@ h = g_mp1.h;
 J = g_mp1.J;
 c0 = g_mp1.c0;
 
-g_cp0 = gaussd.from_ip(cf, h, J, c0);
-g_cp1 = gaussd.from_ip(cf, h, J, c0, 'mp');
+g_cp0 = gaussd.from_ip(h, J, c0);
+g_cp1 = gaussd.from_ip(h, J, c0, 'mp');
 
-g_cp0_a = gaussd.from_ip(cf, h, J);
-g_cp1_a = gaussd.from_ip(cf, h, J, [], 'mp');
+g_cp0_a = gaussd.from_ip(h, J);
+g_cp1_a = gaussd.from_ip(h, J, [], 'mp');
 
 assert(g_cp0.zmean == is_zeromean);
 assert(g_cp0.shared_cov == (m2 == 1));
@@ -97,7 +101,7 @@ devcheck('c0 consistency', g_cp0_a.c0, c0, 1e-12);
 devcheck('c0 consistency', g_cp1_a.c0, c0, 1e-12);
 
 devcheck('mu consistency', g_cp1.mu, mu, 1e-12);
-devcheck('sigma consistency', g_cp1.C, sigma, 1e-12);
+devcheck('sigma consistency', g_cp1.C.v, sigma.v, 1e-12);
 
 % Test evaluation
 test_eval(g_cp1);
@@ -119,15 +123,15 @@ if isequal(mu, 0)
 end
 
 if m == 1
-    C2 = fullform(g.cform, g.dim, g.C);
+    C2 = pdmat_fullform(g.C);
 else
     C2 = zeros(d, d, m);
     if g.shared_cov
-        sC2 = fullform(g.cform, g.dim, g.C);
+        sC2 = pdmat_fullform(g.C);
         C2 = repmat(sC2, [1, 1, m]);
     else
         for k = 1 : m
-            C2(:,:,k) = fullform(g.cform, g.dim, gmat_sub(g.cform, g.C, k));
+            C2(:,:,k) = pdmat_fullform(g.C, k);
         end
     end
 end
@@ -176,7 +180,6 @@ end
 
 function test_sampling(g)
 
-cf = g.cform;
 d = g.dim;
 m = g.num;
 n = 100000;
@@ -184,15 +187,15 @@ ns = n * ones(1, m);
 
 mu = g.mu;
 if m == 1
-    C = fullform(cf, g.dim, g.C);
+    C = pdmat_fullform(g.C);
 else
     C = zeros(d, d, m);
     if g.shared_cov
-        sC = fullform(cf, d, g.C);
+        sC = pdmat_fullform(g.C);
         C = repmat(sC, [1, 1, m]);
     else
         for k = 1 : m
-            C(:,:,k) = fullform(cf, d, gmat_sub(cf, g.C, k));
+            C(:,:,k) = pdmat_fullform(g.C, k);
         end
     end
 end
@@ -229,9 +232,11 @@ function C = randpdm(cf, d, m)
 
 switch cf
     case 's'
-        C = 0.5 + rand(1, m);
+        v = 0.5 + rand(1, m);
+        C = pdmat(cf, d, v);
     case 'd'
-        C = 0.5 + rand(d, m);
+        v = 0.5 + rand(d, m);
+        C = pdmat(cf, d, v);
     case 'f'
         C = zeros(d, d, m);
         for i = 1 : m
@@ -239,29 +244,24 @@ switch cf
             dv = 0.5 + rand(d, 1);
             C(:,:,i) = R' * diag(dv) * R;
         end
+        C = pdmat(cf, d, C);
 end
-
-
-function R = fullform(cf, d, C)
-
-switch cf
-    case 's'
-        R = C * eye(d);
-    case 'd'
-        R = diag(C);
-    case 'f'
-        R = C;
-end
-
 
 
 function basic_verify(g, d, m, has_mp, has_ip)
 
 assert(g.dim == d && g.num == m && g.has_mp == has_mp && g.has_ip == has_ip);
 
+
 function verify_mp(g, mu, sigma)
 
-assert(isequal(g.mu, mu) && isequal(g.C, sigma));
+if size(mu,2) == 1 && all(mu == 0)
+    assert(isequal(g.mu, 0) && g.zmean)
+else
+    assert(isequal(g.mu, mu) && ~g.zmean);
+end
+assert(isequal(g.C, sigma));
+
 
 function verify_cp(g, h, J, c0)
 
@@ -270,8 +270,6 @@ assert(isequal(g.h, h) && isequal(g.J, J));
 if nargin >= 4
     assert(isequal(g.c0, c0));
 end
-
-
 
 
 function devcheck(name, x1, x2, thres)
