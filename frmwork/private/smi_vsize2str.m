@@ -1,4 +1,4 @@
-function s = xgs_vsize2str(vsize)
+function s = smi_vsize2str(vsize)
 % convert variable size spec to a string
 
 nd = numel(vsize);

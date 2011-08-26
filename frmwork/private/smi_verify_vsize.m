@@ -1,4 +1,4 @@
-function vsize = xgs_verify_vsize(vsize)
+function vsize = smi_verify_vsize(vsize)
 % Check whether the input is a valid variable size spec
 %
 %  If valid, returns a processed vsize;

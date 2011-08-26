@@ -1,17 +1,17 @@
-function opt = xgs_options(opt, varargin)
-% Verify or set XGS options
+function opt = gs_options(opt, varargin)
+% Verify or set Gibbs sampling options
 %
-%   opt = xgs_options(opt);
-%       verify the validity of an XGS option
+%   opt = gs_options(opt);
+%       verify the validity of an gibbs sampling option
 %
-%   opt = xgs_options([]);
-%       returns the default xgs option struct.
+%   opt = gs_options([]);
+%       returns the default gibbs sampling option struct.
 %
-%   opt = xgs_options([], 'name1', val1, 'name2', val2, ...);
-%       constructs an xgs option struct with a series of name/value pairs.
+%   opt = gs_options([], 'name1', val1, 'name2', val2, ...);
+%       constructs an option struct with a series of name/value pairs.
 %
-%   opt = xgs_options(opt, 'name1', val1, 'name2', val2, ...);
-%       updates an xgs option struct with a series of name/value pairs
+%   opt = gs_options(opt, 'name1', val1, 'name2', val2, ...);
+%       updates an option struct with a series of name/value pairs
 %
 %   Available options
 %       - 'burnin':         the number of cycles for burn-in
@@ -19,6 +19,9 @@ function opt = xgs_options(opt, varargin)
 %       - 'nsamples':       the number of samples to acquire 
 %
 %       - 'cps':            the number of cycles per sample
+%
+%       - 'nrepeats':       the number of repeating runs for each
+%                           initial config.
 %
 %       - 'output_vars':    the cell array of variables to be output
 %                           to sample, or an empty array to indicate
@@ -43,8 +46,8 @@ if isempty(opt)
     
 else
     if ~(isstruct(opt) && isscalar(opt) && ...
-            isfield(opt, 'tag') && isequal(opt.tag, 'xgs_option'))
-        error('xgs_options:invalidarg', ...
+            isfield(opt, 'tag') && isequal(opt.tag, 'gs_option'))
+        error('gs_options:invalidarg', ...
             'The input option struct is invalid.');
     end
 end
@@ -57,7 +60,7 @@ names = varargin(1:2:end);
 vals = varargin(2:2:end);
 
 if ~(numel(names) == numel(vals) && iscellstr(names))
-    error('xgs_options:invalidarg', ...
+    error('gs_options:invalidarg', ...
         'The name value list is invalid.');
 end
 
@@ -72,9 +75,9 @@ for i = 1 : numel(names)
     cv = vals{i};
     
     switch lcn
-        case {'burnin', 'nsamples', 'cps'}
+        case {'burnin', 'nsamples', 'cps', 'nrepeats'}
             if ~(is_int(cv) && cv >= 1)
-                error('xgs_options:invalidarg', ...
+                error('gs_options:invalidarg', ...
                     'The value of option %s must be a positive integer scalar.', lcn);
             end
             opt.(lcn) = cv;
@@ -85,7 +88,7 @@ for i = 1 : numel(names)
                 
             else
                 if ~iscellstr(cv)                            
-                    error('xgs_options:invalidarg', ...
+                    error('gs_options:invalidarg', ...
                         'output_vars should be either empty or a cell array of strings.');
                 end
                 opt.output_vars = cv;
@@ -94,7 +97,7 @@ for i = 1 : numel(names)
         case 'display'
             if isnumeric(cv)
                 if ~(is_int(cv) && cv >= 0 && cv <= 4)
-                    error('xgs_options:invalidarg', ...
+                    error('gs_options:invalidarg', ...
                         'The value of cps must be an integer in [0, 4].');
                 end
                 opt.display = cv;
@@ -114,13 +117,13 @@ for i = 1 : numel(names)
                 end
                 opt.display = dv;
             else
-                error('xgs_options:invalidarg', ...
+                error('gs_options:invalidarg', ...
                     'The value for display option is invalid.');
             end
             
         otherwise
-            error('xgs_options:invalidarg', ...
-                'Unknown XGS option name %s', cn);
+            error('gs_options:invalidarg', ...
+                'Unknown option name %s', cn);
         
     end
     
@@ -130,10 +133,11 @@ end
         
 function opt = make_default_opt()
 
-opt.tag = 'xgs_option';
+opt.tag = 'gs_option';
 opt.burnin = 500;
 opt.nsamples = 100;
 opt.cps = 50;
+opt.nrepeats = 1;
 opt.output_vars = [];
 opt.display = 0;
 
