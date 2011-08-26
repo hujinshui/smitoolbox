@@ -1,8 +1,8 @@
-classdef toy_spfunc < xgs_func
+classdef smi_toyfunc < smi_func
     % This is a toy sampling function class
     %
     % The purposes of this class:
-    %   - for debugging and/or testing a xgs model framework
+    %   - for debugging and/or testing a smi framework and gibbs sampling
     %   - serve as an example to illustrate how to write a sample step
     %    class
     %
@@ -39,10 +39,10 @@ classdef toy_spfunc < xgs_func
     
     methods
         
-        function obj = toy_spfunc(ins, outs)
+        function obj = smi_toyfunc(ins, outs)
             % Construct a toy_spfunc object
             %
-            %   obj = toy_spstep(ins, outs);
+            %   obj = smi_toyfunc(ins, outs);
             %       constructs the object by specifying the input
             %       and output slots.
             %

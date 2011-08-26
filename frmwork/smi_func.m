@@ -1,5 +1,5 @@
-classdef xgs_func
-    % A base class for all xgs functions
+classdef smi_func
+    % A base class for all smi framework functional module
     %
     
     % Created by Dahua Lin, on Aug 24, 2011

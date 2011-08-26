@@ -1,4 +1,4 @@
-function tf = xgs_is_vcompatible(vs, vd)
+function tf = smi_is_vcompatible(vs, vd)
 % test whether the variable described in vs can be assigned to one as vd
 %
 

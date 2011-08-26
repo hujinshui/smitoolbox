@@ -1,4 +1,4 @@
-function r = xgs_from_repr(repr, I)
+function r = smi_from_repr(repr, I)
 
 n = numel(I);
 r = cell(1, n);
