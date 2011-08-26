@@ -92,7 +92,7 @@ classdef gaussd
             %       - C:    the covariance matrix represented by a
             %               pdmat struct.            
             %
-            %   G = gaussd.from_mp(cf, mu, C, 'ip');
+            %   G = gaussd.from_mp(mu, C, 'ip');
             %       additionally derives the information parameters.
             %                                    
             
@@ -452,12 +452,12 @@ classdef gaussd
         function [hp, Jp] = add_info(G, ho, Jo, i)
             % Adds information params to the current model
             %
-            %   [hp, Jp] = G.add_info(ho, Jo, cfo);
+            %   [hp, Jp] = G.add_info(ho, Jo);
             %       adds the information parameters that reflect the 
             %       feedback of the observations, to obtain the posterior
             %       information parameters.
             %
-            %   [hp, Jp] = G.add_info(ho, Jo, cfo, i);
+            %   [hp, Jp] = G.add_info(ho, Jo, i);
             %       the information are to be added to the i-th model
             %       in this object.
             %
@@ -522,8 +522,8 @@ classdef gaussd
         function Mp = pos_mean(G, ho, Jo, i)
             % Get the posterior mean(s) given observed information
             %
-            %   Mp = G.pos_mean(ho, Jo, cfo);
-            %   Mp = G.pos_mean(ho, Jo, cfo, i);
+            %   Mp = G.pos_mean(ho, Jo);
+            %   Mp = G.pos_mean(ho, Jo, i);
             %
             
             if nargin < 5
