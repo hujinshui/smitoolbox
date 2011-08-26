@@ -29,7 +29,11 @@ function G = gaussmle(X, W, varargin)
 %                       default = false;
 %
 
-% Created by Dahua Lin, on Nov 14, 2010
+%   History
+%   -------
+%       - Created by Dahua Lin, on Nov 14, 2010
+%       - Modified by Dahua Lin, on Aug 25, 2010
+%           - based on pdmat struct
 %
 
 %% verify input
@@ -41,7 +45,7 @@ else
         'X should be a d x n numeric matrix.');
 end
 
-if nargin < 2
+if nargin < 2 || isempty(W)
     W = 1;
 else
     if ~(isfloat(W) && ...
@@ -85,12 +89,20 @@ mu = mean_w(X, Wt);
 
 switch cf
     case 's'
-        ex2 = mean_w(dot(X, X, 1), Wt);
+        if d == 1
+            ex2 = mean_w(X .* X, Wt);
+        else
+            ex2 = mean_w(dot(X, X, 1), Wt);
+        end
         v = ex2 - dot(mu, mu, 1);
         if K > 1 && opts.tie_cov
             v = mean_w(v, sw);
         end
-        C = v / d;
+        if d == 1
+            C = pdmat('s', 1, v);
+        else
+            C = pdmat('s', d, v * (1/d));
+        end
         
     case 'd'
         ex2 = mean_w(X.^2, Wt);
@@ -98,7 +110,7 @@ switch cf
         if K > 1 && opts.tie_cov
             v = mean_w(v, sw);
         end
-        C = v;
+        C = pdmat('d', d, v);
                 
     case 'f'
         if K == 1
@@ -115,14 +127,15 @@ switch cf
                     C(:,:,k) = calc_cov(X, mu(:,k), Wt(:,k));
                 end
             end
-        end        
+        end
+        C = pdmat('f', d, C);
 end
 
 
 if opts.use_ip
-    G = gaussd.from_mp(cf, mu, C, 'ip');
+    G = gaussd.from_mp(mu, C, 'ip');
 else
-    G = gaussd.from_mp(cf, mu, C);
+    G = gaussd.from_mp(mu, C);
 end
 
 
