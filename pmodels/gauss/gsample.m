@@ -1,21 +1,13 @@
 function X = gsample(mu, C, n)
 % Samples from (multivariate) Gaussian distributions
 %
-%   X = gsample(cf, mu, C, n);
+%   X = gsample(mu, C, n);
 %       Draws n samples from a Gaussian distribution whose mean and 
 %       covariance are respectively given by mu and C.
 %
 %       Input arguments:
-%       - cf:       the form of covariance
-%                   which can be either 's', 'd', or 'f'.
 %       - mu:       the mean vector [d x 1]
-%       - C:        the covariance given in the specified form:
-%                   - cf == 's':    C is a scalar that represents a
-%                                   covariance matrix as C * eye(d).
-%                   - cf == 'd':    C is a d x 1 vector that represents a
-%                                   covariance matrix as diag(C).
-%                   - cf == 'f':    C is a full covariance matrix.
-%
+%       - C:        the covariance given in pdmat struct.
 %       - n:        the number of sameples to be acquired from the model.
 
 %

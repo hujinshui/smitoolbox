@@ -6,30 +6,31 @@ classdef gen_model
     %   theta_k | alpha_1, alpha_2, ... ~ hyper model, for k = 1, ..., K
     %   x_i | {theta_k}, z_i, ... ~ generative model,  for i = 1, ..., n
     %
+    %   Here, z_i indicates which parameter theta is used to 
+    %   generate x_i.
+    %
     
     % Created by Dahua Lin, on Aug 26, 2011
     %
     
-    %% properties
-    
-    properties(Abstract)
-        param_name;         % the name of the parameter
-        param_size;         % the parameter size
-        num_hyper_params;   % the number of hyper parameters
-    end
     
     %% methods to retrieve basic information
     
     methods(Abstract)        
+        siz = get_param_size(model);
+        % Gets the size of each parameter
         
-        psiz = get_hyper_param_size(model, i);
+        siz = get_product_size(model);
+        % Gets the size of each product
+        
+        n = get_num_hyper_params(model);
+        % Gets the number of hyper parameters
+        
+        siz = get_hyper_param_size(model, i);
         % Gets the size of the i-th hyper-parameter.
         
-        pname = get_hyper_param_name(model, i);
-        % Gets the name of the i-th hyper-parameter.
-        
-        ssiz = get_product_size(model);
-        % Gets the size of each produced sample
+        name = get_hyper_param_name(model, i);
+        % Gets the name of the i-th hyper-parameter.        
                 
     end    
     
@@ -37,7 +38,7 @@ classdef gen_model
     
     methods(Abstract)
     
-        lpri = logpri(model, alpha, Theta)
+        lpri = logpri(model, alpha, Theta, hmap)
         % Evaluates the log-prior of given parameters
         %
         %   lpri = model.logpri(alpha, Theta);
@@ -48,7 +49,14 @@ classdef gen_model
         %
         %       Suppose there are K parameters packed in Theta, then
         %       lpri should be a 1 x K row vector, with lpri(k) giving
-        %       the log-prior value for the k-th parameter.        
+        %       the log-prior value for the k-th parameter.  
+        %
+        %   lpri = model.logpri(Alpha, Theta, hmap);
+        %       
+        %       evaluates the log-prior of the parameters in Theta
+        %       with respect to multi prior parameters. In particular,
+        %       the log-prior value of the k-th parameter in Theta 
+        %       should be estimated based on hmap(k)-th hyper-parameters.
         %
         
         Llik = loglik(model, Theta, X)
@@ -90,12 +98,12 @@ classdef gen_model
         %       number of samples.
         %
         
-        Theta = map_estimate_params(model, X, Z, Alpha, hmap);
+        Theta = mapest_params(model, X, Z, Alpha, hmap);
         % Performs Maximum-a-posteriori (MAP) estimation of parameters
         %
-        %   theta = model.map_estimate_params(X);
+        %   theta = model.mapest_params(X);
         %
-        %   theta = model.map_estimate_params(X, [], alpha);
+        %   theta = model.mapest_params(X, [], alpha);
         %
         %       Performs MAP estimation of the parameter based on 
         %       a given set of samples, each with weight 1. 
@@ -104,7 +112,7 @@ classdef gen_model
         %       When num_hyper_params == 0, Alpha should be empty or 
         %       omitted, and this function should perform MLE estimation.
         %
-        %   Theta = model.map_estimate_params(X, W, alpha);
+        %   Theta = model.mapest_params(X, W, alpha);
         %
         %       Performs MAP estimation based on weighted samples.
         %
@@ -112,14 +120,14 @@ classdef gen_model
         %       contribution weight of the i-th sample to the k-th model.
         %       In output, Theta is comprised of K parameters.
         %
-        %   Theta = model.map_estimate_params(X, g, alpha);
+        %   Theta = model.mapest_params(X, g, alpha);
         %
         %       Performs MAP estimation based on grouped samples.
         %       Here, g is a cell array of index vectors, and the k-th
         %       model parameter should be estimated based on the samples
         %       whose index is in g{k}.
         %
-        %   Theta = model.map_estimate_params(X, .., Alpha, hmap);
+        %   Theta = model.mapest_params(X, .., Alpha, hmap);
         %
         %       Performs MAP estimation with hyper-map. Here, hmap is
         %       an index vector of length K, and Alpha is a cell matrix,
@@ -130,7 +138,7 @@ classdef gen_model
         %       Alpha. 
         %
         
-        Theta = sample_params(X, Z, Alpha, hmap);
+        Theta = sample_params(model, X, Z, Alpha, hmap);
         % Samples from the posterior distribution of parameters
         %
         %   theta = model.sample_params(X, [], alpha);

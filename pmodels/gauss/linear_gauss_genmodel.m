@@ -38,6 +38,41 @@ classdef linear_gauss_genmodel < gen_model
         Gx;         % a Gaussian distribution: N(0, Cx)
         Gy;         % a Gaussian distribution: N(0, Cy)
     end
+        
+    %% Basic information 
+        
+    methods
+        function v = get_param_size(model)
+            v = model.xdim;
+        end
+        
+        function v = get_product_size(model)
+            v = model.ydim;
+        end
+        
+        function n = get_num_hyper_params(model) %#ok<MANU>
+            n = 1;
+        end
+        
+        function v = get_hyper_param_size(model, i)
+            if nargin < 2 || i == 1
+                v = model.udim;
+            else
+                error('linear_gauss_genmodel:invalidarg', ...
+                    'i must be 1, as there is only one hyper-param.');
+            end
+        end
+        
+        function v = get_hyper_param_name(model, i) %#ok<MANU>
+            if nargin < 2 || i == 1
+                v = 'mu';
+            else
+                error('linear_gauss_genmodel:invalidarg', ...
+                    'i must be 1, as there is only one hyper-param.');
+            end
+        end
+    end
+        
     
     %% Construction
     
@@ -67,8 +102,8 @@ classdef linear_gauss_genmodel < gen_model
                     'Cy should be a pdmat struct.');
             end
                         
-            xd = Cx.dim;
-            yd = Cy.dim;
+            xd = Cx.d;
+            yd = Cy.d;
             
             if ~isa(Cx.v, 'double'); Cx.v = double(Cx.v); end
             if ~isa(Cy.v, 'double'); Cy.v = double(Cy.v); end
@@ -129,7 +164,7 @@ classdef linear_gauss_genmodel < gen_model
     
     methods
             
-        function lpri = logpri(model, mu, X)
+        function lpri = logpri(model, mu, X, umap)
             % Evaluates the log-prior of given parameters
             %
             %   lpri = model.logpri(mu, X);
@@ -137,38 +172,59 @@ classdef linear_gauss_genmodel < gen_model
             %       Evaluates the log-prior of the parameters in X 
             %       with respect to the hyper-parameter mu.      
             %
+            %   lpri = model.logpri(Mu, X, umap);
+            %
+            %       Evaluates the log-prior of the parameters in X
+            %       with respect to multiple hyper-parameter in Mu.
+            %
+            %       In particular, the log-prior value of the k-th
+            %       parameter in X should be evaluated based on 
+            %       umap(k)-th prior mean in Mu.
+            %
             
             % verify inputs
             
-            ud = model.udim;
-            xd = model.xdim;
+            mu = chk_mu(mu);         
+            X = chk_x(X);
             
-            if ~(isfloat(mu) && isequal(size(mu), [ud, 1]))
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'mu should be a numeric vector of size udim x 1.');
-            end
-            if ~isa(mu, 'double'); mu = double(mu); end
-            
-            if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == xd)
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'X should be a numeric matrix with size(X,1) == xdim.');
-            end
-            if ~isa(X, 'double'); X = double(X); end
+            if nargin < 4 || isempty(umap)
+                if size(mu, 2) ~= 1
+                    error('linear_gauss_genmodel:invalidarg', ...
+                        'mu should have one column when umap is not given.');
+                end
+                umap = [];
+                uz = all(mu == 0);
+            else
+                nx = size(X, 2);
+                if ~(isnumeric(umap) && isequal(size(umap), [1 nx]))
+                    error('linear_gauss_genmodel:invalidarg', ...
+                        'umap should be a numeric row vector of size 1 x size(X,2).');
+                end
+                uz = 0;
+            end            
             
             % compute
             
-            B_ = model.B;
-            if isequal(B_, 1)
-                bu = mu;
-            else
-                bu = B_ * mu;
-            end
-            
-            if all(bu == 0)
+            if uz
                 Xmu = X;
-            else
-                Xmu = bsxfun(@minus, X, bu);
-            end                
+            else                                        
+                B_ = model.B;
+                if isequal(B_, 1)
+                    bu = mu;
+                else
+                    bu = B_ * mu;
+                end
+                                
+                if ~isempty(umap)
+                    bu = bu(:, umap);
+                end
+                
+                if size(X, 2) == size(bu, 2)
+                    Xmu = X - bu;
+                else
+                    Xmu = bsxfun(@minus, X, bu);
+                end
+            end
             
             lpri = model.Gx.logpdf(Xmu);            
         end
@@ -185,20 +241,8 @@ classdef linear_gauss_genmodel < gen_model
             
             % verify inputs
             
-            xd = model.xdim;
-            yd = model.ydim;
-            
-            if ~(isfloat(X) && ndims(X) == 1 && size(X,1) == xd)
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'X should be a numeric matrix with size(X,1) == xdim.');
-            end
-            if ~isa(X, 'double'); X = double(X); end
-            
-            if ~(isfloat(Y) && ndims(Y) == 2 && size(Y,1) == yd)
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'Y should be a numeric matrix with size(Y,1) == ydim.');
-            end
-            if ~isa(Y, 'double'); Y = double(Y); end
+            X = chk_x(X);
+            Y = chk_y(Y);
             
             % compute
             
@@ -247,12 +291,7 @@ classdef linear_gauss_genmodel < gen_model
             
             % verify inputs
             
-            xd = model.xdim;            
-            if ~(isfloat(X) && ndims(X) == 1 && size(X,1) == xd)
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'X should be a numeric matrix with size(X,1) == xdim.');
-            end
-            if ~isa(X, 'double'); X = double(X); end
+            X = chk_x(X);
             
             if ~(isnumeric(n) && isscalar(n) && n == fix(n) && n >= 0)
                 error('linear_gauss_genmodel:invalidarg', ...
@@ -264,14 +303,14 @@ classdef linear_gauss_genmodel < gen_model
                     error('linear_gauss_genmodel:invalidarg', ...
                         'X can have one column when no grouping is given.');
                 end
-                xgrp = 0;
+                is_grp = 0;
             else
                 if ~(iscell(g) && numel(g) == size(X, 2))
                     error('linear_gauss_genmodel:invalidarg', ...
                         ['g should be a cell array of index vectors', ...
                         'with K cells (K = size(X,2)).']);
                 end
-                xgrp = 1;
+                is_grp = 1;
             end
                
             % compute
@@ -285,7 +324,7 @@ classdef linear_gauss_genmodel < gen_model
                         
             Y = model.Gy.sample(n);
             
-            if ~xgrp                
+            if ~is_grp                
                 Y = bsxfun(@plus, Y, AX);                
             else
                 for k = 1 : numel(g)
@@ -340,11 +379,16 @@ classdef linear_gauss_genmodel < gen_model
             %       estimated based on the umap(i)-th prior mean in Mu.
             %
             
+            if nargin < 3; Z = []; end
+            if nargin < 4; Mu = []; end
+            if nargin < 5; umap = []; end
             
+            [h, J] = compute_pos_ip(model, Y, Z, Mu, umap, false);    
+            X = pdmat_lsolve(J, h);
         end
         
         
-        function X = sample_params(Y, Z, mu, umap)
+        function X = sample_params(model, Y, Z, Mu, umap)
             % Samples from the posterior distribution of parameters
             %
             %   x = model.sample_params(Y, [], mu);
@@ -387,17 +431,168 @@ classdef linear_gauss_genmodel < gen_model
             %       Specifically, X(:,k) should be estimated based on
             %       the prior mean Mu(:, umap(k)).
             %
-            %
             
+            if nargin < 3; Z = []; end
+            if nargin < 4; Mu = []; end
+            if nargin < 5; umap = []; end
+            
+            [h, J] = compute_pos_ip(model, Y, Z, Mu, umap, true);   
+            
+            mu = pdmat_lsolve(J, h);
+            C = pdmat_inv(J);
+
+            K = size(h, 2);
+            if K == 1
+                if isscalar(umap)
+                    ns = umap;
+                else
+                    ns = 1;
+                end                
+                X = gsample(mu, C, ns);
+            else
+                % due to the computation of posterior
+                % C is not shared across different posterior distributios                
+                X = zeros(model.xdim, K);
+                for k = 1 : K
+                    Ck = pdmat_pick(C, k);
+                    X(:, k) = gsample(mu(:,k), Ck, 1);
+                end
+            end
+                        
         end
-        
         
     end
     
     
+    methods(Access='private')
+        
+        function [h, J] = compute_pos_ip(model, Y, Z, Mu, umap, method)
+            % compute information-param of posterior of X            
+
+            % verify inputs
+            
+            Y = chk_y(Y);
+            n = size(Y, 2);
+            
+            if ~isempty(Mu)
+                Mu = chk_mu(Mu);
+                nh = size(Mu, 2);
+            else
+                nh = 0;
+            end
+            
+            [K, W, g, has_umap, has_pri] = gen_model_parse_arg( ...
+                method, n, nh, Z, umap);
+            
+            % compute
+            
+            % collect statistics from Y
+            
+            if ~is_grp                
+                if isempty(W)
+                    sum_y = sum(Y, 2);  % d x 1
+                    sum_w = n;          % scalar
+                else
+                    sum_y = Y * W';     % d x K
+                    sum_w = sum(W, 2).';    % 1 x K
+                end
+            else
+                sum_y = zeros(d, K);
+                sum_w = zeros(1, K);
+                
+                for k = 1 : K
+                    cY = Y(:, g{k});
+                    sum_y(:, k) = sum(cY, 2);
+                    sum_w(k) = size(cY, 2);
+                end
+            end
+            
+            Jy = model.Gy.J;
+            A_ = model.A;
+            
+            if isempty(A_)
+                dh = pdmat_mvmul(Jy, sum_y);
+                dJ = pdmat_scale(Jy, sum_w);
+            else
+                dh = A_' * pdmat_mvmul(Jy, sum_y);
+                dJm = pdmat_pwquad(Jy, A_);
+                dJ = pdmat(dJm);
+                dJ = pdmat_scale(dJ, sum_w);
+            end
+                                                
+            % generate posterior param
+            
+            if has_pri
+                B_ = model.B;
+                if isempty(B_)
+                    Bu = Mu;
+                else
+                    Bu = B_ * Mu;
+                end
+                
+                if has_umap
+                    Bu = Bu(:, umap);
+                end                
+                
+                Jx = model.Gx.J;
+                if K == size(Bu, 2)
+                    h = Jx * Bu + dh;
+                else
+                    h = bsxfun(@plus, Jx * Bu, dh);
+                end
+                J = pdmat_plus(Jx, dJ);
+            else
+                h = dh;
+                J = dJ;
+            end
+                        
+        end        
+    end
+    
+    
+    %% Auxiliary methods
+    
+    methods
+        function X = chk_x(model, X)
+            xd = model.xdim;
+            if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == xd)
+                error('linear_gauss_genmodel:invalidarg', ...
+                    'X should be a real matrix with xdim rows.');
+            end
+            if ~isa(X, 'double')
+                X = double(X);
+            end
+        end
+        
+        function Y = chk_y(model, Y)
+            yd = model.ydim;
+            if ~(isfloat(Y) && isreal(Y) && ndims(Y) == 2 && size(Y,1) == yd)
+                error('linear_gauss_genmodel:invalidarg', ...
+                    'Y should be a real matrix with ydim rows.');
+            end
+            if ~isa(Y, 'double')
+                Y = double(Y);
+            end
+        end
+        
+        function Mu = chk_mu(model, Mu)
+            if iscell(Mu)
+                Mu = Mu{1};
+            end
+            
+            ud = model.udim;
+            if ~(isfloat(Mu) && isreal(Mu) && ndims(Mu) == 2 && size(Mu,1) == ud)
+                error('linear_gauss_genmodel:invalidarg', ...
+                    'Mu should be a real matrix with udim rows.');
+            end
+            if ~isa(Mu, 'double')
+                Mu = double(Mu);
+            end
+        end
+    end
+    
+                
 end
-
-
 
 
 
