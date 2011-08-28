@@ -38,41 +38,7 @@ classdef linear_gauss_genmodel < gen_model
         Gx;         % a Gaussian distribution: N(0, Cx)
         Gy;         % a Gaussian distribution: N(0, Cy)
     end
-        
-    %% Basic information 
-        
-    methods
-        function v = get_param_size(model)
-            v = model.xdim;
-        end
-        
-        function v = get_product_size(model)
-            v = model.ydim;
-        end
-        
-        function n = get_num_hyper_params(model) %#ok<MANU>
-            n = 1;
-        end
-        
-        function v = get_hyper_param_size(model, i)
-            if nargin < 2 || i == 1
-                v = model.udim;
-            else
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'i must be 1, as there is only one hyper-param.');
-            end
-        end
-        
-        function v = get_hyper_param_name(model, i) %#ok<MANU>
-            if nargin < 2 || i == 1
-                v = 'mu';
-            else
-                error('linear_gauss_genmodel:invalidarg', ...
-                    'i must be 1, as there is only one hyper-param.');
-            end
-        end
-    end
-        
+            
     
     %% Construction
     
@@ -91,6 +57,8 @@ classdef linear_gauss_genmodel < gen_model
             %       Note A or B can be omitted, in which case, it is
             %       assumed to be identity (i.e. scalar 1).
             %
+            
+            % verify arguments
             
             if ~is_pdmat(Cx)
                 error('linear_gauss_genmodel:invalidarg', ...
@@ -144,8 +112,13 @@ classdef linear_gauss_genmodel < gen_model
                 if ~isa(B, 'double'); B = double(B); end
             end
             
-            Gx_ = gaussd.from_mp(0, Cx, 'ip');
-            Gy_ = gaussd.from_mp(0, Cy, 'ip');
+            % make object
+            
+            mu_info = struct('name', 'mu', 'type', 'double', 'size', ud);
+            x_info  = struct('name', 'x', 'type', 'double', 'size', xd);
+            y_info  = struct('name', 'y', 'type', 'double', 'size', yd);
+                                                                                                                     
+            model = model@gen_model(y_info, x_info, mu_info);
             
             model.udim = ud;
             model.xdim = xd;
@@ -154,6 +127,10 @@ classdef linear_gauss_genmodel < gen_model
             model.Cy = Cy;
             model.A = A;
             model.B = B;
+            
+            Gx_ = gaussd.from_mp(0, Cx, 'ip');
+            Gy_ = gaussd.from_mp(0, Cy, 'ip'); 
+            
             model.Gx = Gx_;
             model.Gy = Gy_;
         end
@@ -229,6 +206,7 @@ classdef linear_gauss_genmodel < gen_model
             lpri = model.Gx.logpdf(Xmu);            
         end
         
+                
         function Llik = loglik(model, X, Y)
             % Evaluates the generative log-likelihood 
             %
@@ -336,11 +314,11 @@ classdef linear_gauss_genmodel < gen_model
         end
         
         
-        function X = map_estimate_params(model, Y, Z, Mu, umap)
+        function X = mapest_params(model, Y, Z, Mu, umap)
             % Performs Maximum-a-posteriori (MAP) estimation of parameters
             %
-            %   x = model.map_estimate_params(Y);
-            %   x = model.map_estimate_params(Y, [], mu);
+            %   x = model.mapest_params(Y);
+            %   x = model.mapest_params(Y, [], mu);
             %
             %       Performs MAP estimation of the parameter based on 
             %       a given set of samples, each with weight 1. 
@@ -350,7 +328,7 @@ classdef linear_gauss_genmodel < gen_model
             %       two ways, a udim x 1 vector, or a cell containing
             %       it (for conformance with gen_model interface).
             %
-            %   X = model.map_estimate_params(Y, W, alpha);
+            %   X = model.mapest_params(Y, W, alpha);
             %
             %       Performs MAP estimation based on weighted samples.
             %
@@ -361,13 +339,13 @@ classdef linear_gauss_genmodel < gen_model
             %       In output, X is an xdim x K matrix, with X(:,k) 
             %       estimated based on W(k,:).
             %
-            %   X = model.map_estimate_params(Y, g, alpha);
+            %   X = model.mapest_params(Y, g, alpha);
             %
             %       Performs MAP estimation based on grouped samples.
             %       Here, g is a cell array of index vectors, and X(:,k)
             %       should be estimated based on Y(:, g{k});
             %
-            %   X = model.map_estimate_params(Y, .., Mu, umap);
+            %   X = model.mapest_params(Y, .., Mu, umap);
             %
             %       Performs MAP estimation with prior-map (umap).
             %       
@@ -524,7 +502,7 @@ classdef linear_gauss_genmodel < gen_model
             
             if has_pri
                 B_ = model.B;
-                if isempty(B_)
+                if isequal(B_, 1)
                     Bu = Mu;
                 else
                     Bu = B_ * Mu;
@@ -554,6 +532,10 @@ classdef linear_gauss_genmodel < gen_model
     
     methods
         function X = chk_x(model, X)
+            if iscell(X)
+                X = X{1};
+            end            
+            
             xd = model.xdim;
             if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == xd)
                 error('linear_gauss_genmodel:invalidarg', ...
@@ -565,6 +547,10 @@ classdef linear_gauss_genmodel < gen_model
         end
         
         function Y = chk_y(model, Y)
+            if iscell(Y)
+                Y = Y{1};
+            end
+            
             yd = model.ydim;
             if ~(isfloat(Y) && isreal(Y) && ndims(Y) == 2 && size(Y,1) == yd)
                 error('linear_gauss_genmodel:invalidarg', ...

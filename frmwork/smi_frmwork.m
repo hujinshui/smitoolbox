@@ -297,17 +297,17 @@ classdef smi_frmwork < handle
                 fprintf(fid, '  [%d] %s: class %s\n', ...
                     i, f.name, class(fo));
                 
-                n_in = fo.num_input_slots;
-                n_out = fo.num_output_slots;
+                n_in = numel(fo.input_slots);
+                n_out = numel(fo.output_slots);
                 
                 for j = 1 : n_in
-                    slinfo = fo.get_slot_info('in', j);
+                    slinfo = fo.input_slots(j);
                     fprintf(fid, '\t [in %d] %s: %s %s\n', ...
                         j, slinfo.name, slinfo.type, smi_vsize2str(slinfo.size));
                 end
                 
                 for j = 1 : n_out
-                    slinfo = fo.get_slot_info('out', j);
+                    slinfo = fo.output_slots(j);
                     fprintf(fid, '\t [in %d] %s: %s %s\n', ...
                         j, slinfo.name, slinfo.type, smi_vsize2str(slinfo.size));
                 end
@@ -425,8 +425,8 @@ classdef smi_frmwork < handle
                 f_id = fmap.(fname);
                 fo = F(f_id).func;
                 
-                n_in = fo.num_input_slots;
-                n_out = fo.num_output_slots;                                                
+                n_in = numel(fo.input_slots);
+                n_out = numel(fo.output_slots);                                                
                 v_in = zeros(1, n_in);
                 v_out = zeros(1, n_out);
                                                     
@@ -435,7 +435,14 @@ classdef smi_frmwork < handle
                 ni = numel(ss);
                 for j = 1 : ni
                     [sdir, sid] = fo.get_slot_id(ss{j});
-                    si = fo.get_slot_info(sdir, sid);
+                    
+                    switch sdir
+                        case 'in'
+                            si = fo.input_slots(sid);
+                        case 'out'
+                            si = fo.output_slots(sid);
+                    end
+                    
                     vname = vs{j};
                     if ~isfield(vmap, vname)
                         error('smi_frmwork:compile_err', ...
