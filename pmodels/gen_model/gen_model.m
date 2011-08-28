@@ -1,5 +1,5 @@
-classdef gen_model
-    % The base class for generative model
+classdef gen_model <  gen_model_base
+    % The base class for single-parameter generative model
     %
     % In general, the math formulation of the model can be written as
     %
@@ -14,26 +14,25 @@ classdef gen_model
     %
     
     
-    %% methods to retrieve basic information
+    %% Constructors
     
-    methods(Abstract)        
-        siz = get_param_size(model);
-        % Gets the size of each parameter
+    methods
         
-        siz = get_product_size(model);
-        % Gets the size of each product
+        function model = gen_model(pr, pa, HPa)
+            % Constructs the base of a generative model
+            %
+            %   model = gen_model(pr, pa, HPa);
+            %
+            
+            assert(numel(pr) == 1);
+            assert(numel(pa) == 1);
+            
+            model = model@gen_model_base(pr, pa, HPa);
+        end
         
-        n = get_num_hyper_params(model);
-        % Gets the number of hyper parameters
-        
-        siz = get_hyper_param_size(model, i);
-        % Gets the size of the i-th hyper-parameter.
-        
-        name = get_hyper_param_name(model, i);
-        % Gets the name of the i-th hyper-parameter.        
-                
-    end    
+    end
     
+       
     %% evaluation methods
     
     methods(Abstract)

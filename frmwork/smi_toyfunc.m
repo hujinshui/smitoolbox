@@ -9,38 +9,13 @@ classdef smi_toyfunc < smi_func
     
     % Created by Dahua Lin, Aug 24, 2011
     %
-    
-    %% properties
-    
-    properties(GetAccess='public', SetAccess='private')
-        inlet_names;    % the cell array of names of input slots
-        outlet_names;   % the cell array of names of output slots
         
-        in_dims;        % the vector dimensions for input slots
-        out_dims;       % the vector dimensions for output slots
-    end
-    
-    properties(Dependent)
-        num_input_slots;
-        num_output_slots;        
-    end    
-    
-    methods        
-        function v = get.num_input_slots(obj)
-            v = numel(obj.inlet_names);
-        end        
-        function v = get.num_output_slots(obj)
-            v = numel(obj.outlet_names);
-        end        
-    end
-    
-    
     %% methods
     
     methods
         
         function obj = smi_toyfunc(ins, outs)
-            % Construct a toy_spfunc object
+            % Construct a smi_toyfunc object
             %
             %   obj = smi_toyfunc(ins, outs);
             %       constructs the object by specifying the input
@@ -53,93 +28,52 @@ classdef smi_toyfunc < smi_func
             %
             
             if ~(isstruct(ins) && isscalar(ins))
-                error('toy_spfunc:invalidarg', ...
+                error('smi_toyfunc:invalidarg', ...
                     'ins should be a struct scalar.');
             end
             
             if ~(isstruct(outs) && isscalar(outs))
-                error('toy_spfunc:invalidarg', ...
+                error('smi_toyfunc:invalidarg', ...
                     'outs should be a struct scalar.');
             end
             
-            obj.inlet_names = fieldnames(ins);
-            obj.outlet_names = fieldnames(outs);
+            in_names = fieldnames(ins);
+            out_names = fieldnames(outs);
             
-            ps = struct2cell(ins);
-            obj.in_dims = [ps{:}];
+            n_in = numel(in_names);
+            n_out = numel(out_names);
             
-            qs = struct2cell(outs);
-            obj.out_dims = [qs{:}];
-        end
-        
-        function [dir, id] = get_slot_id(obj, name)
-            % Retrieve the integer id of a slot
-            %
-            %   [dir, id] = get_slot_name(name);
-            %       returns the direction and id of the named slot.        
-            %
+            inlets = struct('name', in_names, 'type', 'double', 'size', []);
+            outlets = struct('name', out_names, 'type', 'double', 'size', []);
             
-            [tf, id] = ismember(name, obj.inlet_names);
-            
-            if tf
-                dir = 'in';
-                return;
-            else
-                [tf, id] = ismember(name, obj.outlet_names);
-                if tf
-                    dir = 'out';
-                    return;
-                else
-                    error('toy_spfunc:invalidname', ...
-                        'The input name %s is not a slot name.', name);
-                end
-            end                            
-        end
-        
-               
-        function info = get_slot_info(obj, dir, id)
-            % Get the information of a slot
-            %
-            %   info = obj.get_slot_info(dir, id);
-            %       gets the information of a slot with the input name.           
-            %
-            %       The function raises an error if the given name
-            %       is not the same of any slot.
-            %
-            
-            if strcmpi(dir, 'in')
-                info.name = obj.inlet_names{id};
-                info.type = 'double';
-                info.size = obj.in_dims(id);
-                
-            elseif strcmpi(dir, 'out')
-                info.name = obj.outlet_names{id};
-                info.type = 'double';
-                info.size = obj.out_dims(id);
-                
-            else
-                error('toy_spfunc:invalidname', ...
-                    'The input dir is invalid.');
+            for i = 1 : n_in
+                inlets(i).size = ins.(in_names{i});
             end
+            
+            for i = 1 : n_out
+                outlets(i).size = outs.(out_names{i});
+            end    
+            
+            obj = obj@smi_func(inlets, outlets);
         end
         
-        
+    
         function tf = test_slots(obj, inflags, outflags)
             % Test whether a particular connection config is valid.
             %
             %   tf = obj.test_slots(inflags, outflags);
             %
             
-            n_in = obj.num_input_slots;
-            n_out = obj.num_output_slots;
+            n_in = numel(obj.input_slots);
+            n_out = numel(obj.output_slots);
             
             if ~(islogical(inflags) && isequal(size(inflags), [1, n_in]))
-                error('toy_spfunc:invalidarg', ...
-                    'outflags should be a logical vector of size 1 x n_out.');
+                error('smi_toyfunc:invalidarg', ...
+                    'inflags should be a logical vector of size 1 x n_in.');
             end
             
             if ~(islogical(outflags) && isequal(size(outflags), [1, n_out]))
-                error('toy_spfunc:invalidarg', ...
+                error('smi_toyfunc:invalidarg', ...
                     'outflags should be a logical vector of size 1 x n_out.');
             end
             
@@ -165,22 +99,22 @@ classdef smi_toyfunc < smi_func
             %       set it to empty.
             %
             
-            n_in = obj.num_input_slots;
-            n_out = obj.num_output_slots;
+            n_in = numel(obj.input_slots);
+            n_out = numel(obj.output_slots);
             varargout = cell(1, n_out);
             
-            idims = obj.in_dims;
             for i = 1 : n_in
+                d = obj.input_slots(i).size;
                 cv = varargin{i};
-                if ~isempty(cv) && ~isequal(size(cv), [idims(i), 1])
-                    error('toy_spfunc:invalidarg', 'Invalid input argument');
+                if ~isempty(cv) && ~isequal(size(cv), [d, 1])
+                    error('smi_toyfunc:invalidarg', 'Invalid input argument');
                 end
             end            
             
-            odims = obj.out_dims;
-            for i = 1 : n_out                
+            for i = 1 : n_out                  
                 if outflags(i) 
-                    varargout{i} = rand(odims(i), 1);                    
+                    d = obj.output_slots(i).size;
+                    varargout{i} = rand(d, 1);                    
                 end                
             end            
         end
