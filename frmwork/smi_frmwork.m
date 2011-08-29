@@ -576,7 +576,7 @@ classdef smi_frmwork < handle
                         if ~(smi_is_vcompatible(V(vid), si))
                             error('smi_frmwork:compile_err', ...
                                 'Mismatch var %s => slot %s of function %s', ...
-                                vs{j}, ss{j}, F(i).name);
+                                vs{j}, ss{j}, fname);
                         end
                         
                     elseif strcmpi(sdir, 'out')
@@ -584,7 +584,7 @@ classdef smi_frmwork < handle
                         if ~(smi_is_vcompatible(si, V(vid)))
                             error('smi_frmwork:compile_err', ...
                                 'Mismatch var %s <= slot %s of function %s', ...
-                                vs{j}, ss{j}, F(i).name);
+                                vs{j}, ss{j}, fname);
                         end
                         
                     end

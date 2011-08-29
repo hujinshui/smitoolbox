@@ -86,6 +86,9 @@ frmwork.add_var(label_slot.name, label_slot.type, label_slot.size);
 loglik_slot = labeler.output_slots(2);
 frmwork.add_var(loglik_slot.name, loglik_slot.type, loglik_slot.size);
 
+label_vname = label_slot.name;
+loglik_vname = loglik_slot.name;
+
 
 % add functions
 
@@ -93,6 +96,16 @@ frmwork.add_func('update_param', param_inferrer);
 frmwork.add_func('update_label', labeler);
 
 frmwork.add_func([prinfo.name, '_store'], smi_store(obs));
+
+switch op
+    case 'mapest'
+        labeler0 = rand_labeler(K, N, 'b');
+    case 'sample'
+        labeler0 = rand_labeler(K, N, 'v');
+    otherwise
+        error('create_fmm:rterrpr', 'Invalid op string %s', op);
+end
+frmwork.add_func('init_label', labeler0);
 
 hpa = false(1, nh);
 
@@ -130,6 +143,12 @@ hyp_steps = [hyp_steps{hpa}];
 
 frmwork.add_init_steps(hyp_steps);
 
+init_label_step.func_name = 'init_label';
+init_label_step.slots = { 'result' };
+init_label_step.vars = { label_vname };
+
+frmwork.add_init_steps(init_label_step);
+
 
 % add steps
 
@@ -137,9 +156,6 @@ hpnames = {hpinfo.name};
 hpnames = hpnames(hpa);
 panames = {painfo.name};
 prnames = {prinfo.name};
-
-label_vname = label_slot.name;
-loglik_vname = loglik_slot.name;
 
 upa_step.func_name = 'update_param';
 upa_step.slots = [hpnames, prnames, {label_vname}, panames];
