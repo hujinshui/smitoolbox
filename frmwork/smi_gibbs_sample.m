@@ -118,10 +118,14 @@ function S = do_sim(frmwork, opts, repr, ithread)
 
 % extract fields
 
+seq0 = frmwork.init_seq;
+len0 = numel(seq0);
+
 cseq = frmwork.cycle_seq;
 clen = numel(cseq);
 
 fs = frmwork.funcs;
+insts0 = frmwork.instructions0;
 insts = frmwork.instructions;
 vmap = frmwork.var_map;
 
@@ -152,13 +156,48 @@ end
 % initialize result container
 S = cell(1, N);
 
-% main loop
-Tstart = -T0;
-Tend = (nc - 1) * N;
-
 if displevel >= 2
     disp([dprefix, 'simulation started']);
 end
+
+% initialization 
+
+if len0 > 0
+    for i = 1 : len0
+
+        % pick the current step
+        st = insts0(i);
+        f = fs(st.f_id).func;
+
+        if displevel >= 4
+            disp([dprefix, sprintf('    step %d: %s', ...
+                i, fs(st.f_id).name)]);
+        end
+
+        % form inputs
+        vin = smi_from_repr(repr, st.v_in);
+
+        % do update computation
+        vout = cell(1, st.n_out);
+        [vout{:}] = f.evaluate(st.out_flags, vin{:});
+
+        % put the results back to repr
+        for j = 1 : st.n_out
+            if st.v_out(j) > 0
+                repr{st.v_out(j)} = vout{j};
+            end
+        end
+    end
+
+    if displevel >= 2
+        disp([dprefix, 'initialization finished']);
+    end
+end
+
+
+% main loop
+Tstart = -T0;
+Tend = (nc - 1) * N;
 
 c = 0; % sample counter            
 for t = Tstart : Tend

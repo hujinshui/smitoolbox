@@ -14,7 +14,6 @@ classdef smi_store < smi_func
     
     properties(GetAccess='public', SetAccess='private')
         value;
-        vsize;
     end
     
     
@@ -27,40 +26,22 @@ classdef smi_store < smi_func
             %       be captured.            
             %
             
-            obj = obj@smi_func(0, 1);
-            
-            obj.value = value;
+            outlet.name = 'value';
+            outlet.type = class(value);
+                                    
             vs = size(value);
             if numel(vs) == 2 && vs(2) == 1
                 vs = vs(1);
             end
-            obj.vsize = vs;
-        end        
-        
-        function [dir, id] = get_slot_id(obj, name) %#ok<MANU>
-            if strcmp(name, 'value')
-                dir = 'out';
-                id = 1;
-            else
-                error('smi_store:invalidarg', ...
-                    'Invalid port name for smi_store.');
-            end
-        end
-        
-        function info = get_slot_info(obj, dir, i)
+            outlet.size = vs;
             
-            if strcmp(dir, 'out') && i == 1
-                info.name = 'value';
-                info.type = class(obj.value);
-                info.size = obj.vsize;
-            else
-                error('smi_store:invalidarg', ...
-                    'smi_store has only one output slot.');
-            end
+            obj = obj@smi_func([], outlet);
+            
+            obj.value = value;
+
+        end        
                 
-        end 
-        
-        function tf = test_slots(obj, inflags, outflags) %#ok<MANU,INUSL>
+        function tf = test_slots(obj, ~, ~) %#ok<MANU>
             tf = 1;            
         end
                 

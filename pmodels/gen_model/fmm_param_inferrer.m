@@ -104,7 +104,7 @@ classdef fmm_param_inferrer < smi_func
             inlets(nh+1).type = prinfo.type;
             inlets(nh+1).size = [prinfo.size, N];
             
-            if ~is_samp
+            if is_samp
                 inlets(nh+2).name = 'Labels';
                 inlets(nh+2).type = 'numeric';
                 inlets(nh+2).size = [1, N];                                

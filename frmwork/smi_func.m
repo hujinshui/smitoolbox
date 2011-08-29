@@ -37,22 +37,38 @@ classdef smi_func
             %                   a matrix, etc.
             %
             
-            if ~(isstruct(in_slots) && ...
-                    all(isfield(in_slots, {'name', 'type', 'size'})))
-                error('smi_func:invalidarg', ...
-                    'The input slot specification is invalid.');
+            if ~isempty(in_slots)
+                if ~(isstruct(in_slots) && ...
+                        all(isfield(in_slots, {'name', 'type', 'size'})))
+                    error('smi_func:invalidarg', ...
+                        'The input slot specification is invalid.');
+                end
+            else
+                in_slots = [];
             end
             
-            if ~(isstruct(out_slots) && ...
-                    all(isfield(out_slots, {'name', 'type', 'size'})))
-                error('smi_func:invalidarg', ...
-                    'The output slot specification is invalid.');
-            end                        
+            if ~isempty(out_slots)
+                if ~(isstruct(out_slots) && ...
+                        all(isfield(out_slots, {'name', 'type', 'size'})))
+                    error('smi_func:invalidarg', ...
+                        'The output slot specification is invalid.');
+                end
+            else
+                out_slots = [];
+            end
             
             obj.input_slots = in_slots;
             obj.output_slots = out_slots;
-            obj.input_slot_names = {in_slots.name}';
-            obj.output_slot_names = {out_slots.name}';
+            if ~isempty(in_slots)
+                obj.input_slot_names = {in_slots.name}';
+            else
+                obj.input_slot_names = {};
+            end
+            if ~isempty(out_slots)
+                obj.output_slot_names = {out_slots.name}';
+            else
+                obj.output_slot_names = {};
+            end
         end
         
     end
