@@ -15,6 +15,7 @@ classdef smi_frmwork < handle
         
         num_vars = 0;       % the number of variables
         num_funcs = 0;      % the number of distinct sampling steps
+        init_seq = [];      % the sequence of steps performed initially
         cycle_seq = [];     % the sequence of steps performed per cycle
                 
         vars = [];          % the struct array comprised of variable specs        
@@ -29,6 +30,7 @@ classdef smi_frmwork < handle
         
         var_map;        % the map: var name -> var id        
         func_map;       % the map: func name -> func id
+        instructions0;  % the compiled instructions for initialization
         instructions;   % the compiled instructions
     end
     
@@ -62,7 +64,7 @@ classdef smi_frmwork < handle
                     'The input vname is not a valid variable name.');
             end
             
-            if ~(isvarname(vtype) && exist(vtype, 'class'))
+            if ~isvarname(vtype)
                 error('smi_frmwork:invalidarg', ...
                     'The input vtype is not a valid type name.');
             end
@@ -138,7 +140,16 @@ classdef smi_frmwork < handle
             %       appends the input sequence of steps, repeated
             %       nr times as a whole, to the end of each cycle.
             %
-            %   Each step is a char string in the following format:
+            %   The step sequence can be in either of the following two
+            %   forms:
+            %
+            %   - a struct array with three fields:
+            %       - func_name: the function name
+            %       - slots: a cell array of slot names
+            %       - vars:  a cell array of variable names
+            %
+            %   - a cell array of strings, each being a step statement,
+            %     in the following format:
             %
             %       <func_name> [slot-var-pairs]
             %
@@ -152,19 +163,6 @@ classdef smi_frmwork < handle
                     'Cannot add step to a compiled frmwork.');
             end
             
-            if ischar(seq) && ~isempty(seq) && ndims(seq) == 2 && size(seq,1) == 1
-                seq = { seq };
-            else
-                if ~(iscellstr(seq) && isvector(seq))
-                    error('smi_frmwork:invalidarg', ...
-                        'seq must be a char string or a cell array of strings.');
-                end    
-                
-                if size(seq, 2) > 1
-                    seq = seq.';
-                end
-            end
-                                 
             if nargin >= 3
                 if ~(isnumeric(nrepeat) && isscalar(nrepeat) && ...
                         nrepeat == fix(nrepeat) && nrepeat >= 0)
@@ -179,26 +177,120 @@ classdef smi_frmwork < handle
                 nrepeat = 1;
             end
             
-            ns = length(seq);
-            ss = repmat( ...
-                struct('func_name', [], 'slots', [], 'vars', []), ...
-                ns, 1);
-            
-            for i = 1 : ns
-                [ss(i).func_name, ss(i).slots, ss(i).vars] = ...
-                    smi_frmwork.parse_step(seq{i});
-            end
-            
+            ss = smi_frmwork.parse_step_seq(seq);
             if nrepeat > 1
                 ss = repmat(ss, nrepeat, 1);
             end
             
             frmwork.cycle_seq = [frmwork.cycle_seq; ss];
-        end           
+        end    
+        
+        
+        function add_init_steps(frmwork, seq)
+            % add one or multiple steps for initialization
+            %
+            %   frmwork.add_init_steps(seq);
+            %
+            
+            if frmwork.is_compiled
+                error('smi_frmwork:invalidarg', ...
+                    'Cannot add step to a compiled frmwork.');
+            end
+            
+            ss = smi_frmwork.parse_step_seq(seq);
+            frmwork.init_seq = [frmwork.init_seq; ss];
+        end
+        
     end
     
     
     methods(Static, Access='private')
+        
+        function ss = parse_step_seq(seq)            
+            
+            if (isstruct(seq) && isvector(seq))
+                
+                if all(isfield(seq, {'func_name', 'slots', 'vars'}))
+                    
+                    for i = 1 : numel(seq)
+                        s = seq(i);
+                        
+                        if ~isvarname(s.func_name)
+                            error('smi_frmwork:invalidarg', ...
+                                'Invalid func_name %s', s.func_name);
+                        end
+                        
+                        if ~iscellstr(s.slots)
+                            error('smi_frmwork:invalidarg', ...
+                                'The field slots should be a cell array of strings.');
+                        end
+                        
+                        if ~iscellstr(s.vars)
+                            error('smi_frmwork:invalidarg', ...
+                                'The field vars should be a cell array of strings.');
+                        end
+                        
+                        if numel(s.slots) ~= numel(s.vars)
+                            error('smi_frmwork:invalidarg', ...
+                                '#slots is not consistent with #vars.');
+                        end
+                        
+                        nslots = numel(s.slots);
+                        for j = 1 : nslots
+                            if ~isvarname(s.slots{j})
+                                error('smi_frmwork:invalidarg', ...
+                                    'Invalid slot name %s', s.slots{j});
+                            end
+                            if ~isvarname(s.vars{j})
+                                error('smi_frmwork:invalidarg', ...
+                                    'Invalid var name %s', s.vars{j});
+                            end
+                        end
+                    end
+                    
+                    ss = seq;
+                    if size(ss, 2) > 1
+                        ss = ss';
+                    end
+                    
+                else
+                    error('smi_frmwork:invalidarg', ...
+                        'seq lacks some fields.');
+                end
+                
+            elseif ischar(seq) || iscell(seq)
+                
+                if ischar(seq) && ~isempty(seq) && ndims(seq) == 2 && ...
+                        size(seq,1) == 1
+                    seq = { seq };
+                else
+                    if ~(iscellstr(seq) && isvector(seq))
+                        error('smi_frmwork:invalidarg', ...
+                            'seq is invalid.');
+                    end
+                    
+                    if size(seq, 2) > 1
+                        seq = seq.';
+                    end
+                end
+                                
+                ns = length(seq);
+                ss = repmat( ...
+                    struct('func_name', [], 'slots', [], 'vars', []), ...
+                    ns, 1);
+                
+                for i = 1 : ns
+                    [ss(i).func_name, ss(i).slots, ss(i).vars] = ...
+                        smi_frmwork.parse_step(seq{i});
+                end                
+                
+            else
+                error('smi_frmwork:invalidarg', 'seq is invalid.');
+                
+            end            
+        end
+                
+        
         
         function [fname, slots, vs] = parse_step(statement)
             
@@ -250,6 +342,7 @@ classdef smi_frmwork < handle
             fprintf('--------------------------------\n');
             fprintf('\t# variables = %d\n', frmwork.num_vars);
             fprintf('\t# functions = %d\n', frmwork.num_funcs);
+            fprintf('\t  init len  = %d\n', length(frmwork.init_seq));
             fprintf('\t  cycle len = %d\n', length(frmwork.cycle_seq));
             fprintf('\n');
         end        
@@ -308,26 +401,52 @@ classdef smi_frmwork < handle
                 
                 for j = 1 : n_out
                     slinfo = fo.output_slots(j);
-                    fprintf(fid, '\t [in %d] %s: %s %s\n', ...
+                    fprintf(fid, '\t [out %d] %s: %s %s\n', ...
                         j, slinfo.name, slinfo.type, smi_vsize2str(slinfo.size));
                 end
+            end
+            fprintf(fid, '\n');
+            
+            % display initialization
+            
+            if ~isempty(frmwork.init_seq)
+            
+                fprintf(fid, 'Initialization:\n');
+                fprintf(fid, '--------------------\n');
+                
+                smi_frmwork.print_step_seq(fid, frmwork.instructions0, ...
+                    frmwork.vars, frmwork.funcs);
+                fprintf(fid, '\n');
             end
                                     
             % display cycle
             
-            fprintf(fid, 'Cycle:\n');
-            fprintf(fid, '------------\n');
+            if ~isempty(frmwork.cycle_seq)
+                fprintf(fid, 'Cycle:\n');
+                fprintf(fid, '------------\n');
+
+                smi_frmwork.print_step_seq(fid, frmwork.instructions, ...
+                    frmwork.vars, frmwork.funcs);
+                fprintf(fid, '\n');            
+            end
+        end
+        
+    end
+    
+    
+    methods(Static, Access='private')
+        
+        function print_step_seq(fid, insts, vars, funcs)
             
-            cseq = frmwork.cycle_seq;
-            for i = 1 : length(cseq)
-                ci = frmwork.instructions(i);
-                f = frmwork.funcs(ci.f_id);
+            for i = 1 : length(insts)
+                ci = insts(i);
+                f = funcs(ci.f_id);
                 
                 fprintf(fid, '  (%d) %s:', i, f.name);
                 
                 for j = 1 : ci.n_in
                     if ci.v_in(j) > 0
-                        fprintf(fid, ' %s', frmwork.vars(ci.v_in(j)).name);                        
+                        fprintf(fid, ' %s', vars(ci.v_in(j)).name);
                     end
                 end
                 
@@ -335,17 +454,15 @@ classdef smi_frmwork < handle
                 
                 for j = 1 : ci.n_out
                     if ci.v_out(j) > 0
-                        fprintf(fid, ' %s', frmwork.vars(ci.v_out(j)).name);
+                        fprintf(fid, ' %s', vars(ci.v_out(j)).name);
                     end
-                end                
+                end
                 fprintf(fid, '\n');
-            end
-            
-            % blank line
-            fprintf('\n');            
+            end                        
         end
         
-    end
+    end    
+    
            
     
     %% methods for compilation
@@ -370,11 +487,15 @@ classdef smi_frmwork < handle
            
             vmap = smi_frmwork.build_idmap({frmwork.vars.name});           
             fmap = smi_frmwork.build_idmap({frmwork.funcs.name});
-            insts = smi_frmwork.compile_steps(frmwork.cycle_seq, ...
+            
+            insts0 = smi_frmwork.compile_steps(frmwork.init_seq, ...
+                frmwork.vars, vmap, frmwork.funcs, fmap);
+            insts  = smi_frmwork.compile_steps(frmwork.cycle_seq, ...
                 frmwork.vars, vmap, frmwork.funcs, fmap); 
             
             frmwork.var_map = vmap;
             frmwork.func_map = fmap;
+            frmwork.instructions0 = insts0;
             frmwork.instructions = insts;
 
             frmwork.is_compiled = true;

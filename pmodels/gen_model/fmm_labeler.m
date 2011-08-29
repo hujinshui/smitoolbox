@@ -88,10 +88,10 @@ classdef fmm_labeler < smi_func
             m = numel(model.products_info);
                                     
             inlets = repmat(struct('name', [], 'type', [], 'size', []), ...
-                nh + m + 1, 1);
+                np + m + 1, 1);
             
             painfo = model.params_info;
-            for i = 1 : nh
+            for i = 1 : np
                 inlets(i).name = painfo(i).name;
                 inlets(i).type = painfo(i).type;
                 inlets(i).size = [painfo(i).size, K];
@@ -115,7 +115,7 @@ classdef fmm_labeler < smi_func
             else
                 outlets(1).name = 'LabelDistr';
                 outlets(1).type = 'double';
-                outlets(1).size = [1, N];
+                outlets(1).size = [K, N];
             end
             
             outlets(2).name = 'LogLik';
@@ -125,6 +125,8 @@ classdef fmm_labeler < smi_func
             % make object
             
             obj = obj@smi_func(inlets, outlets);
+            
+            obj.model = model;
             obj.K = K;
             obj.N = N;
             obj.is_sampler = is_samp;            
