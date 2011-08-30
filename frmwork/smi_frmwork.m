@@ -412,7 +412,7 @@ classdef smi_frmwork < handle
                 for i = 1 : n
                     terms{i} = [slots{i} ':' vars{i}];
                 end
-                s = strjoin(terms, ' ');
+                s = strjoin(terms, ', ');
             else
                 s = '';
             end            

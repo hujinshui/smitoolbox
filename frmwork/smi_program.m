@@ -52,6 +52,7 @@ classdef smi_program
         end
     end    
     
+    
     %% Compilation
     
     methods(Static)
@@ -311,7 +312,7 @@ classdef smi_program
                         terms{i} = [slots(i).name ':' vars(vid).name];
                     end                
                 end            
-                s = strjoin(terms(vids > 0), ' ');
+                s = strjoin(terms(vids > 0), ', ');
             else
                 s = '';
             end

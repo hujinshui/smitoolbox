@@ -27,13 +27,15 @@ function opt = gs_options(opt, varargin)
 %                           to sample, or an empty array to indicate
 %                           output all.
 %
+%       - 'check':          whether to do variable checking in run-time.                           
+%
 %       - 'display:         the level of information displaying
 %                           (can be either a string or a level number)
 %                               0 | 'off':      no display
 %                               1 | 'final':    display at the end
 %                               2 | 'stage':    display per stage
-%                               3 | 'cycle':    display per cycle
-%                               4 | 'step':     display per step
+%                               3 | 'sample':   display per sample collection
+%                               4 | 'iter':     display per iteration
 %
 
 % Created by Dahua Lin, on Aug 24, 2011
@@ -94,6 +96,14 @@ for i = 1 : numel(names)
                 opt.output_vars = cv;
             end
             
+        case 'check'
+            if (isnumeric(cv) || islogical(cv)) && isscalar(cv)
+                opt.check = logical(cv);
+            else
+                error('gs_options:invalidarg', ...
+                    'check should be a logical scalar.');
+            end
+            
         case 'display'
             if isnumeric(cv)
                 if ~(is_int(cv) && cv >= 0 && cv <= 4)
@@ -110,10 +120,13 @@ for i = 1 : numel(names)
                         dv = 1;
                     case 'stage'
                         dv = 2;
-                    case 'cycle'
+                    case 'sample'
                         dv = 3;
-                    case 'step'
+                    case 'iter'
                         dv = 4;
+                    otherwise
+                        error('gs_options:invalidarg', ...
+                            'Invalid display level name ''%s''.', cv);
                 end
                 opt.display = dv;
             else
@@ -139,6 +152,7 @@ opt.nsamples = 100;
 opt.cps = 50;
 opt.nrepeats = 1;
 opt.output_vars = [];
+opt.check = false;
 opt.display = 0;
 
 
