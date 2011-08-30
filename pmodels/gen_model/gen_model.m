@@ -1,33 +1,74 @@
-classdef gen_model <  gen_model_base
-    % The base class for single-parameter generative model
+classdef gen_model
+    % The base class for generative model
     %
     % In general, the math formulation of the model can be written as
     %
-    %   theta_k | alpha_1, alpha_2, ... ~ hyper model, for k = 1, ..., K
-    %   x_i | {theta_k}, z_i, ... ~ generative model,  for i = 1, ..., n
+    %   params ~ prior distribution ( hyper-params )
+    %   output-vars ~ distribution ( params, input-vars, labels )
     %
-    %   Here, z_i indicates which parameter theta is used to 
-    %   generate x_i.
+    %   Specifically, each output variable is generated conditioned on
+    %   the corresponding input variables (or none), based on the
+    %   model whose parameters are selected by corresponding label.
     %
     
     % Created by Dahua Lin, on Aug 26, 2011
     %
     
+    %% Properties
+    
+    properties(GetAccess='public', SetAccess='private')                
+        input_vars_info;        % the information of input variables
+        output_vars_info;       % the information of output variables
+        params_info;            % the information of parameters
+        hyper_params_info;      % the information of hyper-parameters        
+    end
+    
+    properties(Dependent)        
+        num_input_vars;     % the number of input variables
+        num_output_vars;    % the number of output variables
+        num_params;         % the number of parameters
+        num_hyper_params;   % the number of hyper parameters        
+    end
+        
+    methods
+        function n = get.num_input_vars(model)
+            n = numel(model.input_vars_info);
+        end
+        
+        function n = get.num_output_vars(model)
+            n = numel(model.output_vars_info);
+        end
+        
+        function n = get.num_params(model)
+            n = numel(model.params_info);
+        end
+        
+        function n = get.num_hyper_params(model)
+            n = numel(model.hyper_params_info);
+        end
+    end    
+        
     
     %% Constructors
     
     methods
         
-        function model = gen_model(pr, pa, HPa)
+        function model = gen_model(ivinfo, ovinfo, painfo, hpinfo)
             % Constructs the base of a generative model
             %
-            %   model = gen_model(pr, pa, HPa);
+            %   model = gen_model(prinfo, painfo, hpinfo);
+            %
+            %   Input arguments:
+            %   - ivinfo:   the input variable information struct
+            %   - ovinfo:   the output variable information struct
+            %   - painfo:   the param information struct
+            %   - hpinfo:   the hyper parameter information struct
             %
             
-            assert(numel(pr) == 1);
-            assert(numel(pa) == 1);
-            
-            model = model@gen_model_base(pr, pa, HPa);
+            model.input_vars_info = ivinfo;
+            model.output_vars_info = ovinfo;
+            model.params_info = painfo;
+            model.hyper_params_info = hpinfo;
         end
         
     end
@@ -37,40 +78,44 @@ classdef gen_model <  gen_model_base
     
     methods(Abstract)
     
-        lpri = logpri(model, alpha, Theta, hmap)
+        lpri = logpri(model, hparam, params, pid, hmap)
         % Evaluates the log-prior of given parameters
         %
-        %   lpri = model.logpri(alpha, Theta);
+        %   lpri = model.logpri(hparams, params, pid);
         %
-        %       evaluates the log-prior of the parameters in Theta
-        %       with respect to the prior model whose parameters
-        %       are from Alpha.
+        %       evaluates the log-prior of the given parameters (params),
+        %       whose id is given by pid, with respect to the prior model 
+        %       whose parameters are given by the hyper parameters 
+        %       (hparams).,        
         %
-        %       Suppose there are K parameters packed in Theta, then
-        %       lpri should be a 1 x K row vector, with lpri(k) giving
-        %       the log-prior value for the k-th parameter.  
-        %
-        %   lpri = model.logpri(Alpha, Theta, hmap);
+        %   lpri = model.logpri(hparams, params, pid, hmap);
         %       
-        %       evaluates the log-prior of the parameters in Theta
-        %       with respect to multi prior parameters. In particular,
-        %       the log-prior value of the k-th parameter in Theta 
-        %       should be estimated based on hmap(k)-th hyper-parameters.
+        %       evaluates the log-prior of the given parameters (params)
+        %       with respect to multiple prior models whose parameters 
+        %       are from hparams. 
+        %
+        %       Specifically, the log-prior of the k-th parameter should
+        %       be evaluated based on the hmap(k)-th hyper-parameter.
+        %
+        %   For both syntax, the output lpri is a 1 x m vector, where
+        %   m is the number of parameters given in params.
         %
         
-        Llik = loglik(model, Theta, X)
+        Llik = loglik(model, params, invars, outvars)
         % Evaluates the generative log-likelihood 
         %
-        %   Llik = model.loglik(Theta, X);
+        %   Llik = model.loglik(params, invars, outvars);
         %
-        %       evaluates the log-likelihood of the product samples in X
-        %       with respect to the model with parameters given in Theta.
+        %       evaluates the log-likelihood of the observed variables
+        %       given by invars (input) & outvars (output), with respect
+        %       to the models whose parameters are given by params.
         %
-        %       Suppose there are m params in Theta and n samples in X,
-        %       then Llik should be an m x n matrix, with Llik(k, i)
-        %       being the log-likelihood value of the i-th sample with 
-        %       respect to the k-th parameter.
-        %
+        %       The evaluation is done in a pairwise manner. Specifically, 
+        %       suppose there are n observations, and m sets of model
+        %       parameters, then Llik is a matrix of size m x n, such 
+        %       that Llik(k, i) is the likelihood of the i-th observation
+        %       with respect to the k-th parameter.
+        %               
         
     end
         
@@ -79,30 +124,33 @@ classdef gen_model <  gen_model_base
     
     methods(Abstract)
                
-        X = generate(model, Theta, n, g);
-        % Generates product samples given parameters and labels
+        outvars = generate(model, invars, params, n, g);
+        % Generates output variables given inputs, parameters, and labels.
         %
-        %   X = model.generate(theta, n);
+        %   outvars = model.generate(invars, params, n);
         %
-        %       generates n sample from the model with parameter theta.
+        %       generates n samples of the output variables from a single
+        %       model whose parameter is given by params.
         %
-        %   X = model.generate(Theta, n, g);
+        %   outvars = model.generate(invars, params, n, g);
         %
         %       generates n samples from multi-models whose parameters 
-        %       are given by Theta based on the grouping given in g, a 
-        %       cell array of index vectors. 
+        %       are given by params, based on the grouping given in g, 
+        %       a cell array of index vectors. 
         %
         %       In particular, the samples with indices in g{k} should
         %       be generated by the k-th model. Here, n is the total
         %       number of samples.
         %
+        %       outvars is a cell array of size 1 x num_output_vars.
+        %       outvars{id} is the set of outputs whose identifier is id.
+        %
         
-        Theta = mapest_params(model, X, Z, Alpha, hmap);
-        % Performs Maximum-a-posteriori (MAP) estimation of parameters
+        theta = solve_params(model, X, Z, alpha, hmap);
+        % Solves optimal parameters
         %
-        %   theta = model.mapest_params(X);
-        %
-        %   theta = model.mapest_params(X, [], alpha);
+        %   params = model.solve_params(X);        
+        %   params = model.solve_params(X, [], alpha);
         %
         %       Performs MAP estimation of the parameter based on 
         %       a given set of samples, each with weight 1. 
