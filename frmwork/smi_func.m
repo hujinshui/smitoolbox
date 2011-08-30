@@ -6,11 +6,8 @@ classdef smi_func
     %
     
     properties(GetAccess='public', SetAccess='private')
-        input_slots;    % the number of input slots
-        output_slots;   % the number of output slots
-        
-        input_slot_names;   % the set of names of input slot
-        output_slot_names;  % the set of names of input slot
+        input_slots;    % the list of input slots
+        output_slots;   % the list of output slots
     end
         
     methods
@@ -59,50 +56,10 @@ classdef smi_func
             
             obj.input_slots = in_slots;
             obj.output_slots = out_slots;
-            if ~isempty(in_slots)
-                obj.input_slot_names = {in_slots.name}';
-            else
-                obj.input_slot_names = {};
-            end
-            if ~isempty(out_slots)
-                obj.output_slot_names = {out_slots.name}';
-            else
-                obj.output_slot_names = {};
-            end
         end
         
     end
-    
-    
-    methods
-        function [dir, id] = get_slot_id(obj, name)
-            % Get direction and id-number of a slot
-            %
-            %   [dir, id] = obj.get_slot_id(name);
-            %       Given a slot name, this function retrieves
-            %       and direction (dir), and id-number of a slot.
-            %
-            %       dir here can be 'in' or 'out'.
-            %
-            
-            [tf, loc] = ismember(name, obj.input_slot_names);
-            if tf
-                dir = 'in';
-                id = loc;                
-            else
-                [tf, loc] = ismember(name, obj.output_slot_names);
-                if tf
-                    dir = 'out';
-                    id = loc;
-                else
-                    error('smi_func:invalidarg', ...
-                        'Invalid slot name %s', name);
-                end
-            end
-        end
         
-    end
-    
     
     methods(Abstract)
         
