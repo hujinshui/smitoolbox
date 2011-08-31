@@ -154,10 +154,18 @@ classdef smi_program
                     cblk.steps(i).nr = s.nrepeats;
                     
                     fun = funcs(f_id);
-                    ivs = smi_program.get_var_ids( ...
-                        fun, 1, vars, varmap, s.input_slots, s.input_vars);
-                    ovs = smi_program.get_var_ids( ...
-                        fun, 0, vars, varmap, s.output_slots, s.output_vars);
+                    if ~isempty(s.input_slots)
+                        ivs = smi_program.get_var_ids( ...
+                            fun, 1, vars, varmap, s.input_slots, s.input_vars);
+                    else
+                        ivs = [];
+                    end
+                    if ~isempty(s.output_slots)
+                        ovs = smi_program.get_var_ids( ...
+                            fun, 0, vars, varmap, s.output_slots, s.output_vars);
+                    else
+                        ovs = [];
+                    end
                     
                     if ~fun.obj.test_slots(ivs > 0, ovs > 0)
                         error('smi_program:compile_error', ...
@@ -248,8 +256,24 @@ classdef smi_program
                 f = F(i);
                 fprintf(fid, '    [%d] %s: class %s (%d in, %d out)\n', ...
                     i, f.name, class(f.obj), f.n_in, f.n_out);
+                
+                inlets = f.obj.input_slots;
+                outlets = f.obj.output_slots;
+                
+                for j = 1 : numel(inlets)
+                    sl = inlets(j);
+                    fprintf(fid, '%s  <in> %-15s: %s %s\n', ...
+                        blanks(8), sl.name, sl.type, smi_vsize2str(sl.size));
+                end
+
+                for j = 1 : numel(outlets)
+                    sl = outlets(j);
+                    fprintf(fid, '%s <out> %-15s: %s %s\n', ...
+                        blanks(8), sl.name, sl.type, smi_vsize2str(sl.size));
+                end
+                
+                fprintf(fid, '\n');
             end
-            fprintf(fid, '\n');
             
             fprintf(fid, 'Blocks\n');
             fprintf(fid, '----------------\n');
@@ -369,20 +393,20 @@ classdef smi_program
                
                 if vids(islot) ~= 0
                     error('The slot %s of function %s is connected more than once.', ...
-                        s, funname);
+                        s, fun.name);
                 end
                 
                 if is_input
                     if ~smi_is_vcompatible(va, slot)
                         error('Incompatible conversion: %s => %s\n', ...
                             ['variable ', va.name], ...
-                            ['slot ', slot.name, ' of function ', funname]);
+                            ['slot ', slot.name, ' of function ', fun.name]);
                     end
                 else
                     if ~smi_is_vcompatible(slot, va)
                         error('Incompatible conversion: %s <= %s\n', ...
                             ['variable ', va.name], ...
-                            ['slot ', slot.name, ' of function ', funname]);
+                            ['slot ', slot.name, ' of function ', fun.name]);
                     end
                 end
                 

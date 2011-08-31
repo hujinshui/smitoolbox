@@ -54,7 +54,7 @@ if nargin < 3 || isempty(Cx)
     Cx = [];
 else
     est_Cx = false;
-    if ~(ispdmat(Cx) && Cx.d == d)
+    if ~(is_pdmat(Cx) && Cx.d == d)
         error('gmm_std:invalidarg', ...
             'Cx should be a pdmat struct with Cx.dim == size(X,1).');
     end
@@ -73,6 +73,10 @@ else
     end
     mu = gpri.mu;
     Cu = gpri.C;
+    
+    if isequal(mu, 0)
+        mu = zeros(d, 1);
+    end
 end
        
 if nargin < 6
@@ -95,13 +99,104 @@ end
 
 %% main
 
-% create model
+% create core model
 
-gm = gaussgm(Cx, Cu);
+if isempty(Cx)
+    if isempty(Cu)
+        gm = gaussgm(d, d);
+    else
+        gm = gaussgm(d, Cu);
+    end
+else
+    if isempty(Cu)
+        gm = gaussgm(Cx, d);
+    else
+        gm = gaussgm(Cx, Cu);
+    end
+end
 
+has_u_pri = ~isempty(Cu);
 
+% create the framework
+
+frmwork = smi_frmwork();
+
+% add variables
+
+frmwork.add_var('X', 'double', [d, N]);     % observations
+frmwork.add_var('U', 'double', [d, K]);    % mean vectors
+
+if has_u_pri
+    frmwork.add_var('mu', 'double', [d, 1]);    
+end
+
+if est_Cx
+    frmwork.add_var('Cx', 'struct', 1);     % covariance matrix
+end
+
+switch method
+    case 'em'
+        frmwork.add_var('Z', 'double', [K, N]);
+    case 'gs'
+        frmwork.add_var('Z', 'double', [1, N]);
+end
+
+% add functions
+
+switch method
+    case 'em'
+        infer_method = 'mapest';
+    case 'gs'
+        infer_method = 'sample';
+end
+
+mean_inferrer = gaussgm_mean_inferrer(gm, K, N, infer_method);
+frmwork.add_func('update_u', mean_inferrer);
+
+labeler = fmm_labeler( ...
+    @(U, X) loglik(gm, U, X), ...
+    struct('name', 'u', 'type', 'double', 'size', d), ...
+    struct('name', 'x', 'type', 'double', 'size', d), ...
+    K, N, infer_method);
+frmwork.add_func('update_z', labeler);
+
+frmwork.add_func('get_x', smi_store(X));
+
+if has_u_pri
+    frmwork.add_func('get_mu', smi_store(mu));
+end
+
+switch method
+    case 'em'
+        init_labeler = rand_labeler(K, N, 'b');
+    case 'gs'
+        init_labeler = rand_labeler(K, N, 'v');        
+end
+
+frmwork.add_func('init_z', init_labeler);
+
+% add steps
+
+frmwork.add_step('get_x', [], {'value', 'X'}, 1, 'init');
+if has_u_pri
+    frmwork.add_step('get_mu', [], {'value', 'mu'}, 1, 'init'); 
+end
+frmwork.add_step('init_z', [], {'result', 'Z'}, 1, 'init');    
+
+inputs_for_u = {'x', 'X'; 'z', 'Z'};
+if has_u_pri
+    inputs_for_u = [inputs_for_u; {'mu', 'mu'}];
+end
+if est_Cx
+    inputs_for_u = [inputs_for_u; {'Cx', 'Cx'}];
+end
+   
+frmwork.add_step('update_u', inputs_for_u, {'u', 'U'});
     
-    
-    
+frmwork.add_step('update_z', {'u', 'U'; 'x', 'X'}, {'Labels', 'Z'});    
+ 
+% compile into a program
+
+prg = smi_program.compile(frmwork);
 
 

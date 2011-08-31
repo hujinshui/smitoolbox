@@ -84,7 +84,7 @@ classdef gaussgm_mean_inferrer < smi_func
             inlets(1).size = [model.xdim, N];
             
             inlets(2).type = 'double';
-            inlets(2).size = [model.dim0, 1];
+            inlets(2).size = model.dim0;
             
             if opc == 'm'
                 inlets(3).type = 'double';
@@ -147,7 +147,8 @@ classdef gaussgm_mean_inferrer < smi_func
             if opc == 'm'
                 U = obj.model.mapest_u(X, Cx, Mu, Z);
             elseif opc == 's'
-                U = obj.model.sample_u(X, Cx, Mu, Z);
+                g = intgroup(obj.K, Z);
+                U = obj.model.sample_u(X, Cx, Mu, g);
             end
         end
     

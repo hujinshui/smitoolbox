@@ -73,8 +73,12 @@ classdef gaussgm
         function model = gaussgm(Cx, Cu, A, B)
             % Constructs a linear Gaussian generative model
             %
+            %   model = gaussgm(d);
             %   model = gaussgm(d, Cu);
+            %
+            %   model = gaussgm(d, du, A);
             %   model = gaussgm(d, Cu, A);
+            %   model = gaussgm(d, du, A, B);
             %   model = gaussgm(d, Cu, A, B);
             %       
             %       Constructs a linear Gaussian generative model, of
@@ -82,6 +86,10 @@ classdef gaussgm
             %
             %       Here, d is the dimension of output space (i.e. 
             %       the variable x's underlying space).
+            %
+            %       If no prior is to be used, then one can omit Cu
+            %       or just input du instead, which is the dimension
+            %       the vector u.
             %
             %       Note A or B can be omitted, in which case, it is
             %       assumed to be identity (i.e. scalar 1).
@@ -107,12 +115,18 @@ classdef gaussgm
                 error('gaussgm:invalidarg', 'The first arg is invalid.');
             end            
             
-            if ~is_pdmat(Cu)
-                error('gaussgm:invalidarg', ...
-                    'Cu should be a pdmat struct.');                
-            end
-            ud = Cu.d;
-            if ~isa(Cu.v, 'double'); Cu.v = double(Cu.v); end
+            if nargin < 2
+                ud = xd;
+                Cu = [];
+            elseif isnumeric(Cu) && isscalar(Cu)
+                ud = Cu;
+                Cu = [];
+            elseif is_pdmat(Cu)
+                ud = Cu.d;
+                if ~isa(Cu.v, 'double'); Cu.v = double(Cu.v); end
+            else
+                error('gaussgm:invalidarg', 'The second arg is invalid.');                
+            end            
                                                 
             if nargin < 3
                 A = 1;                
@@ -161,7 +175,9 @@ classdef gaussgm
             if ~isempty(Cx)
                 model.Gx = gaussd.from_mp(0, Cx, 'ip');
             end
-            model.Gu = gaussd.from_mp(0, Cu, 'ip');
+            if ~isempty(Cu)
+                model.Gu = gaussd.from_mp(0, Cu, 'ip');
+            end
             
             model.fixed_Cx = ~isempty(Cx);
         end
@@ -196,6 +212,11 @@ classdef gaussgm
             
             % verify inputs
             
+            if isempty(model.Gu)
+                error('gaussgm:invalidarg', ...
+                    'prior is not supported with this model object.');
+            end
+                        
             mu = chk_mu(model, mu);         
             U = chk_u(model, U);
             
@@ -219,7 +240,7 @@ classdef gaussgm
             
             if zmu
                 V = U;      % V = U - mu
-            else                                        
+            else 
                 B_ = model.B;
                 if isequal(B_, 1)
                     bmu = mu;
@@ -238,7 +259,7 @@ classdef gaussgm
                 end
             end
             
-            lpri = model.Gu.logpdf(V);            
+            lpri = model.Gu.logpdf(V);   
         end
         
                 
@@ -584,14 +605,18 @@ classdef gaussgm
                     error('gaussgm:invalidarg', ...
                         'hmap should be a numeric vector of size 1 x K.');
                 end
-            else
-                if size(Mu,2) ~= 1
+            else                
+                if ~isempty(Mu) && size(Mu,2) ~= 1
                     error('gaussgm:invalidarg', ...
                         'Without hmap, Mu should be a column vector.');
                 end
             end
             
-            use_pri = ~isempty(Mu);
+            use_pri = ~isempty(Mu);            
+            if use_pri && isempty(model.Cu)
+                error('gaussgm:invalidarg', ...
+                    'Prior is not supported with this model object.');
+            end
             
             %% do computation
             
@@ -633,26 +658,7 @@ classdef gaussgm
             % compute H
             
             H = pdmat_mvmul(Jx, sx);
-            
-            if use_pri
-                B_ = model.B;
-                if isequal(B_, 1)
-                    Bmu = Mu;
-                else
-                    Bmu = B_ * Mu;
-                end
-                
-                if isempty(hmap)
-                    if K == 1
-                        H = H + Mu;
-                    else
-                        H = bsxfun(@plus, H, Bmu);
-                    end
-                else
-                    H = H + Bmu(:, hmap);
-                end  
-            end            
-            
+                                  
             % compute J
             
             A_ = model.A;
@@ -683,9 +689,36 @@ classdef gaussgm
                 end
             end
             
+            % incorporate prior
+            
             if use_pri
-                Cu_ = model.Cu;                
-                J = pdmat_plus(J, Cu_);
+                
+                Ju = model.Gu.J;
+                
+                if ~(size(Mu, 2) == 1 && all(Mu == 0)) % need add to H
+                    
+                    B_ = model.B;
+                    if isequal(B_, 1)
+                        Bmu = Mu;
+                    else
+                        Bmu = B_ * Mu;
+                    end
+                    
+                    if ~isempty(hmap)
+                        Bmu = Bmu(:, hmap);
+                    end
+                    
+                    dH = pdmat_mvmul(Ju, Bmu);
+                    
+                    if size(H, 2) == size(dH, 2)
+                        H = H + dH;
+                    else
+                        H = bsxfun(@plus, H, dH);
+                    end                    
+                end
+                
+                % add to J          
+                J = pdmat_plus(J, Ju);
             end
                         
         end        
