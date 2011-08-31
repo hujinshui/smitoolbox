@@ -271,7 +271,7 @@ classdef smi_exec_context < handle
                     if ~smi_verify_var(vv, out_slots(j))
                         error('smi_exec_context:rterror', ...
                             'Invalid value: func %s.(%s) => var %s.', ...
-                            out_slots(j).name, f.name, vs.(ovs(j)).name);
+                            out_slots(j).name, f.name, vs(ovs(j)).name);
                     end
                 end
                 
