@@ -16,6 +16,7 @@ ns = [1, 3];
 test_construction(tys, ds, ns);
 
 run_tests('Test pick & fullform', tys, ds, ns, @test_pick_and_fullform);
+run_tests('Test diag',  tys, ds, ns, @test_diag);
 run_tests('Test scale', tys, ds, ns, @test_scale);
 run_tests('Test inv', tys, ds, ns, @test_inv);
 run_tests('Test lndet', tys, ds, ns, @test_lndet);
@@ -75,6 +76,18 @@ for i = 1 : n
     assert(isa(Fi1, 'double') && isequal(size(Fi1), [d d]));
     assert(isequal(Fi0, Fi1));
 end
+
+
+function test_diag(ty, d, n)
+
+S = randpdm(ty, d, n);
+V0 = zeros(d, n);
+for i = 1 : n
+    Ci = pdmat_fullform(S, i);
+    V0(:, i) = diag(Ci);
+end
+V1 = pdmat_diag(S);
+assert(isequal(V0, V1));
 
 
 function test_scale(ty, d, n)

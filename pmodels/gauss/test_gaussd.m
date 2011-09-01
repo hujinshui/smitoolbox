@@ -56,7 +56,10 @@ else
     mu = randn(d, m);
 end
     
-sigma = randpdm(cf, d, m2);
+[sigma, vars] = randpdm(cf, d, m2);
+if is_shared
+    vars = repmat(vars, 1, m);
+end
 
 g_mp0 = gaussd.from_mp(mu, sigma);
 g_mp1 = gaussd.from_mp(mu, sigma, 'ip');
@@ -102,6 +105,48 @@ devcheck('c0 consistency', g_cp1_a.c0, c0, 1e-12);
 
 devcheck('mu consistency', g_cp1.mu, mu, 1e-12);
 devcheck('sigma consistency', g_cp1.C.v, sigma.v, 1e-12);
+
+% verification of statistics
+
+assert(isequal(mean(g_mp0), mu));
+assert(isequal(var(g_mp0), vars));
+if m == 1 || is_shared
+    assert(isequal(cov(g_mp0), pdmat_fullform(sigma)));
+end
+for i = 1 : m
+    if is_shared
+        assert(isequal(cov(g_mp0, i), pdmat_fullform(sigma)));
+    else
+        assert(isequal(cov(g_mp0, i), pdmat_fullform(sigma, i)));
+    end
+end
+
+ents0 = zeros(1, m);
+for i = 1 : m
+    if is_shared
+        sig_i = sigma;
+    else
+        sig_i = pdmat_pick(sigma, i);
+    end
+    ents0(i) = (1/2) * ( d * log( (2*pi*exp(1)) ) + pdmat_lndet(sig_i) );
+end
+ents1 = entropy(g_mp0);
+ents2 = entropy(g_cp0);
+
+ents1a = zeros(1, m);
+ents2a = zeros(1, m);
+for i = 1 : m
+    ents1a(i) = entropy(g_mp0, i);
+    ents2a(i) = entropy(g_cp0, i);
+end
+
+assert(isequal(size(ents1), [1, m]));
+assert(isequal(size(ents2), [1, m]));
+
+devcheck('entropy calc (C)', ents0, ents1, 1e-12);
+devcheck('entropy calc (J)', ents0, ents2, 1e-12);
+devcheck('entropy calc (C-i)', ents0, ents1a, 1e-12);
+devcheck('entropy calc (J-i)', ents0, ents2a, 1e-12);
 
 % Test evaluation
 test_eval(g_cp1);
@@ -228,15 +273,17 @@ devcheck('sample_cov', C, C_s, 5e-2);
 
 %% Auxiliary function
 
-function C = randpdm(cf, d, m)
+function [C, vs] = randpdm(cf, d, m)
 
 switch cf
     case 's'
         v = 0.5 + rand(1, m);
         C = pdmat(cf, d, v);
+        vs = repmat(v, d, 1);
     case 'd'
         v = 0.5 + rand(d, m);
         C = pdmat(cf, d, v);
+        vs = v;
     case 'f'
         C = zeros(d, d, m);
         for i = 1 : m
@@ -245,6 +292,10 @@ switch cf
             C(:,:,i) = R' * diag(dv) * R;
         end
         C = pdmat(cf, d, C);
+        vs = zeros(d, m);
+        for i = 1 : m
+            vs(:, i) = diag(C.v(:,:,i));
+        end
 end
 
 
