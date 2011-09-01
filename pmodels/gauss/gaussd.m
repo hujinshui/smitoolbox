@@ -304,7 +304,146 @@ classdef gaussd
             end           
         end
     end
+    
+    
+    %% Statistics
+    
+    methods
         
+        function V = mean(G)
+            % Get the mean vectors of the distributions
+            %
+            %   V = mean(G);
+            %       returns the mean vectors as columns of V.
+            %       The size of V is [dim, num]
+            %
+            
+            if ~G.has_mp
+                error('gaussd:nomp', 'Mean parameterization is needed.');
+            end
+            
+            if G.zmean
+                V = zeros(G.dim, G.num);
+            else
+                V = G.mu;
+            end
+        end
+        
+        function V = var(G)
+            % Get the marginal variances of all components
+            %
+            %   V = mean(G);
+            %       returns the marginal variances as columns of V.
+            %       The size of V is [dim, num]
+            %
+            
+            if ~G.has_mp
+                error('gaussd:nomp', 'Mean parameterization is needed.');
+            end
+            
+            V = pdmat_diag(G.C);
+            if G.shared_cov && G.num > 1
+                V = repmat(V, [1, G.num]);
+            end
+        end
+        
+        
+        function Cmat = cov(G, i)
+            % Gets the covariance matrix of a distribution in G
+            %
+            %   Cmat = cov(G);
+            %       returns the covariance matrix of G. This applies
+            %       only to the case where G has only one covariance,
+            %       or the covariance is shared.
+            %
+            %   Cmat = cov(G, i);
+            %       returns the covariance matrix associated with the
+            %       i-th distribution.
+            %
+            
+            if ~G.has_mp
+                error('gaussd:nomp', 'Mean parameterization is needed.');
+            end            
+            
+            if nargin < 2
+                if ~G.shared_cov
+                    error('gaussd:invalidarg', ...
+                        'Index needs to be given when there are multi-cov.');
+                end
+                
+                Cmat = pdmat_fullform(G.C);
+            else
+                if G.shared_cov
+                    Cmat = pdmat_fullform(G.C);
+                else
+                    Cmat = pdmat_fullform(G.C, i);
+                end
+            end                            
+        end    
+        
+        
+        function v = entropy(G, i)
+            % Computes the entropy
+            %
+            %   v = entropy(G);
+            %       computes the entropies of all distributions.
+            %
+            %   v = entropy(G, i);
+            %       computes the entropies of the selected distributions.
+            %               
+            
+            if G.has_mp
+                is_inv = 0;
+                a = G.C;
+            else
+                is_inv = 1;
+                a = G.J;
+            end
+            
+            if nargin < 2
+                n = G.num;
+                if n == 1
+                    if is_inv
+                        v = gentropy(a, 'inv');
+                    else
+                        v = gentropy(a);
+                    end
+                else
+                    if is_inv
+                        v = gentropy(a, 'inv');
+                    else
+                        v = gentropy(a);
+                    end
+                    if G.shared_cov
+                        v = v(1, ones(1, n));
+                    end
+                end
+            else
+                if ~(isnumeric(i) && isvector(i))
+                    error('gaussd:invalidarg', 'i should be a numeric vector.');
+                end                
+                if G.shared_cov
+                    if is_inv
+                        v = gentropy(a, 'inv');
+                    else
+                        v = gentropy(a);
+                    end
+                    n = numel(i);
+                    if n > 1
+                        v = v(1, ones(1, n));
+                    end
+                else
+                    if is_inv
+                        v = gentropy(pdmat_pick(a, i), 'inv');
+                    else
+                        v = gentropy(pdmat_pick(a, i));
+                    end
+                end
+            end
+        end
+    
+    end
+    
     
     %% Probability evaluation
     
