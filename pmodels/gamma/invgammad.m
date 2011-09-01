@@ -1,17 +1,16 @@
-classdef gammad
-    % The class to represent (one or multi-dimensional) Gamma distribution
+classdef invgammad
+    % The class to represent Inverse Gamma distributions
     %
     %   Each object of this class can contain one or multiple Gamma
-    %   distributions. A Gamma distribution is characterized by two
-    %   parameters:
+    %   distributions. An inverse gamma distribution is characterized by 
+    %   two parameters:
     %
     %   - alpha:    the shape parameter 
     %   - beta:     the scale parameter (inverse of scale)
     %
     %   The pdf is given by
     %
-    %   f(x) = (alpha - 1) log(x) - x / beta 
-    %        - (alpha log(beta) + gammaln(alpha))
+    %   f(x) = (alpha - 1) log(x) - beta x 
     %  
     %   For an object with n distributions over d-dimensional space:    
     %   - shape is a matrix of size 1 x n or d x n.
@@ -20,7 +19,7 @@ classdef gammad
     
     %   History
     %   -------
-    %       - Created by Dahua Lin, on Aug 31, 2011
+    %       - Created by Dahua Lin, on Sep 1, 2011
     %
     
     %% properties
@@ -34,7 +33,7 @@ classdef gammad
         beta;   % the scale parameter(s)
         
         lpconst;   % a constant term in logpdf
-                   % = -(alpha * log(beta) + gammaln(alpha))
+                   % = alpha * log(beta) - gammaln(alpha)
                    % 1 x n row vector or 0, or empty (if not computed)
     end
         
@@ -48,19 +47,18 @@ classdef gammad
             %       v will be an d x n matrix, with v(:,i) corresponding 
             %       to the i-th distribution in obj.
             %
+            %   Note this function applies only to the case with 
+            %   alpha > 1.
+            %
         
             a = obj.alpha;
             b = obj.beta;
             d = obj.dim;
             
             if isscalar(b)
-                if b == 1
-                    v = a;
-                else
-                    v = a * b;
-                end
+                v = b ./ (a - 1);
             else
-                v = bsxfun(@times, a, b);
+                v = bsxfun(@rdivide, b, a - 1);
             end
             
             if size(a, 1) ~= d
@@ -76,27 +74,25 @@ classdef gammad
             %       v will be an d x n matrix, with v(:,i) corresponding 
             %       to the i-th distribution in obj.
             %
+            %   Note this function applies only to the case with
+            %   alpha > 2.
+            %
             
             a = obj.alpha;
             b = obj.beta;
             d = obj.dim;
             
             if isscalar(b)
-                if b == 1
-                    v = a;
-                else
-                    v = a * (b^2);
-                end
+                v = (b^2) ./ ((a - 1).^2 .* (a - 2));
             else
-                v = bsxfun(@times, a, (b.^2));
+                v = bsxfun(@rdivide, (b.^2), (a-1).^2 .* (a-2));
             end
             
             if size(a, 1) ~= d
                 v = v(ones(d, 1), :);
             end
         end
-            
-        
+                
         function v = mode(obj)
             % Gets the mode of the distribution
             %
@@ -111,19 +107,16 @@ classdef gammad
             d = obj.dim;
             
             if isscalar(b)
-                if b == 1
-                    v = (a - 1);
-                else
-                    v = (a - 1) * b;
-                end
+                v = b ./ (a + 1);
             else
-                v = bsxfun(@times, a - 1, b);
+                v = bsxfun(@rdivide, b, a + 1);
             end
             
             if size(a, 1) ~= d
                 v = v(ones(d, 1), :);
             end 
         end
+            
         
         function v = entropy(obj)
             % Evaluates the entropy value(s) of the distribution
@@ -138,7 +131,7 @@ classdef gammad
             b = obj.beta;
             d = obj.dim;
             
-            v = gamma_entropy(a);
+            v = invgamma_entropy(a);
             if ~isequal(b, 1)
                 if isscalar(b) 
                     v = v + log(b);
@@ -162,13 +155,13 @@ classdef gammad
     
     methods 
         
-        function obj = gammad(alpha, beta, d, op)
-            % Constructs a Gamma distribution object
+        function obj = invgammad(alpha, beta, d, op)
+            % Constructs an Inverse Gamma distribution object
             %
-            %   obj = gammad(alpha);
-            %   obj = gammad(alpha, beta);
+            %   obj = invgammad(alpha);
+            %   obj = invgammad(alpha, beta);
             %
-            %       constructs a Gamma distribution object given 
+            %       constructs an inverse gamma distribution object given 
             %       the parameters.
             %
             %       Inputs:
@@ -178,7 +171,7 @@ classdef gammad
             %                   either a 1 x n row vector or a 
             %                   scale (if shared by all distributions).
             %
-            %   obj = gammad(alpha, beta, d);
+            %   obj = invgammad(alpha, beta, d);
             %   
             %       To construct multi-dimensional gamma distributions,
             %       where each dimension has the same shape param, then
@@ -187,25 +180,25 @@ classdef gammad
             %       Here, shape can be input a 1 x n row vector, and
             %       use the 3rd argument to specify the dimension.
             %
-            %   obj = gammad(alpha, beta, [], 'pre');
-            %   obj = gammad(alpha, beta, d, 'pre');
+            %   obj = invgammad(alpha, beta, [], 'pre');
+            %   obj = invgammad(alpha, beta, d, 'pre');
             %
             %       Do pre-computation of the term 
-            %       alpha * log(beta) + gammaln(alpha), which might
+            %       alpha * log(beta) - gammaln(alpha), which might
             %       speed-up the evaluation of logpdf or pdf later.
             %
                         
             % verify inputs
             
             if ~(isfloat(alpha) && ndims(alpha) == 2)
-                error('gammad:invalidarg', ...
+                error('invgammad:invalidarg', ...
                     'alpha should be a numeric matrix.');
             end            
             [d_, n] = size(alpha);
             
             if ~( isfloat(beta) && (isscalar(beta) || ...
                     isequal(size(beta), [1 n])) )
-                error('gammad:invalidarg', ...
+                error('invgammad:invalidarg', ...
                     'beta should be a scalar or a 1 x n row vector.');
             end
             
@@ -213,11 +206,11 @@ classdef gammad
                 d = d_;
             else
                 if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
-                    error('gammad:invalidarg', ...
+                    error('invgammad:invalidarg', ...
                         'd should be a positive integer scalar.');
                 end
                 if d_ > 1 && d ~= d_
-                    error('gammad:invalidarg', ...
+                    error('invgammad:invalidarg', ...
                         'The size of shape is inconsistent with d.');
                 end
             end
@@ -226,10 +219,10 @@ classdef gammad
                 lpc = [];
             else
                 if ~(ischar(op) && strcmpi(op, 'pre'))
-                    error('gammad:invalidarg', ...
+                    error('invgammad:invalidarg', ...
                         'The 4th argument can only be ''pre''.');
                 end
-                lpc = gammad.calc_lpconst(alpha, beta, d);
+                lpc = invgammad.calc_lpconst(alpha, beta, d);
             end
                                     
             % create object
@@ -268,7 +261,7 @@ classdef gammad
             
             d = obj.dim;
             if ~(isfloat(X) && ndims(X) == 2 && size(X,1) == d)
-                error('gammad:invalidarg', ...
+                error('invgammad:invalidarg', ...
                     'X should be a numeric matrix with size(X,1) == dim.');
             end
             
@@ -287,34 +280,31 @@ classdef gammad
             end
             
             if isempty(lpc)
-                lpc = gammad.calc_lpconst(a, b, d);                
+                lpc = invgammad.calc_lpconst(a, b, d);                
             end
-                        
-            if isequal(a, 1)
-                T1 = 0;
+                                    
+            if size(a, 1) == d
+                T1 = (a + 1)' * log(X);
             else
-                if size(a, 1) == d
-                    T1 = (a - 1)' * log(X);
-                else
-                    T1 = (a - 1)' * sum(log(X), 1);
-                end
+                T1 = (a + 1)' * sum(log(X), 1);
+            end
+                            
+            if d == 1
+                srX = 1 ./ X;
+            else
+                srX = sum(1 ./ X, 1);
             end
             
-            if d == 1
-                sX = X;
-            else
-                sX = sum(X, 1);
-            end
             if isequal(b, 1)
-                T2 = sX;
+                T2 = srX;
             else
-                T2 = (1./b)' * sX;
-            end
+                T2 = b' * srX;
+            end           
             
             if size(T1, 1) == size(T2, 1)
-                L = T1 - T2;
+                L = - (T1 + T2);
             else
-                L = bsxfun(@minus, T1, T2);
+                L = - bsxfun(@plus, T1, T2);
             end
                 
             if ~isequal(lpc, 0)
@@ -386,7 +376,7 @@ classdef gammad
                 end
             end
                 
-            v = -(c1 + c2);
+            v = c1 - c2;                        
         end    
     end
     
@@ -416,12 +406,14 @@ classdef gammad
             if nargin < 2; n = 1; end
             
             a = obj.alpha;
-            b = obj.beta;
+            b = 1 ./ obj.beta;
             d = obj.dim;
+            
+            % Sample ~ Gamma(a, 1/b)
             
             if nargin < 3 || isempty(i)
                 if obj.num > 1
-                    error('gammad:sample:invalidarg', ...
+                    error('invgammad:sample:invalidarg', ...
                         'i is needed when obj contains multiple models.');
                 end
                 
@@ -429,15 +421,15 @@ classdef gammad
                 
             else
                 if ~(isvector(n) && isnumeric(n))
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('invgammad:pos_sample:invalidarg', ...
                         'n must be a numeric vector');
                 end
                 if ~(isvector(i) && isnumeric(i))
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('invgammad:pos_sample:invalidarg', ...
                         'i must be a numeric vector');
                 end
                 if numel(n) ~= numel(i)
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('invgammad:pos_sample:invalidarg', ...
                         'The sizes of n and i are inconsistent.');
                 end
                 
@@ -467,12 +459,13 @@ classdef gammad
                 
             end % end if there are n & i
             
+            % Inverse X
+            
+            X = 1 ./ X;
+            
         end % end sample function
     
     end
     
 end
-
-
-
 

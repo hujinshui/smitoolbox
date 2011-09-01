@@ -1,7 +1,7 @@
-function test_gammad()
-% Unit testing for Gamma distribution
+function test_invgammad()
+% Unit testing for Inverse gamma distribution
 %
-%   test_gammad;
+%   test_invgammad;
 %
 
 % Create by Dahua Lin, on Sep 1, 2011
@@ -31,30 +31,28 @@ fprintf('test on d = %d, m = %d, uniform_shape = %d, share_scale = %d ...\n', ..
 
 % construction
 
-mg = 0.5;
-
 if uniform_shape
-    alpha = rand(1, m) + mg;
+    alpha = rand(1, m) + 3;
     A = repmat(alpha, [d, 1]);
 else
-    alpha = rand(d, m) + mg;
+    alpha = rand(d, m) + 3;
     A = alpha;
 end
 
 if share_scale
-    beta = rand() + mg;
+    beta = rand() + 0.5;
     B = repmat(beta, 1, m);
 else
-    beta = rand(1, m) + mg;
+    beta = rand(1, m) + 0.5;
     B = beta;
 end
 
 if ~uniform_shape
-    g =  gammad(alpha, beta);
-    gp = gammad(alpha, beta, [], 'pre');
+    g =  invgammad(alpha, beta);
+    gp = invgammad(alpha, beta, [], 'pre');
 else
-    g =  gammad(alpha, beta, d);
-    gp = gammad(alpha, beta, d, 'pre');
+    g =  invgammad(alpha, beta, d);
+    gp = invgammad(alpha, beta, d, 'pre');
 end
 
 % basic verification
@@ -98,7 +96,7 @@ devcheck('lpconst calc', gp.lpconst, lpc0, 1e-12);
 % verify the computation of logpdf & pdf
 
 N = 100;
-X = rand(d, N);
+X = rand(d, N) + 0.5;
 
 L0 = my_calc_logpdf(A, B, X);
 L1 = g.logpdf(X);
@@ -119,12 +117,12 @@ assert(isequal(P1, exp(L1)));
 
 % verify sampling
 
-ns = 2e5;
+ns = 1e6;
 if m == 1
     X1 = g.sample(ns);
     assert(isequal(size(X1), [d, ns]));
     
-    devcheck('sample 1 - mean', vecmean(X1), mean1, 2e-2);
+    devcheck('sample 1 - mean', vecmean(X1), mean1, 1e-2);
     devcheck('sample 1 - var',  vecvar(X1), var1, 5e-2);    
 end
 
@@ -132,7 +130,7 @@ X2 = g.sample(ns(ones(1, m)), 1:m);
 for k = 1 : m
     cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
         
-    devcheck('sample 2 - mean', vecmean(cX2), mean1(:,k), 2e-2);
+    devcheck('sample 2 - mean', vecmean(cX2), mean1(:,k), 1e-2);
     devcheck('sample 2 - var',  vecvar(cX2), var1(:,k), 5e-2);   
 end
 
@@ -143,23 +141,22 @@ end
 
 function v = my_calc_lpconst(A, B)
 
-v = bsxfun(@times, A, log(B)) + gammaln(A);
+v = bsxfun(@times, A, log(B)) - gammaln(A);
 
 if size(v, 1) > 1
     v = sum(v, 1);
 end
 m = size(A, 2);
 assert(isequal(size(v), [1, m]));
-v = -v;
 
 
 function [M, V, Mo, E] = my_calc_stats(A, B)
 
-M = bsxfun(@times, A, B);
-V = bsxfun(@times, A, B.^2);
-Mo = bsxfun(@times, A-1, B);
+M = bsxfun(@rdivide, B, A-1);
+V = bsxfun(@rdivide, B.^2, (A-1).^2 .* (A-2));
+Mo = bsxfun(@rdivide, B, A+1);
 
-E1 = A + gammaln(A) + (1 - A) .* psi(A);
+E1 = A + gammaln(A) - (1 + A) .* psi(A);
 E = bsxfun(@plus, E1, log(B));
 E = sum(E, 1);
 
@@ -178,7 +175,8 @@ for k = 1 : m
     Pk = zeros(d, n);
     for i = 1 : d
         a = A(i, k); 
-        Pk(i, :) = gampdf(X(i, :), a, b);
+        x = X(i, :);
+        Pk(i, :) = ((b./x).^a .* exp(-b./x)) ./ (x * gamma(a));
     end
     
     L(k, :) = sum(log(Pk), 1);
