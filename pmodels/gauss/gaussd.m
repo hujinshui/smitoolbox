@@ -573,8 +573,7 @@ classdef gaussd
         
         function X = sample(G, n, i)
             % Samples from the Gaussian distribution
-            %
-            %
+            %            
             %   X = G.sample();
             %   X = G.sample(n);
             %       draws n samples from the Gaussian distribution. 
@@ -584,11 +583,6 @@ classdef gaussd
             %
             %   X = G.sample(n, i);
             %       draws n samples from the i-th distribution.
-            %
-            %       Here, i can be a vector. For example, if i is [2, 3], 
-            %       then the function draws n samples from the 2nd 
-            %       distribution, and then draws n samples from the
-            %       3rd one.
             %
             %       When i is a vector, then n can be a vector of the 
             %       same size. In this case, it draws n(j) samples from
