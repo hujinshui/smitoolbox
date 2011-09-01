@@ -29,7 +29,7 @@ classdef gammad
         
         lpconst;   % a constant term in logpdf
                    % = alpha * log(beta) + gammaln(alpha)
-                   % 1 x n row vector or 0.
+                   % 1 x n row vector or 0, or empty (if not computed)
     end
         
     methods
@@ -47,8 +47,8 @@ classdef gammad
             b = obj.beta;
             d = obj.dim;
             
-            if isscalar(sc)
-                if sc == 1
+            if isscalar(b)
+                if b == 1
                     v = a;
                 else
                     v = a * b;
@@ -76,7 +76,7 @@ classdef gammad
             d = obj.dim;
             
             if isscalar(b)
-                if sc == 1
+                if b == 1
                     v = a;
                 else
                     v = a * (b^2);
@@ -104,16 +104,16 @@ classdef gammad
             b = obj.beta;
             d = obj.dim;
             
-            v = k + gammaln(a) + (1 - a) .* psi(a);
-            if ~isequal(sc, 1)
-                if isscalar(sc) 
+            v = a + gammaln(a) + (1 - a) .* psi(a);
+            if ~isequal(b, 1)
+                if isscalar(b) 
                     v = v + log(b);
                 else
                     v = bsxfun(@plus, v, log(b));
                 end
             end
             
-            if size(k, 1) == 1
+            if size(v, 1) == 1
                 if d > 1
                     v = v * d;
                 end
@@ -128,7 +128,7 @@ classdef gammad
     
     methods 
         
-        function obj = gammad(alpha, beta, d)
+        function obj = gammad(alpha, beta, d, op)
             % Constructs a Gamma distribution object
             %
             %   obj = gammad(alpha);
@@ -153,6 +153,13 @@ classdef gammad
             %       Here, shape can be input a 1 x n row vector, and
             %       use the 3rd argument to specify the dimension.
             %
+            %   obj = gammad(alpha, beta, [], 'pre');
+            %   obj = gammad(alpha, beta, d, 'pre');
+            %
+            %       Do pre-computation of the term 
+            %       alpha * log(beta) + gammaln(alpha), which might
+            %       speed-up the evaluation of logpdf or pdf later.
+            %
                         
             % verify inputs
             
@@ -168,7 +175,7 @@ classdef gammad
                     'beta should be a scalar or a 1 x n row vector.');
             end
             
-            if nargin < 3
+            if nargin < 3 || isempty(d)
                 d = d_;
             else
                 if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
@@ -181,43 +188,23 @@ classdef gammad
                 end
             end
             
-            % compute constant terms
-            
-            if isequal(beta, 1)
-                c1 = 0;
+            if nargin < 4
+                lpc = [];
             else
-                if d == 1
-                    sa = alpha;
-                else
-                    if size(alpha, 1) == 1
-                        sa = alpha * d;
-                    else
-                        sa = sum(alpha, 1);
-                    end
+                if ~(ischar(op) && strcmpi(op, 'pre'))
+                    error('gammad:invalidarg', ...
+                        'The 4th argument can only be ''pre''.');
                 end
-                c1 = sa * log(beta);
+                lpc = gammad.calc_lpconst(alpha, beta, d);
             end
-            
-            if isequal(alpha, 1)
-                c2 = 0;
-            else
-                c2 = gammaln(alpha);
-                if d > 1
-                    if size(alpha, 1) == 1
-                        c2 = c2 * d;
-                    else
-                        c2 = sum(c2, 1);
-                    end
-                end
-            end   
-                        
+                                    
             % create object
             
             obj.dim = d;
             obj.num = n;
             obj.alpha = alpha;
             obj.beta = beta;
-            obj.lpconst = c1 + c2;
+            obj.lpconst = lpc;
         end            
     end
     
@@ -252,7 +239,7 @@ classdef gammad
             end
             
             a = obj.alpha;
-            b = obj.beta;
+            b = obj.beta;                        
             lpc = obj.lpconst;
             
             if nargin >= 3 && ~isempty(si)
@@ -260,8 +247,15 @@ classdef gammad
                 if ~isscalar(b)
                     b = b(:, si);
                 end
+                if ~isempty(lpc)
+                    lpc = lpc(1, si);
+                end
             end
             
+            if isempty(lpc)
+                lpc = gammad.calc_lpconst(a, b, d);                
+            end
+                        
             if isequal(a, 1)
                 T1 = 0;
             else
@@ -280,10 +274,15 @@ classdef gammad
             if isequal(b, 1)
                 T2 = sX;
             else
-                T2 = (1./b)' * X;
+                T2 = (1./b)' * sX;
             end
             
-            L = T1 - T2;
+            if size(T1, 1) == size(T2, 1)
+                L = T1 - T2;
+            else
+                L = bsxfun(@minus, T1, T2);
+            end
+                
             if ~isequal(lpc, 0)
                 L = bsxfun(@minus, L, lpc.');                                
             end                        
@@ -318,6 +317,46 @@ classdef gammad
                 
     end    
     
+    
+    methods(Static, Access='private')
+        
+        function v = calc_lpconst(a, b, d)
+            % Calculates the log-pdf constant term
+            %
+            
+            if isequal(b, 1)
+                c1 = 0;
+            else
+                if d == 1
+                    sa = a;
+                else
+                    if size(a, 1) == 1
+                        sa = a * d;
+                    else
+                        sa = sum(a, 1);
+                    end
+                end
+                c1 = sa .* log(b);
+            end
+            
+            if isequal(a, 1)
+                c2 = 0;
+            else
+                c2 = gammaln(a);
+                if d > 1
+                    if size(a, 1) == 1
+                        c2 = c2 * d;
+                    else
+                        c2 = sum(c2, 1);
+                    end
+                end
+            end
+                
+            v = c1 + c2;                        
+        end    
+    end
+    
+    
     %% Sampling
     
     methods
@@ -347,7 +386,7 @@ classdef gammad
             d = obj.dim;
             
             if nargin < 3 || isempty(i)
-                if G.num > 1
+                if obj.num > 1
                     error('gammad:sample:invalidarg', ...
                         'i is needed when obj contains multiple models.');
                 end
