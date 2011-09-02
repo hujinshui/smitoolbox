@@ -28,6 +28,7 @@ run_tests('Test pwquad', tys, ds, 1, @test_pwquad);
 run_tests('Test choltrans', tys, ds, 1, @test_choltrans);
 
 test_plus(tys, ds, ns);
+test_dot(tys, ds, ns);
 
 % test_plus(tys, ds, ns);
 
@@ -359,6 +360,62 @@ for i = 1 : nr
     assert(norm(Cm - Cm0) < 1e-13);
 end
 
+function test_dot(tys, ds, ns)
+
+disp('Test dot ...');
+
+for t1 = 1 : numel(tys)
+    for t2 = 1 : numel(tys)
+        
+        ty1 = tys{t1};
+        ty2 = tys{t2};
+        
+        for d = ds
+            for n = ns
+                
+                if n == 1
+                    test_dot_a(d, ty1, 1, ty2, 1);
+                else
+                    test_dot_a(d, ty1, n, ty2, n);
+                    test_dot_a(d, ty1, 1, ty2, n);
+                    test_dot_a(d, ty1, n, ty2, 1);
+                end
+                
+            end
+        end
+    end    
+end
+
+
+function test_dot_a(d, ty1, n1, ty2, n2)
+
+S1 = randpdm(ty1, d, n1);
+S2 = randpdm(ty2, d, n2);
+
+V = pdmat_dot(S1, S2);
+n = max(n1, n2);
+
+assert(isa(V, 'double'));
+assert(isequal(size(V), [1, n]));
+
+V0 = zeros(1, n);
+for i = 1 : n
+    if n1 == 1
+        Sm1 = pdmat_fullform(S1);
+    else
+        Sm1 = pdmat_fullform(S1, i);
+    end
+    
+    if n2 == 1
+        Sm2 = pdmat_fullform(S2);
+    else
+        Sm2 = pdmat_fullform(S2, i);
+    end
+    
+    V0(i) = trace(Sm1' * Sm2);    
+end
+
+assert(norm(V - V0) < 1e-13);
 
 
 %% auxiliary functions
