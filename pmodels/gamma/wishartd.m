@@ -39,14 +39,14 @@ classdef wishartd
     
     methods
         
-        function obj = wishartd(deg, S, op)
+        function obj = wishartd(S, deg, op)
             % Constructs a Wishart distribution object
             %
-            %   obj = wishartd(deg, S);
+            %   obj = wishartd(S, deg);
             %       constructs a Wishart distribution of given degree
             %       of freedom (deg) and scale matrix (S).
             %
-            %   obj = wishartd(deg, S, 'pre');
+            %   obj = wishartd(S, deg, 'pre');
             %
             %       performs the construction and pre-computes lpconst
             %       and invS to accelerate evaluation of logpdf or pdf.
@@ -54,17 +54,17 @@ classdef wishartd
               
             % verify inputs
             
+            if ~(is_pdmat(S) && S.n == 1)
+                error('wishartd:invalidarg', ...
+                    'S should be a pdmat struct with S.n == 1.');
+            end
+            
             if ~(isnumeric(deg) && isscalar(deg) && isreal(deg) && deg >= 0)
                 error('wishartd:invalidarg', ...
                     'deg should be a positive definite matrix.');
             end
             deg = double(deg);
-            
-            if ~(is_pdmat(S) && S.n == 1)
-                error('wishartd:invalidarg', ...
-                    'S should be a pdmat struct with S.n == 1.');
-            end
-                        
+                                    
             pre_comp = 0;
             if nargin >= 3
                 if ~(ischar(op) && strcmpi(op, 'pre'))
@@ -144,11 +144,10 @@ classdef wishartd
             end
             
             m = obj.deg;
-            n = W.n;
             
             lpc = obj.lpconst;
             if isempty(lpc)
-                lpc = calc_lpconst(m, S_);
+                lpc = wishartd.calc_lpconst(m, obj.S);
             end
             
             J = obj.invS;
@@ -157,19 +156,22 @@ classdef wishartd
             end
             
             t1 = (0.5 * (m - d - 1)) * pdmat_lndet(W);
+            t2 = 0.5 * pdmat_dot(J, W);
             
-            if n == 1
-                F = pdmat_fullform(W);
-                t2 = J(:)' * W(:);                
-            else
-                Wv = zeros(d * d, n, class(W.v));
-                for i = 1 : n
-                    Wv
-                end
-            end
-            
+            L = t1 - t2 - lpc;
         end
         
+        
+        function P = pdf(obj, W)
+            % Evaluates the pdf values
+            %
+            %   P = obj.pdf(W);
+            %       evaluates the pdf values of the matrices in W,
+            %       which is a pdmat struct.
+            %
+            
+            P = exp(logpdf(obj, W));            
+        end
     
     end
     
@@ -184,9 +186,44 @@ classdef wishartd
             d = S.d;
             
             lpc = q * (d * ln2 + pdmat_lndet(S)) + mvgammaln(d, q);
-        end
-        
+        end                
     end    
     
+    
+    %% Sampling
+    
+    methods
+        
+        function W = sample(obj, n)
+            % Samples from the distribution
+            %
+            %   W = obj.sample();
+            %   W = obj.sample(n);
+            %
+            %       Draws n (if omitted, n = 1) samples from the 
+            %       distribution, and packs them in a pdmat struct W.
+            %
+
+            if nargin < 2
+                n = 1;
+            end
+            
+            m = obj.deg;
+            S_ = obj.S;
+            
+            if isequal(S_.v, 1)
+                W = wishart_sample(S_.d, m, n);
+            else
+                W = wishart_sample(S_, m, n);
+            end
+            
+            W = pdmat('f', S_.d, W);
+        end
+    
+    end
+    
+    
 end
+
+
 
