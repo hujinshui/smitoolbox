@@ -113,7 +113,7 @@ function devcheck(name, x1, x2, thres)
 
 d = max(abs(x1(:) - x2(:)));
 if d > thres
-    warning('test_gammad:devcheck', ...
+    warning('test_scale_invchi2d:devcheck', ...
         '%s check warning with dev = %g', name, d); 
 end
 
