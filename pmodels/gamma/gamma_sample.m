@@ -11,7 +11,7 @@ function X = gamma_sample(alpha, beta, n, d)
 %
 %       Input arguments:
 %       - alpha:    can be a scalar or a d x 1 column vector.
-%       - beta:     a scalar
+%       - beta:     can be a scalar or a d x 1 column vector.
 %       - n:        the number of samples to draw
 %       - d:        the sample space dimension.
 %
@@ -32,16 +32,23 @@ if ~(isfloat(alpha) && ndims(alpha) == 2 && isreal(alpha) && size(alpha,2) == 1)
     error('gamma_sample:invalidarg', ...
         'alpha should be a real scalar or a column vector.');
 end
-d_ = size(alpha, 1);
+d1 = size(alpha, 1);
 
 if nargin < 2
     beta = 1;
 else
-    if ~(isfloat(beta) && isscalar(beta) && isreal(beta) && beta > 0)
+    if ~(isfloat(beta) && ndims(beta) == 2 && isreal(beta) && size(beta,2) == 1)
         error('gamma_sample:invalidarg', ...
             'beta should be a positive real scalar.');
     end
 end
+d2 = size(beta, 1);
+
+if ~(d1 == 1 || d2 == 1 || d1 == d2)
+    error('gamma_sample:invalidarg', ...
+        'Inconsistent dimensions between alpha and beta.');
+end
+d_ = max(d1, d2);
 
 if nargin < 3
     n = 1;
@@ -59,7 +66,7 @@ else
     end
     
     if ~(d_ == 1 || d_ == d)
-        error('gamma_sample:invalidarg', 'alpha and d are inconsistent.');
+        error('gamma_sample:invalidarg', 'alpha/beta and d are inconsistent.');
     end
 end
 
@@ -68,14 +75,24 @@ end
 if d == 1
     X = randg(alpha, 1, n);
 else
-    if d_ == 1
+    if d1 == 1
         X = randg(alpha, d, n);
     else
         X = randg(alpha(:, ones(1, n)));
     end
 end
 
-if beta ~= 1
-    X = X * beta;
+if isscalar(beta)
+    if beta ~= 1
+        X = X * beta;
+    end
+else
+    if n == 1
+        X = X .* beta;
+    else
+        X = bsxfun(@times, X, beta);
+    end
 end
+
+
 
