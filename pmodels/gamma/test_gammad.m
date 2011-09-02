@@ -31,21 +31,19 @@ fprintf('test on d = %d, m = %d, uniform_shape = %d, share_scale = %d ...\n', ..
 
 % construction
 
-mg = 0.5;
-
 if uniform_shape
-    alpha = rand(1, m) + mg;
+    alpha = rand(1, m) + 1.2;
     A = repmat(alpha, [d, 1]);
 else
-    alpha = rand(d, m) + mg;
+    alpha = rand(d, m) + 1.2;
     A = alpha;
 end
 
 if share_scale
-    beta = rand() + mg;
+    beta = rand() + 0.5;
     B = repmat(beta, 1, m);
 else
-    beta = rand(1, m) + mg;
+    beta = rand(1, m) + 0.5;
     B = beta;
 end
 
@@ -119,7 +117,7 @@ assert(isequal(P1, exp(L1)));
 
 % verify sampling
 
-ns = 2e5;
+ns = 5e5;
 if m == 1
     X1 = g.sample(ns);
     assert(isequal(size(X1), [d, ns]));
