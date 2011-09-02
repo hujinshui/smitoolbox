@@ -123,6 +123,7 @@ classdef gammad
             if size(a, 1) ~= d
                 v = v(ones(d, 1), :);
             end 
+            v = max(v, 0);
         end
         
         function v = entropy(obj)
