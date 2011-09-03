@@ -61,7 +61,7 @@ classdef wishartd
             
             if ~(isnumeric(deg) && isscalar(deg) && isreal(deg) && deg >= 0)
                 error('wishartd:invalidarg', ...
-                    'deg should be a positive definite matrix.');
+                    'deg should be a non-negative real value.');
             end
             deg = double(deg);
                                     

@@ -1,5 +1,5 @@
-function test_wishartd()
-% Unit testing of wishartd class and wishart_sample function
+function test_invwishartd()
+% Unit testing of invwishartd class 
 %
 %   test_wishartd();
 %
@@ -23,39 +23,39 @@ fprintf('test on dim = %d, ty = %s\n', d, ty);
 
 % construction
 
-S = randpdm(ty, d, 1);
+Phi = randpdm(ty, d, 1);
 deg = 8.5; 
-Sm = pdmat_fullform(S);
+Phim = pdmat_fullform(Phi);
 
-D0 = wishartd(S, deg);
-D1 = wishartd(S, deg, 'pre');
+D0 = invwishartd(Phi, deg);
+D1 = invwishartd(Phi, deg, 'pre');
 
 assert(D0.num == 1);
 assert(D0.dim == d);
 assert(D0.deg == deg);
-assert(isequal(D0.S, S));
-assert(isempty(D0.invS));
+assert(isequal(D0.Phi, Phi));
+assert(isempty(D0.invPhi));
 assert(isempty(D0.lpconst));
 
 assert(D1.num == 1);
 assert(D1.dim == d);
 assert(D1.deg == deg);
-assert(isequal(D1.S, S));
-assert(~isempty(D1.invS));
+assert(isequal(D1.Phi, Phi));
+assert(~isempty(D1.invPhi));
 assert(~isempty(D1.lpconst));
 
 % verify pre-computation
 
 q = deg / 2;
-lpc = q*d*log(2) + q * pdmat_lndet(S) + mvgammaln(d, q); 
+lpc = q*d*log(2) - q * pdmat_lndet(Phi) + mvgammaln(d, q); 
 
 devcheck('lpconst', D1.lpconst, lpc, 1e-13);
-assert(isequal(pdmat_inv(S), D1.invS));
+assert(isequal(pdmat_inv(Phi), D1.invPhi));
 
 % verify statistics
 
-Mean0 = deg * Sm;
-Mode0 = (deg - d - 1) * Sm;
+Mean0 = Phim / (deg - d - 1);
+Mode0 = Phim / (deg + d + 1);
 
 devcheck('mean (D0)', pdmat_fullform(mean(D0)), Mean0, 1e-13);
 devcheck('mean (D1)', pdmat_fullform(mean(D1)), Mean0, 1e-13);
@@ -65,17 +65,17 @@ devcheck('mode (D1)', pdmat_fullform(mode(D1)), Mode0, 1e-13);
 % verify logpdf evaluation
 
 n = 100;
-W_s = randpdm('s', d, n);
-W_d = randpdm('d', d, n);
-W_f = randpdm('f', d, n);
+C_s = randpdm('s', d, n);
+C_d = randpdm('d', d, n);
+C_f = randpdm('f', d, n);
 
-L1_s0 = D0.logpdf(W_s);
-L1_d0 = D0.logpdf(W_d);
-L1_f0 = D0.logpdf(W_f);
+L1_s0 = D0.logpdf(C_s);
+L1_d0 = D0.logpdf(C_d);
+L1_f0 = D0.logpdf(C_f);
 
-L1_s1 = D1.logpdf(W_s);
-L1_d1 = D1.logpdf(W_d);
-L1_f1 = D1.logpdf(W_f);
+L1_s1 = D1.logpdf(C_s);
+L1_d1 = D1.logpdf(C_d);
+L1_f1 = D1.logpdf(C_f);
 
 assert(isequal(size(L1_s0), [1, n]));
 assert(isequal(size(L1_d0), [1, n]));
@@ -85,9 +85,9 @@ assert(isequal(L1_s0, L1_s1));
 assert(isequal(L1_d0, L1_d1));
 assert(isequal(L1_f0, L1_f1));
 
-L0_s = my_logpdf(Sm, deg, W_s, lpc);
-L0_d = my_logpdf(Sm, deg, W_d, lpc);
-L0_f = my_logpdf(Sm, deg, W_f, lpc);
+L0_s = my_logpdf(Phim, deg, C_s, lpc);
+L0_d = my_logpdf(Phim, deg, C_d, lpc);
+L0_f = my_logpdf(Phim, deg, C_f, lpc);
 
 devcheck('loglik (s)', L1_s0, L0_s, 1e-12);
 devcheck('loglik (d)', L1_d0, L0_d, 1e-12);
@@ -98,55 +98,24 @@ devcheck('loglik (f)', L1_f0, L0_f, 1e-12);
 N0 = 50;
 N = 2e5;
 
-Y = wishart_sample(d, deg);
-assert(isequal(size(Y), [d d]));
-assert(isequal(Y, Y'));
-assert(all(eig(Y)) > 0);
+C = D0.sample();
+assert(is_pdmat(C) && C.d == d && C.n == 1);
+assert(C.ty == 'f');
+assert(isequal(C.v, C.v'));
+assert(all(eig(C.v)) > 0);
 
-W = D0.sample();
-assert(is_pdmat(W) && W.d == d && W.n == 1);
-assert(W.ty == 'f');
-assert(isequal(W.v, W.v'));
-assert(all(eig(W.v)) > 0);
-
-Ys = wishart_sample(d, deg, N);
-assert(isequal(size(Ys), [d d N]));
+Cs = D0.sample(N);
+assert(is_pdmat(Cs) && Cs.d == d && Cs.n == N);
 for i = 1 : N0
-    Yi = Ys(:,:,i);
-    assert(isequal(Yi, Yi'));
-    assert(all(eig(Yi)) > 0);
+    Ci = pdmat_fullform(Cs, i);
+    assert(isequal(Ci, Ci'));
+    assert(all(eig(Ci)) > 0);
 end
 
-Ws = D0.sample(N);
-assert(is_pdmat(Ws) && Ws.d == d && Ws.n == N);
-for i = 1 : N0
-    Wi = pdmat_fullform(Ws, i);
-    assert(isequal(Wi, Wi'));
-    assert(all(eig(Wi)) > 0);
-end
+Cmean0 = pdmat_fullform(mean(D0));
+Cmean = mean(Cs.v, 3);
+devcheck('sample mean', Cmean, Cmean0, 5e-3);
 
-Ymean0 = deg * eye(d);
-Wmean0 = deg * Sm;
-
-Id = eye(d);
-Yvar0 = zeros(d, d);
-Wvar0 = zeros(d, d);
-for i = 1 : d
-    for j = 1 : d
-        Yvar0(i, j) = deg * (Id(i,j)^2 + Id(i,i) * Id(j,j));
-        Wvar0(i, j) = deg * (Sm(i,j)^2 + Sm(i,i) * Sm(j,j));
-    end
-end
-
-Ymean = mean(Ys, 3);
-Yvar = reshape(vecvar(reshape(Ys, d*d, N)), d, d);
-Wmean = mean(Ws.v, 3);
-Wvar = reshape(vecvar(reshape(Ws.v, d*d, N)), d, d);
-
-devcheck('sample mean (std)', Ymean, Ymean0, 5e-2);
-devcheck('sample var (std)', Yvar, Yvar0, 0.3);
-devcheck('sample mean', Wmean, Wmean0, 5e-2);
-devcheck('sample var', Wvar, Wvar0, 0.3);
 
 
 %% Auxiliary functions
@@ -177,17 +146,17 @@ switch cf
 end
 
 
-function L = my_logpdf(Sm, m, W, lpc)
+function L = my_logpdf(Phim, m, C, lpc)
 
-d = W.d;
-n = W.n;
+d = C.d;
+n = C.n;
 L = zeros(1, n);
 
 for i = 1 : n
-    Wi = pdmat_fullform(W, i);
+    Ci = pdmat_fullform(C, i);
     
-    u1 = (m - d - 1) / 2 * lndet(Wi);
-    u2 = (-1/2) * trace(Sm \ Wi);
+    u1 = - (m + d + 1) / 2 * lndet(Ci);
+    u2 = (-1/2) * trace(Ci \ Phim);
     L(i) = u1 + u2 - lpc;
 end
 
