@@ -1,0 +1,10 @@
+syntax: glob
+
+*.asv
+*.mex*
+*.m~
+*.cpp~
+*.txt~
+*.h~
+*.cfg~
+
