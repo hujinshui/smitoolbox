@@ -428,14 +428,7 @@ classdef tsuite_pdmat
     %% Test running functions
         
     methods
-        
-        function run_all(obj)
-            % Run all tests
-            
-            test_construction(obj);
-            test_diag(obj);            
-        end        
-                
+                        
         function run_multi(obj, tfunc)
             % Run a specific test case under different conditions
                         
