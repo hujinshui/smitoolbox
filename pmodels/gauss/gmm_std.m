@@ -82,27 +82,27 @@ classdef gmm_std < smi_prg
             
             % create object
             
-            obj.dim = double(d);
+            prg.dim = double(d);
             
             if ~isempty(Cx)
                 if ~isempty(Cu)
-                    obj.gmodel = gaussgm(Cx, Cu);
+                    prg.gmodel = gaussgm(Cx, Cu);
                 else
-                    obj.gmodel = gaussgm(Cx);
+                    prg.gmodel = gaussgm(Cx);
                 end
             else
                 if ~isempty(Cu)
-                    obj.gmodel = gaussgm(d, Cu);
+                    prg.gmodel = gaussgm(d, Cu);
                 else
-                    obj.gmodel = gaussgm(d);
+                    prg.gmodel = gaussgm(d);
                 end
             end
             
-            obj.Cu = Cu;
-            obj.Cx = Cx;
-            obj.est_Cx = isempty(Cx) || ~is_pdmat(Cx);  
+            prg.Cu = Cu;
+            prg.Cx = Cx;
+            prg.est_Cx = isempty(Cx) || ~is_pdmat(Cx);  
             
-            if obj.est_Cx
+            if prg.est_Cx
                 error('gmm_std:notimplement', ...
                     'Estimation of Cx is not yet implemented.');
             end
@@ -287,7 +287,7 @@ classdef gmm_std < smi_prg
             E = Lik;
             
             if Sc.do_samp
-                Sd.Z = max(E, [], 1);
+                [~, Sd.Z] = max(E, [], 1);
                 Sd.grps = intgroup(K, Sd.Z);
             else
                 Sd.Q = nrmexp(E, 1);
