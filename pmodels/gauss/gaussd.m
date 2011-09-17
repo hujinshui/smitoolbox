@@ -811,7 +811,7 @@ classdef gaussd
             end            
             
             mu_ = double(G.mu);
-            C_ = double(G.C); 
+            C_ = G.C; 
             n = G.num;
             scov = G.shared_cov;
             
