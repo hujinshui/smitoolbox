@@ -14,12 +14,12 @@ mu = randn(2, 2) * 4;
 sigma = randn(2, 2);
 sigma = sigma * sigma';
 
-gd = gaussd.from_mp(mu, gsymat(sigma));
+gd = gaussd.from_mp(mu, pdmat(sigma));
 
 % prepare data
 
 n = 1000;
-X = gd.sample(1000);
+X = gd.sample([n, n], 1:2);
 L = [zeros(1, n), ones(1, n)];
 
 % solve LDA
