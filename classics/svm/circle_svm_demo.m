@@ -24,7 +24,8 @@ end
 
 if nargin < 2
     solver = @(P) mstd_solve(P, ...
-        optimset('Algorithm', 'interior-point-convex', 'Display', 'off'));
+        optimset('Algorithm', 'interior-point-convex', ...
+            'MaxIter', 2000, 'Display', 'off'));
 end
 
 r0 = 2;
@@ -85,7 +86,8 @@ contour(xx, yy, p, [-1, 0, 1]);
 % support vectors
 
 hold on;
-plot(svm.Xs(1,:), svm.Xs(2,:), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
+si = find(svm.alpha > 1e-4 * max(svm.alpha));
+plot(svm.Xs(1,si), svm.Xs(2,si), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
 
 axis([xm0, xm1, ym0, ym1]);
 axis equal;
