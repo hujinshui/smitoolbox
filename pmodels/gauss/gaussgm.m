@@ -275,7 +275,7 @@ classdef gaussgm
             %       Suppose m = size(U,2) and n = size(X,2), then
             %       Llik is a matrix of size m x n, such that 
             %       Llik(k, i) is the likelihood value of the sample
-            %       X(:,i) with respect to the parameter U(:,k).
+            %       X(:,i) with respect to the parameter U(:,k).                        
             %
             
             % verify inputs
