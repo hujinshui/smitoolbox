@@ -19,6 +19,7 @@ classdef dpmm_solution < handle
     properties(GetAccess='private', SetAccess='private')                        
         atoms;      % the (growable) cell array of atoms
         counts;     % the (growable) vector of atom appearance counts 
+        logliks0;   % the vector of log-likelihood w.r.t. base
         logliks;    % the (growable) matrix of log-likelihood values
         
         labels;     % the labels of observations (1 x n)                
@@ -99,6 +100,7 @@ classdef dpmm_solution < handle
             
             sol.atoms = cell(1, rK);
             sol.counts = zeros(1, rK);
+            sol.logliks0 = model.evaluate_loglik();
             sol.logliks = zeros(rK, n);
             sol.labels = zeros(1, n);
         end
@@ -145,67 +147,36 @@ classdef dpmm_solution < handle
         end
                
                 
-        function update_labels(sol, i)
+        function update_labels(sol, inds)
             % Performs sequential update 
             %
             %   sol.seq_update_labels();
             %       
             %       Updates the labels of all observations sequentially.
             %       
-            %   sol.seq_update_labels(i);
+            %   sol.seq_update_labels(inds);
             %
-            %       Updates the labels according to the order given by i.
+            %       Updates the labels according to the order given by inds.
             %
             %   This function will create new atoms.
             %
-            
-            if isempty(i)
-                return;
-            end
-            
+                        
             n = sol.nobs;
             if nargin < 2
-                i = int32(1:n);
+                inds = int32(1:n);
             else
-                i = int32(i);
-            end
-            ni = numel(i);
-            
-            rnums = rand(1, ni);
-            
-            if sol.labels(i(1)) == 0 % draw the first one, if not already
-                new_atom(sol, i(1));                
-                changed = true;
-                cp = 2;
-            else                
-                changed = false;
-                cp = 1;
+                inds = int32(inds);
             end
             
-            while cp < ni
-                
-                % update labels until we have to draw a new one
-                [cp, ch] = dpmm_update_labels( ...
-                    sol.alpha, ...
-                    sol.logliks0, ...
-                    sol.logliks, ...
-                    [], ...
-                    sol.counts, ...
-                    sol.labels, ...
-                    i, rnums, cp);
-                
-                changed = changed | ch;
-                
-                % draw a new one when necessary
-                if cp <= ni
-                    new_atom(sol, i(cp));
-                    changed = true;
-                    cp = cp+1;                     
-                end
-            end
+            [sol.atoms, sol.logliks, sol.counts, sol.labels, sol.natoms, ch] = ...
+                dpmm_update_labels(sol.model, sol.alpha, sol.natoms, sol.atoms, ...
+                sol.logliks, sol.logliks0, [], sol.counts, sol.labels, inds);
             
-            if changed
-                sol.groups = [];  % invalidate the old grouping                
+            assert(all(sol.labels >= 1 & sol.labels <= sol.natoms));
+            assert(sum(sol.counts) == sol.nobs);            
+            
+            if ch
+                sol.groups = [];
             end
         end
         
@@ -218,7 +189,7 @@ classdef dpmm_solution < handle
     
         function a = new_atom(sol, I)
             
-            mdl = obj.model;
+            mdl = sol.model;
             a = mdl.create_atom(I);
             
             K = sol.natoms;
