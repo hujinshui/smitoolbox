@@ -62,7 +62,7 @@ classdef gauss_npmodel < nonparam_model
         end
         
         
-        function a = create_atom(obj, I)
+        function a = posterior_atom(obj, I)
             % Samples a new atom based on given data
             %
             %   a = obj.create_atom(I);
@@ -92,17 +92,7 @@ classdef gauss_npmodel < nonparam_model
                 L = obj.gm.loglik(a, obj.X);
             end                        
         end
-        
-        
-        function lpri = evaluate_logpri(obj, a)
-            % Evaluates the log-prior of an atom
-            %
-            %   lpri = obj.evaluate_logpri(a);
-            %       evaluates the log prior of an atom
-            %
-            
-            lpri = obj.gm.logpri(obj.pri_mu, a);
-        end
+                
     end
     
 end

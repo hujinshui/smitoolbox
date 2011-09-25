@@ -43,18 +43,18 @@ end
 
 %% Visualize
 
-figure;
-title('DPMM (Gauss) Demo');
-plot(X(1,:), X(2,:), '.');
-axis equal;
-
-A = sol.get_atoms();
-A = [A{:}];
-cnts = sol.get_atom_counts();
-
-A = A(:, cnts > n / 2);
-
-hold on;
-plot(A(1,:), A(2,:), 'r+', 'MarkerSize', 20, 'LineWidth', 2);
-hold off;
+% figure;
+% title('DPMM (Gauss) Demo');
+% plot(X(1,:), X(2,:), '.');
+% axis equal;
+% 
+% A = sol.get_atoms();
+% A = [A{:}];
+% cnts = sol.get_atom_counts();
+% 
+% A = A(:, cnts > n / 2);
+% 
+% hold on;
+% plot(A(1,:), A(2,:), 'r+', 'MarkerSize', 20, 'LineWidth', 2);
+% hold off;
 
