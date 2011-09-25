@@ -1,11 +1,16 @@
-function sol = dpmm_demo()
+function sol = dpmm_demo(op)
 % A program to demonstrate the use of DPMM
 %
-%   dpmm_demo;
+%   sol = dpmm_demo;             with visualization
+%   sol = dpmm_demo('novis');    no visualization
 %
 
 % Created by Dahua Lin, on Sep 21, 2011
 %
+
+%% parse input
+
+novis = nargin == 1 && strcmpi(op, 'novis');
 
 %% Prepare data
 
@@ -24,24 +29,38 @@ for k = 1 : K0
 end
 X = [Xs{:}];
 
-%% Construct model
+%% Construct underlying model
 
-gm = gaussgm(Cx, Cu);
-model = gauss_npmodel(gm, zeros(d, 1), X);
+gbase = gaussd.from_mp(0, Cu, 'ip');
+model = gauss_npmodel(gbase, Cx);
 
-%% Construct solution
+%% Construct DPMM
+
+Kp = 2;
+assert(Kp <= K0);
+
+pri_atoms = cell(1, Kp);
+for i = 1 : Kp
+    pri_atoms{i} = centers(:,i);
+end
+pri_counts = 1000 * ones(1, Kp);
+
+inherits = dpmm_inherits(1:Kp, Kp, pri_atoms, pri_counts, 0.5, @gtransit);
 
 alpha = 1;
-sol = dpmm(model, alpha);
+sol = dpmm(model, alpha, X, 'inherits', inherits);
 
 T = 10;
 for t = 1 : T
     sol.update_labels();
     sol.update_atoms();
+    sol.prune_model(0.2);
 end
 
 
 %% Visualize
+
+if novis; return; end
 
 figure;
 title('DPMM (Gauss) Demo');
@@ -57,4 +76,13 @@ A = A(:, cnts > n / 2);
 hold on;
 plot(A(1,:), A(2,:), 'r+', 'MarkerSize', 20, 'LineWidth', 2);
 hold off;
+
+
+%% Probabilistic transition
+
+function g = gtransit(a)
+
+g = gaussd.from_mp(a, pdmat('s', 2, 1e-8), 'ip');
+
+
 
