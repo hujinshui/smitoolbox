@@ -22,8 +22,8 @@ classdef dpmm_solution < handle
         logliks0;   % the vector of log-likelihood w.r.t. base
         logliks;    % the (growable) matrix of log-likelihood values
         
-        labels;     % the labels of observations (1 x n)                
-        groups;     % the observation index groups for different labels
+        labels;     % the labels of observations (1 x n)
+        groups;     % the cell array of grouped indices
     end
     
     
@@ -44,6 +44,10 @@ classdef dpmm_solution < handle
         function r = get_labels(sol)
             r = sol.labels(1:sol.nobs);
         end
+        
+        function r = get_capacity(sol)
+            r = numel(sol.atoms);
+        end       
     end
     
     
@@ -118,16 +122,13 @@ classdef dpmm_solution < handle
             %       conditioned on their associated observations.
             %   
             
-            K = sol.natoms;
-            if isempty(sol.groups)
-                sol.groups = intgroup(K, sol.labels);
-            end            
+            K = sol.natoms;           
             g = sol.groups;
             mdl = sol.model;
             
             if nargin < 2
                 for k = 1 : K
-                    a = mdl.create_atom(g{k});
+                    a = mdl.posterior_atom(g{k});
                     sol.atoms{k} = a;
                     sol.logliks(k, :) = mdl.evaluate_loglik(a);
                 end
@@ -139,7 +140,7 @@ classdef dpmm_solution < handle
                             'The atom index exceeds valid range.');
                     end
                     
-                    a = mdl.create_atom(g{kj});
+                    a = mdl.posterior_atom(g{kj});
                     sol.atoms{kj} = a;
                     sol.logliks(kj, :) = mdl.evaluate_loglik(a); 
                 end
@@ -150,67 +151,112 @@ classdef dpmm_solution < handle
         function update_labels(sol, inds)
             % Performs sequential update 
             %
-            %   sol.seq_update_labels();
+            %   sol.update_labels();
             %       
-            %       Updates the labels of all observations sequentially.
-            %       
-            %   sol.seq_update_labels(inds);
+            %       Updates the labels of all observations.
             %
-            %       Updates the labels according to the order given by inds.
+            %   sol.update_labels(inds);
+            %       
+            %       Updates the labels associated with the observations 
+            %       selected by inds.
+            %
+            %       Note that inds should not contain repeated indices
+            %
             %
             %   This function will create new atoms.
             %
-                        
-            n = sol.nobs;
+                                    
             if nargin < 2
-                inds = int32(1:n);
+                ni = sol.nobs;
+                s = 1:ni;
             else
-                inds = int32(inds);
+                s = inds;
             end
             
-            [sol.atoms, sol.logliks, sol.counts, sol.labels, sol.natoms, ch] = ...
-                dpmm_update_labels(sol.model, sol.alpha, sol.natoms, sol.atoms, ...
-                sol.logliks, sol.logliks0, [], sol.counts, sol.labels, inds);
-            
-            assert(all(sol.labels >= 1 & sol.labels <= sol.natoms));
-            assert(sum(sol.counts) == sol.nobs);            
-            
-            if ch
-                sol.groups = [];
+            if sol.natoms == 0
+                sol.new_atom(s(1));
+                s(1) = [];
             end
+            
+            first_iter = true;
+            
+            while ~isempty(s)
+                
+                % re-draw labels
+                
+                K = sol.natoms;
+                E = bsxfun(@plus, log(sol.counts(1:K)).', sol.logliks(1:K, s));
+                ev0 = log(sol.alpha) + sol.logliks0(1, s);
+                
+                z = dpmm_redraw_labels(E, ev0, rand(1, numel(s)));
+                
+                % update labels to the solution
+                
+                sol.labels(s) = z;
+                if first_iter
+                    sol.counts(1:K) = intcount(K, sol.labels);
+                else
+                    sol.counts(1:K) = sol.counts(1:K) + intcount(K, z);
+                end
+                
+                % assert(isequal(get_atom_counts(sol), intcount(sol.natoms, sol.labels)));
+                
+                % create new atom if necessary
+                
+                s = s(z == 0);
+                
+                if ~isempty(s)
+                    sol.new_atom(s(1));
+                    s(1) = [];
+                    K = K + 1;
+                end
+                
+                first_iter = false;
+                
+                % assert(isequal(get_atom_counts(sol), intcount(sol.natoms, sol.labels)));
+            end
+            
+            sol.groups = intgroup(K, sol.labels);
         end
         
     end
     
     
-    %% Private implementation
-    
     methods(Access='private')
-    
-        function a = new_atom(sol, I)
+        
+        function new_atom(sol, i)
+            % Creates a new atom based on the i-th observation
+            %
+            % (pre-condition, the i-th obs has no label)
+            %
             
-            mdl = sol.model;
-            a = mdl.create_atom(I);
+            assert(sol.labels(i) == 0);
             
             K = sol.natoms;
-            capa = numel(sol.atoms);
+            mdl = sol.model;
             
-            if K == capa  % need to grow
-                sol.atoms{1, 2 * K} = [];
-                sol.counts(1, 2 * K) = 0;
-                sol.logliks(2 * K, end) = 0;
+            a = mdl.posterior_atom(i);
+            llik = mdl.evaluate_loglik(a);
+            
+            if K == get_capacity(sol)
+                new_capa = 2 * K;
+                sol.atoms{1, new_capa} = [];
+                sol.counts(1, new_capa) = 0;
+                sol.logliks(new_capa, end) = 0;
             end
             
             K = K + 1;
-            sol.atoms{K} = a;
-            sol.counts(K) = numel(I);
             sol.natoms = K;
-            sol.logliks(K,:) = mdl.evaluate_loglik(a); 
+            sol.atoms{K} = a;
+            sol.counts(K) = 1;
+            sol.logliks(K, :) = llik;
             
-            sol.labels(I) = K;            
-        end        
-    
+            sol.labels(i) = K;
+        end
+                
     end
     
     
 end
+
+

@@ -11,7 +11,6 @@
 #ifndef DP_BASE_H_
 #define DP_BASE_H_
 
-
 /**
  * Draw from a discrete distribution 
  */
@@ -32,9 +31,6 @@ inline int dd_draw(int K, const double *w, double tw, double u)
     
     return k;
 }
-
-
-
 
 #endif
 

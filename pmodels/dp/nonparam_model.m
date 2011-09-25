@@ -35,67 +35,46 @@ classdef nonparam_model
     
     methods(Abstract)
         
-        a = create_atom(model, I, pri_a, t);
+        a = posterior_atom(model, I, pri_a);
         % Obtain a new atom based on a specified subset of observations
         %
-        %   a = model.estimate_atom(I);
+        %   a = model.derive_atom(I);
+        %   a = model.derive_atom(I, pri_a);
         %
-        %       estimates/samples a new atom conditioned on a subset of
-        %       observations, and with respect to the base prior. 
+        %       Estimates or samples a new atom from the posterior
+        %       distribution conditioned on a subset of samples, selected
+        %       by the index vector I.        
         %
-        %       Here, I is a vector of indices. If I is empty, it samples
-        %       from the prior distribution.
-        %
-        %   For the model that supports inheritance:
-        %
-        %   a = model.estimate_atom(I, pri_a, t);
-        %
-        %       estimates/samples a new atom conditioned on a subset of
-        %       observations, and with respect to the prior formed via 
-        %       t-fold transition of a prior atom a.
+        %       If pri_a is omitted, the derivation is with respect to
+        %       the prior given by the underlying base distribution.
+        %       Otherwise, the derivation is with respect to the prior
+        %       given by pri_a.
+        %       
         %
         
-        L = evaluate_loglik(model, a, t);
+        L = evaluate_loglik(model, a);
         % Evaluate the log-likelihood with respect to an atom
         %
-        %   L = model.evaluate_loglik(a);
+        %   L = model.evaluate_loglik(a);  
         %
-        %       evaluates the log-likelihood of all observations with
-        %       respect to the input atom a.
+        %       Evaluates the log likelihood value w.r.t. the atom a.
         %
-        %       In the output, L is an 1 x nobs row vector.
+        %   L = model.evaluate_loglik(pri_a);
+        %   L = model.evaluate_loglik([]);
         %
-        %   L = model.evaluate_loglik();
+        %       Evaluates the logarithm of marginal likelihood values
+        %       w.r.t. to the prior given by either pri_a, or the base
+        %       distribution.               
         %
-        %       evaluates the logarithm of marginal likelihood of all 
-        %       observations, with respect to the base prior.                
+        %   L = model.evaluate_loglik(a, I);
+        %   L = model.evaluate_loglik(pri_a, I);
+        %   L = model.evaluate_loglik([], I);
         %
-        %   For the model that supports inheritance:
-        %
-        %   L = model.evaluate_loglik(a, t);
-        %
-        %       evaluates the logarithm of marginal likelihood of all
-        %       observations, with respect to the prior formed via
-        %       t-fold transition of the atom a.
-        %
-        
-        lpri = evaluate_logpri(model, a, pri_a, t);
-        % Evaluates the log-prior of an atom
-        %
-        %   lpri = model.evaluate_logpri(a);
-        %       
-        %       evaluates the log-prior of the input atom a, with 
-        %       respect to the base prior.
-        %
-        %   For the model that supports inheritance
-        %
-        %   lpri = model.evaluate_logpri(a, pri_a, t);
-        %
-        %       evaluates the log-prior of the input atom a, with
-        %       respect to the prior formed by t-fold transition of
-        %       the prior atom (pri_a).
-        %
-        
+        %       Performs the evaluation for a subset of samples selected
+        %       by I.
+        %                
         
     end
 end
+
+
