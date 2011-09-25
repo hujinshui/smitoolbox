@@ -1,5 +1,5 @@
-classdef dpmm_solution < handle
-    % The class to represent a solution of DPMM inference
+classdef dpmm < handle
+    % The class to represent a DP mixture model
     %
     
     % Created by Dahua Lin, on Sep 17, 2011
@@ -8,7 +8,7 @@ classdef dpmm_solution < handle
     %% Properties
     
     properties(GetAccess='public', SetAccess='private')   
-        model;      % th associated non-parametric model
+        np_model;   % the associated non-parametric model
         alpha;      % the concentration parameter
         
         natoms;     % the number of atoms (K)        
@@ -55,17 +55,17 @@ classdef dpmm_solution < handle
     
     methods
         
-        function sol = dpmm_solution(model, alpha, rK)
-            % Creates an empty DPMM soltion object
+        function mdl = dpmm(model, alpha, rK)
+            % Creates an empty DPMM object
             %
-            %   sol = dpmm_solution(model, alpha);
+            %   sol = dpmm(model, alpha);
             %
             %       creates an empty solution, based on the input
             %       non-parametric model.
             %
             %       alpha is the concentration parameter.
             %
-            %   sol = dpmm_solution(model, alpha, rK)
+            %   sol = dpmm(model, alpha, rK)
             %
             %       Creates an empty solution such that using its initial
             %       capacity, it can host at least rK atoms.
@@ -97,20 +97,20 @@ classdef dpmm_solution < handle
             
             n = model.nobs;
             
-            sol.model = model;
-            sol.alpha = double(alpha);
-            sol.natoms = 0;
-            sol.nobs = n;
+            mdl.np_model = model;
+            mdl.alpha = double(alpha);
+            mdl.natoms = 0;
+            mdl.nobs = n;
             
-            sol.atoms = cell(1, rK);
-            sol.counts = zeros(1, rK);
-            sol.logliks0 = model.evaluate_loglik();
-            sol.logliks = zeros(rK, n);
-            sol.labels = zeros(1, n);
+            mdl.atoms = cell(1, rK);
+            mdl.counts = zeros(1, rK);
+            mdl.logliks0 = model.evaluate_loglik();
+            mdl.logliks = zeros(rK, n);
+            mdl.labels = zeros(1, n);
         end
         
         
-        function update_atoms(sol, k)
+        function update_atoms(mdl, k)
             % Updates the values of atoms
             %
             %   sol.update_atoms();
@@ -122,15 +122,15 @@ classdef dpmm_solution < handle
             %       conditioned on their associated observations.
             %   
             
-            K = sol.natoms;           
-            g = sol.groups;
-            mdl = sol.model;
+            K = mdl.natoms;           
+            g = mdl.groups;
+            np_mdl = mdl.np_model;
             
             if nargin < 2
                 for k = 1 : K
-                    a = mdl.posterior_atom(g{k});
-                    sol.atoms{k} = a;
-                    sol.logliks(k, :) = mdl.evaluate_loglik(a);
+                    a = np_mdl.posterior_atom(g{k});
+                    mdl.atoms{k} = a;
+                    mdl.logliks(k, :) = np_mdl.evaluate_loglik(a);
                 end
             else
                 for j = 1 : numel(k)
@@ -140,15 +140,15 @@ classdef dpmm_solution < handle
                             'The atom index exceeds valid range.');
                     end
                     
-                    a = mdl.posterior_atom(g{kj});
-                    sol.atoms{kj} = a;
-                    sol.logliks(kj, :) = mdl.evaluate_loglik(a); 
+                    a = np_mdl.posterior_atom(g{kj});
+                    mdl.atoms{kj} = a;
+                    mdl.logliks(kj, :) = np_mdl.evaluate_loglik(a); 
                 end
             end
         end
                
                 
-        function update_labels(sol, inds)
+        function update_labels(mdl, inds)
             % Performs sequential update 
             %
             %   sol.update_labels();
@@ -167,14 +167,14 @@ classdef dpmm_solution < handle
             %
                                     
             if nargin < 2
-                ni = sol.nobs;
+                ni = mdl.nobs;
                 s = 1:ni;
             else
                 s = inds;
             end
             
-            if sol.natoms == 0
-                sol.new_atom(s(1));
+            if mdl.natoms == 0
+                mdl.new_atom(s(1));
                 s(1) = [];
             end
             
@@ -184,19 +184,19 @@ classdef dpmm_solution < handle
                 
                 % re-draw labels
                 
-                K = sol.natoms;
-                E = bsxfun(@plus, log(sol.counts(1:K)).', sol.logliks(1:K, s));
-                ev0 = log(sol.alpha) + sol.logliks0(1, s);
+                K = mdl.natoms;
+                E = bsxfun(@plus, log(mdl.counts(1:K)).', mdl.logliks(1:K, s));
+                ev0 = log(mdl.alpha) + mdl.logliks0(1, s);
                 
                 z = dpmm_redraw_labels(E, ev0, rand(1, numel(s)));
                 
                 % update labels to the solution
                 
-                sol.labels(s) = z;
+                mdl.labels(s) = z;
                 if first_iter
-                    sol.counts(1:K) = intcount(K, sol.labels);
+                    mdl.counts(1:K) = intcount(K, mdl.labels);
                 else
-                    sol.counts(1:K) = sol.counts(1:K) + intcount(K, z);
+                    mdl.counts(1:K) = mdl.counts(1:K) + intcount(K, z);
                 end
                 
                 % assert(isequal(get_atom_counts(sol), intcount(sol.natoms, sol.labels)));
@@ -206,7 +206,7 @@ classdef dpmm_solution < handle
                 s = s(z == 0);
                 
                 if ~isempty(s)
-                    sol.new_atom(s(1));
+                    mdl.new_atom(s(1));
                     s(1) = [];
                     K = K + 1;
                 end
@@ -216,7 +216,7 @@ classdef dpmm_solution < handle
                 % assert(isequal(get_atom_counts(sol), intcount(sol.natoms, sol.labels)));
             end
             
-            sol.groups = intgroup(K, sol.labels);
+            mdl.groups = intgroup(K, mdl.labels);
         end
         
     end
@@ -224,34 +224,34 @@ classdef dpmm_solution < handle
     
     methods(Access='private')
         
-        function new_atom(sol, i)
+        function new_atom(mdl, i)
             % Creates a new atom based on the i-th observation
             %
             % (pre-condition, the i-th obs has no label)
             %
             
-            assert(sol.labels(i) == 0);
+            assert(mdl.labels(i) == 0);
             
-            K = sol.natoms;
-            mdl = sol.model;
+            K = mdl.natoms;
+            np_mdl = mdl.np_model;
             
-            a = mdl.posterior_atom(i);
-            llik = mdl.evaluate_loglik(a);
+            a = np_mdl.posterior_atom(i);
+            llik = np_mdl.evaluate_loglik(a);
             
-            if K == get_capacity(sol)
+            if K == get_capacity(mdl)
                 new_capa = 2 * K;
-                sol.atoms{1, new_capa} = [];
-                sol.counts(1, new_capa) = 0;
-                sol.logliks(new_capa, end) = 0;
+                mdl.atoms{1, new_capa} = [];
+                mdl.counts(1, new_capa) = 0;
+                mdl.logliks(new_capa, end) = 0;
             end
             
             K = K + 1;
-            sol.natoms = K;
-            sol.atoms{K} = a;
-            sol.counts(K) = 1;
-            sol.logliks(K, :) = llik;
+            mdl.natoms = K;
+            mdl.atoms{K} = a;
+            mdl.counts(K) = 1;
+            mdl.logliks(K, :) = llik;
             
-            sol.labels(i) = K;
+            mdl.labels(i) = K;
         end
                 
     end

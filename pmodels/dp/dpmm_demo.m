@@ -32,7 +32,7 @@ model = gauss_npmodel(gm, zeros(d, 1), X);
 %% Construct solution
 
 alpha = 1;
-sol = dpmm_solution(model, alpha);
+sol = dpmm(model, alpha);
 
 T = 10;
 for t = 1 : T
@@ -43,18 +43,18 @@ end
 
 %% Visualize
 
-% figure;
-% title('DPMM (Gauss) Demo');
-% plot(X(1,:), X(2,:), '.');
-% axis equal;
-% 
-% A = sol.get_atoms();
-% A = [A{:}];
-% cnts = sol.get_atom_counts();
-% 
-% A = A(:, cnts > n / 2);
-% 
-% hold on;
-% plot(A(1,:), A(2,:), 'r+', 'MarkerSize', 20, 'LineWidth', 2);
-% hold off;
+figure;
+title('DPMM (Gauss) Demo');
+plot(X(1,:), X(2,:), '.');
+axis equal;
+
+A = sol.get_atoms();
+A = [A{:}];
+cnts = sol.get_atom_counts();
+
+A = A(:, cnts > n / 2);
+
+hold on;
+plot(A(1,:), A(2,:), 'r+', 'MarkerSize', 20, 'LineWidth', 2);
+hold off;
 
