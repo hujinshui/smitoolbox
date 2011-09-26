@@ -1,5 +1,5 @@
-classdef gauss_npmodel < nonparam_model
-    % Non-parametric Gaussian model    
+classdef gauss_atom_model < atom_model_base
+    % Non-parametric Gaussian atom model    
     %
     
     % Created by Dahua Lin, on Sep 20, 2011
@@ -17,10 +17,10 @@ classdef gauss_npmodel < nonparam_model
     
     methods
                        
-        function obj = gauss_npmodel(gbase, Cx)
+        function obj = gauss_atom_model(gbase, Cx)
             % Constructs a Nonparametric Gaussian model obj
             %
-            %   obj = gauss_npmodel(gbase, Cx);
+            %   obj = gauss_atom_model(gbase, Cx);
             %
             %       constructs a non-parametric Gaussian model object
             %       based on a Gaussian generative model
@@ -32,17 +32,17 @@ classdef gauss_npmodel < nonparam_model
             obj.supp_inheritance = true;
             
             if ~(isa(gbase, 'gaussd') && gbase.num == 1 && gbase.has_mp && gbase.has_ip)
-                error('gauss_npmodel:invalidarg', ...
+                error('gauss_atom_model:invalidarg', ...
                     'gbase should be an object of gaussd with both mp & ip.');
             end
             
             if ~(is_pdmat(Cx) && Cx.n == 1)
-                error('gauss_npmodel:invalidarg', ...
+                error('gauss_atom_model:invalidarg', ...
                     'Cx should be a pdmat struct with single matrix.');
             end
             
             if Cx.d ~= gbase.dim
-                error('gauss_npmodel:invalidarg', ...
+                error('gauss_atom_model:invalidarg', ...
                     'The dimension of gbase and that of Cx are inconsistent.');
             end
             
@@ -66,7 +66,7 @@ classdef gauss_npmodel < nonparam_model
             %
             
             if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == obj.dim)
-                error('gauss_npmodel:invalidarg', ...
+                error('gauss_atom_model:invalidarg', ...
                     'X is not a valid sample matrix.');
             end            
             n = size(X, 2);
@@ -96,18 +96,18 @@ classdef gauss_npmodel < nonparam_model
                 if isnumeric(pri_a)
                     if ~(isfloat(pri_a) && isreal(pri_a) && ...
                             isequal(size(pri_a), [d 1]))
-                        error('gauss_npmodel:invalidarg', 'pri_a is invalid.');
+                        error('gauss_atom_model:invalidarg', 'pri_a is invalid.');
                     end
                     a = pri_a;
                     return;
                     
                 elseif isa(pri_a, 'gaussd')
                     if ~(pri_a.num == 1 && pri_a.dim == d && pri_a.has_ip)
-                        error('gauss_npmodel:invalidarg', 'pri_a is invalid.');
+                        error('gauss_atom_model:invalidarg', 'pri_a is invalid.');
                     end
                     
                 else
-                    error('gauss_npmodel:invalidarg', 'pri_a is invalid.');
+                    error('gauss_atom_model:invalidarg', 'pri_a is invalid.');
                 end
             end
             

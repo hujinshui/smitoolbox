@@ -32,7 +32,7 @@ X = [Xs{:}];
 %% Construct underlying model
 
 gbase = gaussd.from_mp(0, Cu, 'ip');
-model = gauss_npmodel(gbase, Cx);
+amodel = gauss_atom_model(gbase, Cx);
 
 %% Construct DPMM
 
@@ -48,13 +48,15 @@ pri_counts = 1000 * ones(1, Kp);
 inherits = dpmm_inherits(1:Kp, Kp, pri_atoms, pri_counts, 0.5, @gtransit);
 
 alpha = 1;
-sol = dpmm(model, alpha, X, 'inherits', inherits);
+prg = dpmm(amodel, alpha);
+
+S0.inherits = inherits;
+
+[sol, Sc] = prg.initialize(X, S0, 'sample');
 
 T = 10;
 for t = 1 : T
-    sol.update_labels();
-    sol.update_atoms();
-    sol.prune_model(0.2);
+    [sol, Sc] = prg.update(sol, Sc);
 end
 
 
@@ -67,9 +69,9 @@ title('DPMM (Gauss) Demo');
 plot(X(1,:), X(2,:), '.');
 axis equal;
 
-A = sol.get_atoms();
+A = sol.atoms;
 A = [A{:}];
-cnts = sol.get_atom_counts();
+cnts = sol.atom_counts;
 
 A = A(:, cnts > n / 2);
 
