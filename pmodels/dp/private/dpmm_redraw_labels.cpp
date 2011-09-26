@@ -11,6 +11,7 @@
 #include <bcslib/matlab/bcs_mex.h>
 
 #include "dp_base.h"
+#include <cmath>
 
 using namespace bcs;
 using namespace bcs::matlab;

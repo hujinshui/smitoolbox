@@ -1,8 +1,7 @@
-classdef nonparam_model
-    % The base class of all non-parametric models
+classdef atom_model_base
+    % The base class of all models using non-parametric atoms
     %
-    %   This class is an abstract class that defines the interfaces
-    %   for a non-parametric model. 
+    %   This class is an abstract class that defines the interfaces.
     %
     
     % Created by Dahua Lin, on Sep 17, 2011
