@@ -28,7 +28,7 @@ K = 3;
 pri_mu = [6; 3];
 pri_sig = 8;
 
-gpri0 = gaussd.from_mp(pri_mu, pdmat('s', d, pri_sig^2));
+gpri0 = gaussd.from_mp(pri_mu, pdmat('s', d, pri_sig^2), 'ip');
 
 Cx = pdmat([1, 1]');
 
@@ -41,8 +41,7 @@ X = Gx0.sample(n * ones(1, K), 1:K);
 
 %% build program
 
-Cu = gpri0.C;
-gprg = gmm_std(d, Cx, Cu);
+gprg = gmm_std(d, gpri0, Cx);
 
 obs.X = X;
 obs.K = K;

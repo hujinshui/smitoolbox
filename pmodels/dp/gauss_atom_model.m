@@ -113,18 +113,8 @@ classdef gauss_atom_model < atom_model_base
             
             % sample from posterior
             
-            cX = X(:, I);
-            n = size(cX, 2);
-            
-            Jx = obj.invCx;
-            
-            h = pri_a.h + pdmat_mvmul(Jx, sum(cX, 2));
-            J = pdmat_plus(pri_a.J, pdmat_scale(Jx, n));
-            
-            C = pdmat_inv(J);
-            mu = pdmat_mvmul(C, h);
-            
-            a = gsample(mu, C, 1);                
+            [h, J] = gaussgm_pos(pri_a, X(:, I), obj.invCx);            
+            a = gsample(h, J, 1, 'ip');                
         end
         
         
