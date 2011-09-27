@@ -127,6 +127,7 @@ classdef tsuite_gammad
             end
             
             X2 = g.sample(ns(ones(1, m)), 1:m);
+            assert(isequal(size(X2), [d, m * ns]));
             for k = 1 : m
                 cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
                 
