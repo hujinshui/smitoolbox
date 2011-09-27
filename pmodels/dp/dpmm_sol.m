@@ -309,7 +309,7 @@ classdef dpmm_sol
             sol.asys = AS;
             sol.groups = intgroup(K, sol.iatoms);
             
-            assert(dpmm_sol.verify_sol(sol.asys, sol.iatoms));
+            % assert(dpmm_sol.verify_sol(sol.asys, sol.iatoms));
         end
         
         
@@ -344,7 +344,7 @@ classdef dpmm_sol
                 end
                 sol.iatoms = rlmap(sol.iatoms);
                 
-                assert(dpmm_sol.verify_sol(sol.asys, sol.iatoms));
+                % assert(dpmm_sol.verify_sol(sol.asys, sol.iatoms));
             end
         end
         
@@ -412,6 +412,8 @@ classdef dpmm_sol
             S.priweights(ainds) = [];
             S.counts(ainds) = [];
             S.logliks(ainds, :) = [];
+            
+            S.capacity = numel(S.atoms);
             
             % relabeling map
             is_retained = true(1, K);

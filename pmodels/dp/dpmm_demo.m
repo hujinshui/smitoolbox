@@ -1,4 +1,4 @@
-function sol = dpmm_demo(op)
+function ss = dpmm_demo(op)
 % A program to demonstrate the use of DPMM
 %
 %   sol = dpmm_demo;             with visualization
@@ -50,15 +50,21 @@ inherits = dpmm_inherits(1:Kp, Kp, pri_atoms, pri_counts, 0.5, @gtransit);
 alpha = 1;
 prg = dpmm(amodel, alpha);
 
+
+%% Run DPMM
+
 S0.inherits = inherits;
 
-[sol, Sc] = prg.initialize(X, S0, 'sample');
+opts = mcmc_options([], ...
+    'burnin', 100, ...
+    'nsamples', 50, ...
+    'ips', 20, ...
+    'display', 'sample');
 
-T = 10;
-for t = 1 : T
-    [sol, Sc] = prg.update(sol, Sc);
-end
+R = smi_mcmc(prg, X, S0, opts);
+ss = R{1};
 
+sol = ss(end);
 
 %% Visualize
 
