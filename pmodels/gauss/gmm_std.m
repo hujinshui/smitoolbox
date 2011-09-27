@@ -23,9 +23,7 @@ classdef gmm_std < smi_prg
         
         dim;        % the dimension of the underlying space
         
-        gmodel;     % the Gaussian generative model
-        
-        Cu;         % The prior covariance of u (pdmat)
+        gpri;       % The Gaussian prior distribution
         Cx;         % Cx itself or its prior distribution
         
         est_Cx;     % whether to estimate Cx  
@@ -36,19 +34,26 @@ classdef gmm_std < smi_prg
     
     methods
         
-        function prg = gmm_std(d, Cx, Cu)
+        function prg = gmm_std(d, gpri, Cx)
             % Creates a standard Gaussian mixture model (GMM) program
             %                        
-            %   prg = gmm_std(d, [], Cx);
-            %   prg = gmm_std(d, upri, Cx);
+            %   prg = gmm_std(d);
+            %   prg = gmm_std(d, gpri);
+            %   prg = gmm_std(d, gpri, Cx);
             %
             %       Construsts an SMI program that implements the inference of
             %       GMM parameters.
             %
             %       Input arguments:
             %       - d:        the underlying space dimension
-            %       - upri:     the Gaussian prior of the variable u.
+            %
+            %       - gpri:     the Gaussian prior of the variable u.
+            %                   (If gpri is omitted or empty, then no 
+            %                    prior is used)
+            %
             %       - Cx:       the covariance for generating x.
+            %                   (If Cx is omitted or empty, then Cx is
+            %                    to be estimated)
             %       
                         
             % verify input arguments
@@ -56,49 +61,29 @@ classdef gmm_std < smi_prg
             if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d > 0)
                 error('gmm_std:invalidarg', 'd should be a positive integer.');
             end
-                        
-            if nargin >= 2 && ~isempty(Cx)
-                if is_pdmat(Cx)
-                    if ~(Cx.n == 1 && Cx.d == d)
-                        error('gmm_std:invalidarg', ...
-                            'Cx should have Cx.n == 1 and Cx.d == d.');
-                    end
-                else
+            
+            if nargin >= 2 && ~isempty(gpri)
+                if ~(isa(gpri, 'gaussd') && gpri.num == 1 && gpri.dim == d)
                     error('gmm_std:invalidarg', ...
-                        'The 2nd arg (Cx or Cx_pri) is invalid.');
+                        'The Gaussian prior gpri is invalid.');
+                end
+            else
+                gpri = [];
+            end
+                        
+            if nargin >= 3 && ~isempty(Cx)
+                if ~(is_pdmat(Cx) && Cx.n == 1 && Cx.d == d)
+                    error('gmm_std:invalidarg', ...
+                        'The 2nd arg (Cx) is invalid.');
                 end
             else
                 Cx = [];
-            end
-            
-            if nargin >= 3 && ~isempty(Cu)
-                if ~(is_pdmat(Cu) && Cu.n == 1 && Cu.d == d)
-                    error('gmm_std:invalidarg', ...
-                        'Cu is not a valid pdmat struct.');
-                end
-            else
-                Cu = [];
-            end                         
+            end                                   
             
             % create object
             
-            prg.dim = double(d);
-            
-            if ~isempty(Cx)
-                if ~isempty(Cu)
-                    prg.gmodel = gaussgm(Cx, Cu);
-                else
-                    prg.gmodel = gaussgm(Cx);
-                end
-            else
-                if ~isempty(Cu)
-                    prg.gmodel = gaussgm(d, Cu);
-                else
-                    prg.gmodel = gaussgm(d);
-                end
-            end
-            
-            prg.Cu = Cu;
+            prg.dim = double(d);  
+            prg.gpri = gpri;
             prg.Cx = Cx;
             prg.est_Cx = isempty(Cx) || ~is_pdmat(Cx);  
             
@@ -126,9 +111,6 @@ classdef gmm_std < smi_prg
             %               - X:    the sample matrix (d x n),
             %                       each column is a sample
             %               - K:    the number of mixture components
-            %               - mu:   the prior mean (0 or d x 1 vector)
-            %                       (if no such field or mu is empty,
-            %                        it means no prior for u is used)
             %
             %       - L0:   It can be given in three forms:
             %               - empty:  use default method to initialize
@@ -142,13 +124,15 @@ classdef gmm_std < smi_prg
             %       - Sd:   dynamic state struct, with fields: 
             %               - U:    d x K matrix of component means
             %               - Cx:   component covariance(s) in pdmat
+            %                       (This field exists only when Cx is to
+            %                        be estimated)
             %               - Lik:  K x n pairwise likelihood table
             %
-            %       If optype is 'sample', Sd also has
+            %           If optype is 'sample', Sd also has
             %               - Z:    1 x n label vector
             %               - grps: 1 x K cell array of grouped indices
             %
-            %       If optype is 'varinfer', Sd also has
+            %           If optype is 'varinfer', Sd also has
             %               - Q:    K x n matrix: posterior label
             %                       distributions.
             %               
@@ -156,8 +140,12 @@ classdef gmm_std < smi_prg
             %               - X:        the observation matrix
             %               - n:        the number of samples in X
             %               - K:        the number of mixture components
-            %               - mu:       the prior mean
+            %               - Cx:       the covariance of each component
+            %               - Jx:       the inverse covariance
             %               - do_samp:  whether it is doing sampling
+            %
+            %               Note Sc.Cx and Sc.Jx exist only when Cx is 
+            %               fixed.
             %
             
             % verify inputs
@@ -171,7 +159,6 @@ classdef gmm_std < smi_prg
             
             X = obs.X;
             K = obs.K;
-            mu = [];
             
             if ~(isfloat(X) && ndims(X) == 2 && isreal(X) && size(X,1) == d)
                 error('gmm_std:invalidarg', 'X should be a real matrix.');
@@ -181,21 +168,7 @@ classdef gmm_std < smi_prg
             if ~(isnumeric(K) && isscalar(K) && K == fix(K) && K >= 1)
                 error('gmm_std:invalidarg', 'K should be an integer.');
             end
-            K = double(K);
-            
-            if isfield(obs, 'mu') && ~isempty(obs.mu)
-                mu = obs.mu;
-                
-                if ~(isfloat(mu) && isreal(mu) && ...
-                        (isequal(mu, 0) || isequal(size(mu), [d 1])))
-                    error('gmm_std:invalidarg', ...
-                        'mu should be either 0 or a d x 1 real vector.');
-                end
-                
-                if isequal(mu, 0)
-                    mu = zeros(d, 1);
-                end
-            end                        
+            K = double(K);                                    
             
             if ~isempty(L0)
                 if ~(isnumeric(L0) && ndims(L0) == 2 && ...
@@ -227,14 +200,15 @@ classdef gmm_std < smi_prg
             Sc.X = X;
             Sc.n = size(X, 2);
             Sc.K = K;
-            Sc.mu = mu;
-            Sc.do_samp = do_samp;            
+            Sc.do_samp = do_samp;              
+            if ~prg.est_Cx
+                Sc.Cx = prg.Cx;
+                Sc.Jx = pdmat_inv(Sc.Cx);
+            end
             
             Sd.U = [];
             if prg.est_Cx
                 Sd.Cx = [];
-            else
-                Sd.Cx = prg.Cx;
             end
             Sd.Lik = [];
                         
@@ -268,26 +242,36 @@ classdef gmm_std < smi_prg
             
             % estimate model parameters (M-step)
             
-            gm = prg.gmodel;
+            g0 = prg.gpri;
             X = Sc.X;
             K = Sc.K;
-            mu = Sc.mu;
+
+            % assuming Cx is fixed, estimate U
             
             if Sc.do_samp
-                Sd.U = gm.sample_u(X, Sd.Cx, mu, Sd.grps);
+                [hp, Jp] = gaussgm_pos(g0, X, Sc.Jx, [], Sd.grps); 
+                U = zeros(prg.dim, K);
+                for k = 1 : K
+                    U(:,k) = gsample(hp(:,k), pdmat_pick(Jp, k), 1, 'ip');
+                end                
+                Sd.U = U;
             else
-                Sd.U = gm.mapest_u(X, Sd.Cx, mu, Sd.Q);
+                [~, ~, Sd.U] = gaussgm_pos(g0, X, Sc.Jx, [], Sd.Q); 
             end
             
-            % infer labels (E-step)
+            % infer labels (E-step)            
             
-            Lik = gm.loglik(Sd.U, X);            
+            H = pdmat_mvmul(Sc.Jx, Sd.U);
+            cg = gaussd.from_ip(H, Sc.Jx);
+            
+            Lik = cg.logpdf(X);
             Sd.Lik = Lik;
             
-            E = Lik;
+            E = Lik;            
+            Q = nrmexp(E, 1);
             
             if Sc.do_samp
-                [~, Sd.Z] = max(E, [], 1);
+                Sd.Z = ddsample(Q, 1);
                 Sd.grps = intgroup(K, Sd.Z);
             else
                 Sd.Q = nrmexp(E, 1);
@@ -333,14 +317,14 @@ classdef gmm_std < smi_prg
             %   objv = prg.evaluate_objective(Sd, Sc);
             %
             
-            gm = prg.gmodel;
+            g0 = prg.gpri;
             K = Sc.K;
             n = Sc.n;
             
             % log-prior of component params
             
-            if ~isempty(prg.Cu) && ~isempty(Sc.mu)
-                lpri_u = gm.logpri(Sc.mu, Sd.U);
+            if ~isempty(g0)
+                lpri_u = g0.logpdf(Sd.U);
                 lpri_u = sum(lpri_u);
             else
                 lpri_u = 0;
