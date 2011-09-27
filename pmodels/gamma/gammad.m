@@ -8,7 +8,7 @@ classdef gammad
     %   - alpha:    the shape parameter 
     %   - beta:     the scale parameter (inverse of scale)
     %
-    %   The pdf is given by
+    %   The log-pdf is given by
     %
     %   f(x) = (alpha - 1) log(x) - x / beta 
     %        - (alpha log(beta) + gammaln(alpha))
@@ -23,7 +23,7 @@ classdef gammad
     %       - Created by Dahua Lin, on Aug 31, 2011
     %
     
-    %% properties
+    %% Properties
     
     properties(GetAccess='public', SetAccess='private')
         
@@ -37,6 +37,8 @@ classdef gammad
                    % = -(alpha * log(beta) + gammaln(alpha))
                    % 1 x n row vector or 0, or empty (if not computed)
     end
+    
+    %% Statistics
         
     methods
         
@@ -125,6 +127,7 @@ classdef gammad
             end 
             v = max(v, 0);
         end
+        
         
         function v = entropy(obj)
             % Evaluates the entropy value(s) of the distribution
@@ -422,23 +425,23 @@ classdef gammad
             
             if nargin < 3 || isempty(i)
                 if obj.num > 1
-                    error('gammad:sample:invalidarg', ...
-                        'i is needed when obj contains multiple models.');
+                    error('gammad:invalidarg', ...
+                        'i is needed when obj contains multiple distributions.');
                 end
                 
                 X = gamma_sample(a, b, n, d);
                 
             else
                 if ~(isvector(n) && isnumeric(n))
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('gammad:invalidarg', ...
                         'n must be a numeric vector');
                 end
                 if ~(isvector(i) && isnumeric(i))
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('gammad:invalidarg', ...
                         'i must be a numeric vector');
                 end
                 if numel(n) ~= numel(i)
-                    error('gammad:pos_sample:invalidarg', ...
+                    error('gammad:invalidarg', ...
                         'The sizes of n and i are inconsistent.');
                 end
                 

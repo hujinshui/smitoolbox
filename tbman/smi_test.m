@@ -184,7 +184,7 @@ if exist(moduleroot, 'dir')
         
 else
     error('smi_test:nonexist', ...
-        'Cannot fina the module named %s', module);
+        'Cannot find the module named %s', module);
 end
 
 

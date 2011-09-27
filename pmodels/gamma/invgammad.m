@@ -8,7 +8,7 @@ classdef invgammad
     %   - alpha:    the shape parameter 
     %   - beta:     the scale parameter (inverse of scale)
     %
-    %   The pdf is given by
+    %   The log-pdf is given by
     %
     %   f(x) = (alpha - 1) log(x) - beta x 
     %  
