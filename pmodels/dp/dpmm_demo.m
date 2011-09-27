@@ -1,8 +1,10 @@
-function ss = dpmm_demo(op)
+function s = dpmm_demo(op)
 % A program to demonstrate the use of DPMM
 %
-%   sol = dpmm_demo;             with visualization
-%   sol = dpmm_demo('novis');    no visualization
+%   s = dpmm_demo;             with visualization
+%   s = dpmm_demo('novis');    no visualization
+%
+%       The function returns the merged sample.
 %
 
 % Created by Dahua Lin, on Sep 21, 2011
@@ -63,8 +65,7 @@ opts = mcmc_options([], ...
 
 R = smi_mcmc(prg, X, S0, opts);
 ss = R{1};
-
-sol = ss(end);
+s = dpmm_merge_samples(amodel, X, inherits, ss, 0.05);
 
 %% Visualize
 
@@ -75,9 +76,9 @@ title('DPMM (Gauss) Demo');
 plot(X(1,:), X(2,:), '.');
 axis equal;
 
-A = sol.atoms;
+A = s.atoms;
 A = [A{:}];
-cnts = sol.atom_counts;
+cnts = s.atom_counts;
 
 A = A(:, cnts > n / 2);
 
