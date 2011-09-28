@@ -65,7 +65,7 @@ opts = mcmc_options([], ...
 
 R = smi_mcmc(prg, X, S0, opts);
 ss = R{1};
-s = dpmm_merge_samples(prg, X, inherits, ss, 0.05);
+s = dpmm_merge_samples(prg, X, inherits, ss, 'rthres', 0.05);
 
 %% Visualize
 

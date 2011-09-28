@@ -1,8 +1,7 @@
-function s = dpmm_merge_samples(M, obs, H, ss, rthres)
+function s = dpmm_merge_samples(M, obs, H, ss, varargin)
 %DPMM_MERGE_SAMPLES Merges multiple samples from the same chain into one
 %
-%   s = dpmm_merge_samples(M, obs, H, ss);
-%   s = dpmm_merge_samples(M, obs, H, ss, rthres);
+%   s = dpmm_merge_samples(M, obs, H, ss, ...);
 %
 %       merges multiple DPMM samples drawn from a MCMC chain (those
 %       produced by the method make_output of dpmm class) into a single
@@ -15,11 +14,17 @@ function s = dpmm_merge_samples(M, obs, H, ss, rthres)
 %
 %       - ss:       the sequence of samples
 %
-%       - rthres:   the threshold of ratio. If the count of an atom
-%                   takes a ratio less than rthres, the atom will be
-%                   discarded, and the corresponding observations will be
-%                   assigned the labels of the most fitted atom in the
-%                   remaining set.
+%       One can customize the following options via name/value pairs.
+%       
+%       - rthres:           the threshold of ratio. If the count of an 
+%                           atom takes a ratio less than rthres, the atom 
+%                           will be discarded, and the corresponding 
+%                           observations will be assigned the labels of 
+%                           the most fitted atom in the remaining set. 
+%                           (default = 0);
+%
+%       - redraw_iters:     the number of iterations to redraw an atom.
+%                           (default = 1).
 %
 %
 
@@ -52,14 +57,39 @@ else
     Kp = 0;
 end
 
-if nargin < 5
-    rthres = 0;
-else
-    if ~(isfloat(rthres) && isscalar(rthres) && isreal(rthres) && ...
-            rthres >= 0 && rthres < 1)
-        error('dpmm_merge_samples:invalidarg', ...
-            'rthres should be a non-negative scalar in [0, 1).');
+rthres = 0;
+redraw_iters = 1;
+
+if ~isempty(varargin)
+    
+    onames = varargin(1:2:end);
+    ovals = varargin(2:2:end);
+    
+    if ~(numel(onames) == numel(ovals) && iscellstr(onames))
+        error('dpmm_merge_samples:invalidarg', 'Invalid option list.');
     end
+    
+    for i = 1 : numel(onames)
+        
+        cn = onames{i};
+        cv = ovals{i};
+        
+        switch cn
+            case 'rthres'
+                if ~(isfloat(cv) && isreal(cv) && isscalar(cv) && cv >= 0 && cv < 1)
+                    error('dpmm_merge_samples:invalidarg', ...
+                        'rthres should be a real value in [0, 1).');
+                end
+                rthres = cv;
+                
+            case 'redraw_iters'
+                if ~(isnumeric(cv) && isscalar(cv) && cv == fix(cv) && cv >= 1)
+                    error('dpmm_merge_samples:invalidarg', ...
+                        'redraw_iters should be a positive integer scalar.');
+                end
+                redraw_iters = cv;
+        end
+    end    
 end
 
 
@@ -110,19 +140,17 @@ auxes = cell(1, K);
 
 if Kp == 0
     for k = 1 : K
-        [atoms{k}, auxes{k}] = ...
-            amdl.posterior_params(basedist, obs, 'final', grps{k}, 'atom');
+        [atoms{k}, auxes{k}] = redraw_atom(amdl, basedist, obs, grps{k}, redraw_iters);
     end
 else
     [is_inherit, pids] = ismember(atom_ids, H.atom_ids);
     for k = 1 : K
         if is_inherit(k)
-            [atoms{k}, auxes{k}] = ...
-                amdl.posterior_params(H.atoms{pids(k)}, obs, 'final', grps{k}, 'atom');
+            pri_k = H.atoms{pids(k)};
         else
-            [atoms{k}, auxes{k}] = ...
-                amdl.posterior_params(basedist, obs, 'final', grps{k}, 'atom');
+            pri_k = basedist;
         end
+        [atoms{k}, auxes{k}] = redraw_atom(amdl, pri_k, obs, grps{k}, redraw_iters);
     end
 end
 
@@ -151,5 +179,18 @@ s.atoms = atoms;
 s.atom_counts = intcount(K, z);
 s.iatoms = z;
 s.labels = s.atom_ids(z);
+
+
+%% Subfunctions 
+
+function [a,aux] = redraw_atom(amdl, pridist, obs, g, niters)
+
+aux = [];
+for t = 1 : niters
+    [a, aux] = amdl.posterior_params(pridist, obs, aux, g, 'atom');
+end
+
+
+
 
 

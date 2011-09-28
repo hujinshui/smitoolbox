@@ -243,7 +243,7 @@ classdef gaussgm < genmodel_base
             
             % prepare aux
             
-            if isempty(aux) || ischar(aux)    % first time invocation
+            if isempty(aux) % first time invocation
                 [tf, upri, cpri, cf] = gaussgm.verify_prior(du, estCx, pri);
                 if ~tf
                     error('gaussgm:rterror', 'pri is invalid.');
@@ -490,7 +490,7 @@ classdef gaussgm < genmodel_base
         
         
     end
-     
-    
-    
+             
 end
+
+

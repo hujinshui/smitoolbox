@@ -78,11 +78,6 @@ classdef genmodel_base
         %         can create or update aux to facilitate future evaluation
         %         or estimation. 
         %
-        %       - In some cases, aux will be input as a string 'final',
-        %         which indicates that the function should try its best
-        %         to come up with an optimal parameters, as the parameters
-        %         won't be updated later.
-        %
         %       - If you are not going to use auxiliary structure to 
         %         facilitate updates or computation, you can ignore it
         %         in your implementation. In this cases, aux is simply 
