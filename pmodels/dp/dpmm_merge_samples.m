@@ -1,17 +1,15 @@
-function s = dpmm_merge_samples(amdl, obs, H, ss, rthres)
+function s = dpmm_merge_samples(M, obs, H, ss, rthres)
 %DPMM_MERGE_SAMPLES Merges multiple samples from the same chain into one
 %
-%   s = dpmm_merge_samples(amdl, obs, H, ss);
-%   s = dpmm_merge_samples(amdl, obs, H, ss, rthres);
+%   s = dpmm_merge_samples(M, obs, H, ss);
+%   s = dpmm_merge_samples(M, obs, H, ss, rthres);
 %
 %       merges multiple DPMM samples drawn from a MCMC chain (those
 %       produced by the method make_output of dpmm class) into a single
 %       sample by voting.
 %
 %       Input arguments:
-%       - amdl:     the underlying atom model
-%
-%       - obs:      the associated observations
+%       - M:        the DPMM model
 %
 %       - H:        the struct of inheritance (empty if no inheritance)
 %
@@ -30,12 +28,15 @@ function s = dpmm_merge_samples(amdl, obs, H, ss, rthres)
 
 %% verify input arguments
 
-if ~isa(amdl, 'atom_model_base')
+if ~isa(M, 'dpmm')
     error('dpmm_merge_samples:invalidarg', ...
-        'amdl should be an instance of a class derived from atom_model_base.');
+        'M should be an instance of the class dpmm.');
 end
 
-n = amdl.get_num_samples(obs);
+amdl = M.amodel;
+basedist = M.basedist;
+
+n = amdl.get_num_observations(obs);
 
 if ~isstruct(ss) && isvector(ss)
     error('dpmm_merge_samples:invalidarg', 'ss should be a struct vector.');
@@ -107,15 +108,15 @@ end
 atoms = cell(1, K);
 if Kp == 0
     for k = 1 : K
-        atoms{k} = amdl.posterior_atom(obs, grps{k});
+        atoms{k} = amdl.posterior_params(basedist, obs, grps{k}, 'atom');
     end
 else
     [is_inherit, pids] = ismember(atom_ids, H.atom_ids);
     for k = 1 : K
         if is_inherit(k)
-            atoms{k} = amdl.posterior_atom(obs, grps{k}, H.atoms{pids(k)});
+            atoms{k} = amdl.posterior_params(H.atoms{pids(k)}, obs, grps{k}, 'atom');
         else
-            atoms{k} = amdl.posterior_atom(obs, grps{k});
+            atoms{k} = amdl.posterior_params(basedist, obs, grps{k}, 'atom');
         end
     end
 end
@@ -128,8 +129,8 @@ if ~isempty(unlabeled)
     
     L = zeros(K, numel(unlabeled));    
     for k = 1 : K        
-        llik = amdl.evaluate_loglik(atoms{k}, obs);
-        L(k, :) = llik(unlabeled);
+        llik = amdl.evaluate_logliks(atoms{k}, obs, unlabeled);
+        L(k, :) = llik;
     end    
     [~, zu] = max(L, [], 1);
     

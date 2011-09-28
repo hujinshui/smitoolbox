@@ -8,7 +8,8 @@ classdef dpmm < smi_prg
     %% Properties
     
     properties(GetAccess='public', SetAccess='private')   
-        amodel;     % the underlying atom model
+        amodel;     % the underlying atom model (of class genmodel_base)
+        basedist;   % the base distribution
         alpha;      % the concentration parameter    
     end
     
@@ -23,21 +24,31 @@ classdef dpmm < smi_prg
     
     methods
         
-        function prg = dpmm(model, alpha)
+        function prg = dpmm(model, basedist, alpha)
             % Creates an DPMM program
             %
-            %   sol = dpmm(model, alpha, obs, ...);
+            %   sol = dpmm(model, basedist, alpha, ...);
             %
             %       Creates a DPMM program, given the underlying
-            %       atom model (model), and the concentration parameter
-            %       (alpha).
+            %       atom model (model), the base distribution, and 
+            %       the concentration parameter (alpha).
             %
             
             % verify inputs
             
-            if ~isa(model, 'atom_model_base')
+            if ~isa(model, 'genmodel_base')
                 error('dpmm:invalidarg', ...
-                    'The input model should be of a class derived from atom_model_base.');
+                    'The input model should be of a class derived from genmodel_base.');
+            end
+            
+            if ~model.is_supported_optype('atom')
+                error('dpmm:invalidarg', ...
+                    'The input model does not support the optype ''atom''.');
+            end
+            
+            if ~model.is_valid_prior(basedist)
+                error('dpmm:invalidarg', ...
+                    'basedist is not a valid prior w.r.t to the atom model.');
             end
             
             if ~(isfloat(alpha) && isscalar(alpha) && isreal(alpha) && alpha > 0)
@@ -48,6 +59,7 @@ classdef dpmm < smi_prg
             % set fields
             
             prg.amodel = model;
+            prg.basedist = basedist;
             prg.alpha = alpha;
         end
         
@@ -91,7 +103,7 @@ classdef dpmm < smi_prg
             % basics
             
             amdl = prg.amodel;
-            n = amdl.get_num_samples(obs);
+            n = amdl.get_num_observations(obs);
             
             H = [];
             c0 = [];
@@ -144,9 +156,9 @@ classdef dpmm < smi_prg
             
             if isempty(sol)
                 if isempty(c0)
-                    sol = dpmm_sol(amdl, obs);
+                    sol = dpmm_sol(amdl, prg.basedist, obs);
                 else
-                    sol = dpmm_sol(amdl, obs, c0);
+                    sol = dpmm_sol(amdl, prg.basedist, obs, c0);
                 end
             end
             
@@ -171,9 +183,11 @@ classdef dpmm < smi_prg
             %
             
             amdl = prg.amodel;            
+            dist0 = prg.basedist;
+            obs = Sc.obs;
             
-            sol = sol.update_labels(amdl, Sc.obs, prg.alpha);
-            sol = sol.update_atoms(amdl, Sc.obs, Sc.inherits);       
+            sol = sol.update_labels(amdl, dist0, obs, prg.alpha);
+            sol = sol.update_atoms(amdl, dist0, obs, Sc.inherits);       
             sol = sol.prune(Sc.nh, prg.dead_tolratio);
         end
         
