@@ -28,6 +28,7 @@ classdef dpmm_sol
         
         atom_ids;       % the vector of atom identifiers (1 x K)
         atoms;          % the cell array of atoms (1 x K)
+        auxes;          % the cell array of auxiliary structs (1 x K)
         priweights;     % the vector of prior weights (1 x K)
         atom_counts;    % the current counts of atoms (1 x K)
         logliks;        % the matrix of log-likelihood values (K x n)
@@ -206,20 +207,23 @@ classdef dpmm_sol
             for j = 1 : na
                 k = ainds(j);
                 gk = grps{k};
+                aux = AS.auxes{k};
                 
                 if k > Kp
-                    a = amdl.posterior_params(basedist, obs, gk, 'atom');
+                    [a, aux] = amdl.posterior_params(basedist, obs, aux, gk, 'atom');
                 else
                     if ~isempty(gk)
-                        a = amdl.posterior_params(H.atoms{k}, obs, gk, 'atom');
+                        [a, aux] = amdl.posterior_params(H.atoms{k}, obs, aux, gk, 'atom');
                         AS.priweights(k) = H.pricounts(k);
                     else
                         a = H.atoms{k};
+                        aux = [];
                         AS.priweights(k) = H.pricounts(k) * H.q(k);
                     end
                 end
                 AS.atoms{k} = a;
-                AS.logliks(k, :) = amdl.evaluate_logliks(a, obs);
+                AS.auxes{k} = aux;
+                AS.logliks(k, :) = amdl.evaluate_logliks(a, obs, aux);
             end
             
             sol.asys = AS;
@@ -258,9 +262,9 @@ classdef dpmm_sol
             AS = sol.asys;
             
             if sol.natoms == 0
-                a = amdl.posterior_params(basedist, obs, s(1), 'atom');
-                llik = amdl.evaluate_logliks(a, obs);
-                AS = dpmm_sol.add_atom(AS, a, llik);
+                [a, aux] = amdl.posterior_params(basedist, obs, [], s(1), 'atom');
+                llik = amdl.evaluate_logliks(a, obs, aux);
+                AS = dpmm_sol.add_atom(AS, a, aux, llik);
                 
                 sol.iatoms(s(1)) = 1;
                 AS.counts(1) = 1;
@@ -298,9 +302,9 @@ classdef dpmm_sol
                 s = s(z == 0);
                 
                 if ~isempty(s)
-                    a = amdl.posterior_params(basedist, obs, s(1), 'atom');
-                    llik = amdl.evaluate_logliks(a, obs);
-                    AS = dpmm_sol.add_atom(AS, a, llik);
+                    [a, aux] = amdl.posterior_params(basedist, obs, [], s(1), 'atom');
+                    llik = amdl.evaluate_logliks(a, obs, aux);
+                    AS = dpmm_sol.add_atom(AS, a, aux, llik);
                     
                     K = AS.natoms;
                     sol.iatoms(s(1)) = K;
@@ -368,6 +372,7 @@ classdef dpmm_sol
             S.capacity = K0;
             S.atom_ids = zeros(1, K0);
             S.atoms = cell(1, K0);
+            S.auxes = cell(1, K0);
             
             S.priweights = zeros(1, K0);
             S.counts = zeros(1, K0);
@@ -377,7 +382,7 @@ classdef dpmm_sol
         end
         
         
-        function S = add_atom(S, a, llik)
+        function S = add_atom(S, a, aux, llik)
             % Adds a new atom
             %
             
@@ -389,6 +394,7 @@ classdef dpmm_sol
                 S.capacity = new_capa;
                 S.atom_ids(1, new_capa) = 0;
                 S.atoms{1, new_capa} = [];
+                S.auxes{1, new_capa} = [];
                 S.priweights(1, new_capa) = 0;
                 S.counts(1, new_capa) = 0;
                 S.logliks(new_capa, end) = 0;
@@ -400,6 +406,7 @@ classdef dpmm_sol
             S.max_aid = S.max_aid + 1;
             S.atom_ids(K) = S.max_aid;
             S.atoms{K} = a;
+            S.auxes{K} = aux;
             S.logliks(K, :) = llik;
         end
         
@@ -414,6 +421,7 @@ classdef dpmm_sol
             S.natoms = K - nd;
             S.atom_ids(ainds) = [];
             S.atoms(ainds) = [];
+            S.auxes(ainds) = [];
             S.priweights(ainds) = [];
             S.counts(ainds) = [];
             S.logliks(ainds, :) = [];

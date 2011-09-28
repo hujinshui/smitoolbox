@@ -106,17 +106,22 @@ end
 % re-draw atoms 
 
 atoms = cell(1, K);
+auxes = cell(1, K);
+
 if Kp == 0
     for k = 1 : K
-        atoms{k} = amdl.posterior_params(basedist, obs, grps{k}, 'atom');
+        [atoms{k}, auxes{k}] = ...
+            amdl.posterior_params(basedist, obs, 'final', grps{k}, 'atom');
     end
 else
     [is_inherit, pids] = ismember(atom_ids, H.atom_ids);
     for k = 1 : K
         if is_inherit(k)
-            atoms{k} = amdl.posterior_params(H.atoms{pids(k)}, obs, grps{k}, 'atom');
+            [atoms{k}, auxes{k}] = ...
+                amdl.posterior_params(H.atoms{pids(k)}, obs, 'final', grps{k}, 'atom');
         else
-            atoms{k} = amdl.posterior_params(basedist, obs, grps{k}, 'atom');
+            [atoms{k}, auxes{k}] = ...
+                amdl.posterior_params(basedist, obs, 'final', grps{k}, 'atom');
         end
     end
 end
@@ -129,7 +134,7 @@ if ~isempty(unlabeled)
     
     L = zeros(K, numel(unlabeled));    
     for k = 1 : K        
-        llik = amdl.evaluate_logliks(atoms{k}, obs, unlabeled);
+        llik = amdl.evaluate_logliks(atoms{k}, obs, auxes{k}, unlabeled);
         L(k, :) = llik;
     end    
     [~, zu] = max(L, [], 1);

@@ -41,22 +41,23 @@ classdef genmodel_base
         %       parameters.
         %
         
-        params = posterior_params(model, pri, obs, Z, optype);
+        [params, aux] = posterior_params(model, pri, obs, aux, Z, optype);
         % Estimates/samples the parameters conditoned on given observations
         %
-        %   atom = model.posterior_params(pri, obs, I, 'atom');
+        %   [atom, aux] = model.posterior_params(pri, obs, aux, I, 'atom');
         %       draws an atom given a subset of data points selected by I.
         %
-        %   params = model.posterior_params(pri, obs, Z, 'sample');
+        %   [params, aux] = model.posterior_params(pri, obs, aux, Z, 'sample');
         %       draws K parameters given grouped/weighted data set.
         %
-        %   params = model.posterior_params(pri, obs, Z, 'varinfer');
+        %   [params, aux] = model.posterior_params(pri, obs, aux, Z, 'varinfer');
         %       estimates/infer K parameters given grouped/weighted data
         %       set.
         %
         %       Input Arguments:
         %       - pri:      the prior of the parameters
         %       - obs:      the observation data set
+        %       - aux:      an auxiliary structure.
         %       - I:        an index vector.
         %       - Z:        It can be either a cell array of grouped
         %                   indices, or a K x n matrix of weights.
@@ -67,14 +68,32 @@ classdef genmodel_base
         %       - params:   The struct/object that captures the single or
         %                   multiple estimated parameters.
         %
-        %       Note: atom and params can be in different forms.
+        %       - aux:      an updated auxiliary structure.
+        %
+        %       Note: 
+        %       - atom and params can be in different forms.
+        %
+        %       - aux is an auxiliary structure. When this function is 
+        %         first called, it would be input as []. This function 
+        %         can create or update aux to facilitate future evaluation
+        %         or estimation. 
+        %
+        %       - In some cases, aux will be input as a string 'final',
+        %         which indicates that the function should try its best
+        %         to come up with an optimal parameters, as the parameters
+        %         won't be updated later.
+        %
+        %       - If you are not going to use auxiliary structure to 
+        %         facilitate updates or computation, you can ignore it
+        %         in your implementation. In this cases, aux is simply 
+        %         kept as an empty array.
         %
         
-        Lliks = evaluate_logliks(model, params, obs);
+        Lliks = evaluate_logliks(model, params, obs, aux, I);
         % Evaluates the logarithm of likelihood of samples
         %
-        %   Lliks = model.evaluate_logliks(params, obs);
-        %   Liiks = model.evaluate_logliks(atom, obs);
+        %   Lliks = model.evaluate_logliks(params, obs, aux);
+        %   Liiks = model.evaluate_logliks(atom, obs, aux);
         %
         %       evaluates the log-likelihood values of the observations
         %       in obs with respect to the given set of parameters or
@@ -82,27 +101,25 @@ classdef genmodel_base
         %
         %       If params has K parameters, Lliks is a K x n matrix.
         %
-        %   Lliks = model.evaluate_logliks(pri, obs);
+        %   Lliks = model.evaluate_logliks(pri, obs, aux);
         %
         %       Under atom-mode, this evaluates the log marginal 
         %       likelihood values with respect to the given prior.    
         %
-        %   Lliks = model.evaluate_logliks(.., obs, I);
+        %   Lliks = model.evaluate_logliks(.., obs, aux, I);
         %
         %       Evaluates the log-likelihood values for a set of 
         %       observations selected by I.
         %
         
-        Lpri = evaluate_logpri(model, pri, params);
-        % Evaluate the log-prior of a given set of parameters
+        lpri = evaluate_logpri(model, pri, params, aux);
+        % Evaluate the total log-prior of a given set of parameters
         %
-        %   Lpri = model.evaluate_logpri(pri, params);
-        %   Lpri = model.evaluate_logpri(pri, atom);
+        %   lpri = model.evaluate_logpri(pri, params, aux);
+        %   lpri = model.evaluate_logpri(pri, atom, aux);
         %
-        %       evaluates the log-prior of the given set of parameters
-        %       or the given atom.
-        %
-        %       If params has K parameters, Lpri is a 1 x K vector.
+        %       evaluates the total log-prior of the given set of 
+        %       parameters or the given atom.
         %
         
     end
