@@ -22,11 +22,29 @@ classdef gmm_std < smi_prg
     properties(GetAccess='public', SetAccess='private')
         
         dim;        % the dimension of the underlying space
-        
+                
         gpri;       % The Gaussian prior distribution
         Cx;         % Cx itself or its prior distribution
         
         est_Cx;     % whether to estimate Cx  
+    end
+    
+    
+    properties
+        dalpha = 1; % the concentration parameter of the Dirichlet prior of pi
+                    % dird_alpha >= 1
+                    % one can set dird_alpha to inf, in that case
+                    % pi is fixed to [1/k, ..., 1/k].        
+    end
+    
+    methods
+        function prg = set.dalpha(prg, v)
+            if ~(isfloat(v) && isreal(v) && v >= 1)
+                error('gmm_std:invalidarg', ...
+                    'The value of dalpha should be a real numberin [1, inf]');
+            end
+            prg.dalpha = v;
+        end
     end
     
     
@@ -126,6 +144,9 @@ classdef gmm_std < smi_prg
             %               - Cx:   component covariance(s) in pdmat
             %                       (This field exists only when Cx is to
             %                        be estimated)
+            %               - Pi:   the prior probabilities of components
+            %                       (It is a 1 x K row vector, initialized
+            %                       to be a uniform distribution)
             %               - Lik:  K x n pairwise likelihood table
             %
             %           If optype is 'sample', Sd also has
@@ -210,6 +231,7 @@ classdef gmm_std < smi_prg
             if prg.est_Cx
                 Sd.Cx = [];
             end
+            Sd.Pi = constmat(1, K, 1 / K);
             Sd.Lik = [];
                         
             if do_samp
@@ -267,14 +289,33 @@ classdef gmm_std < smi_prg
             Lik = cg.logpdf(X);
             Sd.Lik = Lik;
             
-            E = Lik;            
+            da = prg.dalpha;            
+            if isfinite(da)            
+                E = bsxfun(@plus, log(Sd.Pi).', Lik);
+            end
             Q = nrmexp(E, 1);
             
             if Sc.do_samp
                 Sd.Z = ddsample(Q, 1);
                 Sd.grps = intgroup(K, Sd.Z);
             else
-                Sd.Q = nrmexp(E, 1);
+                Sd.Q = Q;
+            end
+            
+            % estimate Pi
+            
+            if isfinite(da)     % if dalpha is inf, Pi is fixed
+                
+                if Sc.do_samp
+                    tw = intcount(K, Sd.Z);                    
+                    Sd.Pi = dirichlet_sample(K, tw(:) + da, 1).';                    
+                else
+                    tw = sum(Q, 2).';
+                    if da > 1
+                        tw = tw + (da - 1);
+                    end
+                    Sd.Pi = tw ./ sum(tw);
+                end
             end
             
         end
@@ -289,6 +330,8 @@ classdef gmm_std < smi_prg
             %       - U:    the estimated/sampled component means [d x K]
             %       - Cx:   the estimated/sampled component covariance
             %               (this is output only when est_Cx is true).
+            %       - Pi:   the estimated/sampled prior probability of
+            %               components. [1 x K]
             %
             %       If it is doing sampling, Sp also has:
             %       - Z:    the label vector [1 x n]
@@ -303,11 +346,13 @@ classdef gmm_std < smi_prg
                 Sp.Cx = Sd.Cx;
             end
             
+            Sp.Pi = Sd.Pi;
+            
             if Sc.do_samp
                 Sp.Z = Sd.Z;
             else
                 Sp.Q = Sd.Q;
-            end        
+            end                               
         end
         
         
@@ -330,9 +375,23 @@ classdef gmm_std < smi_prg
                 lpri_u = 0;
             end
             
-            % log-prior of labeling 
+            % log-prior of labeling and Pi
             
-            lpri_z = 0;         
+            logPi = log(Sd.Pi);
+            
+            if Sc.do_samp
+                tw = intcount(K, Sd.Z).';
+            else
+                tw = sum(Sd.Q, 2);
+            end
+            lpri_z = logPi * tw;  
+            
+            da = prg.dalpha;
+            if isfinite(da) && da > 1
+                lpri_pi = sum(logPi) * (da - 1);
+            else
+                lpri_pi = 0;
+            end
             
             % log-likelihood
             
@@ -354,7 +413,7 @@ classdef gmm_std < smi_prg
             
             % combine
             
-            objv = lpri_u + lpri_z + llik + ent_z;
+            objv = lpri_u + lpri_z + lpri_pi + llik + ent_z;
             
         end
             
