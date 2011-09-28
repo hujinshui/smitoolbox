@@ -110,6 +110,8 @@ classdef fmm_std < smi_prg
             %       Output arguments:
             %       - Sd:   dynamic state struct, with fields: 
             %               - params:   the parameters
+            %               - aux:      the auxiliary structure created
+            %                           by the underlying model
             %               - Liks:     K x n pairwise likelihood table
             %               - Pi:       prior probabilities of components
             %                           (1 x K vector, initialized to
@@ -176,7 +178,8 @@ classdef fmm_std < smi_prg
             Sc.optype = optype;
             Sc.do_samp = do_samp; 
             
-            Sd.params = [];            
+            Sd.params = []; 
+            Sd.aux = [];
             Sd.Liks = [];
             Sd.Pi = constmat(1, Sc.K, 1 / Sc.K);
                         
@@ -222,8 +225,8 @@ classdef fmm_std < smi_prg
                 Z0 = Sd.Q;
             end
             
-            Sd.params = gmdl.posterior_params(prior, X, Z0, Sc.optype);
-            Sd.Liks = gmdl.evaluate_logliks(Sd.params, X);
+            [Sd.params, Sd.aux] = gmdl.posterior_params(prior, X, Sd.aux, Z0, Sc.optype);
+            Sd.Liks = gmdl.evaluate_logliks(Sd.params, X, Sd.aux);
             
             % infer labels                                    
             
@@ -288,8 +291,7 @@ classdef fmm_std < smi_prg
             
             % log-prior of component params
             
-            lpri_u = gmdl.evaluate_logpri(prior, Sd.params);
-            lpri_u = sum(lpri_u);
+            lpri_u = gmdl.evaluate_logpri(prior, Sd.params, Sd.aux);
             
             % log-prior of labeling and Pi
             

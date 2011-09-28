@@ -25,7 +25,7 @@ function [h, J, u] = gaussgm_pos(gpri, X, Jx, A, Z, skipverify)
 %                   Here, d is the space dimension, and n is the number
 %                   of samples. Each column of X is a sample.
 %
-%       - Jx:       the inverse covariance (pdmat struct) the conditional
+%       - Jx:       information matrix (pdmat struct) of the conditional
 %                   distribution. Jx = inv(Cx).
 %
 %       - A:        the transform matrix (for Formulation (2)), or 
@@ -62,7 +62,11 @@ function [h, J, u] = gaussgm_pos(gpri, X, Jx, A, Z, skipverify)
 %       additionally returns the MAP estimates of the parameter u.
 %
 
-% Created by Dahua Lin, on Aug 26, 2011
+%   History
+%   -------
+%       - Created by Dahua Lin, on Aug 26, 2011
+%       - Modified by Dahua Lin, on Sep 28, 2011
+%           - supports multiple matrices in Jx.
 %
  
 %% verify input arguments
@@ -130,9 +134,18 @@ if isempty(A)
 elseif isscalar(A)
     J = pdmat_scale(Jx, sw * (A^2));
     
-else  % A is a transform matrix
-    J = pdmat_quad(Jx, A);
-    J = pdmat_scale(pdmat(J), sw);    
+else  % A is a transform matrix    
+    du = size(A, 2);    
+    if Jx.n == 1
+        Jm = pdmat_pwquad(Jx, A);
+    else        
+        Jm = zeros(du, du, K);
+        for k = 1 : K
+            Jm(:,:,k) = pdmat_pwquad(pdmat_pick(Jx, k), A);
+        end
+    end
+    J = pdmat_scale(pdmat('f', du, Jm), sw); 
+    
 end
 
 % incorporate prior
@@ -174,14 +187,9 @@ if ~(isfloat(X) && ndims(X) == 2 && isreal(X))
 end
 [xdim, n] = size(X);
 
-if ~(is_pdmat(Jx) && Jx.n == 1)
+if ~(is_pdmat(Jx) && Jx.d == xdim)
     error('gaussgm_pos:invalidarg', ...
-        'Jx should be a pdmat struct with single matrix.');
-end
-
-if Jx.d ~= xdim
-    error('gaussgm_pos:invalidarg', ...
-        'The dimension of X is not consistent with Jx.d.');
+        'Jx should be a pdmat struct with Jx.d == xdim.');
 end
 
 
@@ -222,5 +230,8 @@ elseif iscell(Z)
     
 end
 
-
+if ~(Jx.n == 1 || Jx.n == K)
+    error('gaussgm_pos:invalidarg', ...
+        'It is required that Jx.n == 1 or K.');
+end
 
