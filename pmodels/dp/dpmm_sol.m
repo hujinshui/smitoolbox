@@ -85,17 +85,20 @@ classdef dpmm_sol
     
     methods
         
-        function sol = dpmm_sol(amdl, obs, base_id, r0)
+        function sol = dpmm_sol(amdl, basedist, obs, base_id, r0)
             % Constructs an empty DPMM solution
             %
-            %   sol = dpmm_sol(amdl, obs);
-            %   sol = dpmm_sol(amdl, obs, base_id);
-            %   sol = dpmm_sol(amdl, obs, base_id, r0);
+            %   sol = dpmm_sol(amdl, basedist, obs);
+            %   sol = dpmm_sol(amdl, basedist, obs, base_id);
+            %   sol = dpmm_sol(amdl, basedist, obs, base_id, r0);
             %
             %       Constructs an empty DPMM solution.
             %
-            %       amdl is the underlying atom model, and obs is
-            %       the observation array.
+            %       amdl is the underlying atom model
+            %
+            %       basedist is the base distribution
+            %
+            %       obs is the observation set
             %
             %       base_id is the base from which the atom id is
             %       incremented. default = 0.
@@ -104,12 +107,14 @@ classdef dpmm_sol
             %       capacity that is enough to host at least r0 atoms.
             %
             
-            if ~isa(amdl, 'atom_model_base')
+            if ~isa(amdl, 'genmodel_base')
                 error('dpmm_sol:invalidarg', ...
-                    'amdl should be an instance of a class derived from atom_model_base.');
+                    'amdl should be an instance of a class derived from genmodel_base.');
             end
+                        
+            n = amdl.get_num_observations(obs);
             
-            if nargin >= 3
+            if nargin >= 4
                 if ~(isnumeric(base_id) && isscalar(base_id) && ...
                         base_id >= 0 && base_id == fix(base_id))
                     error('dpmm_sol:invalidarg', ...
@@ -119,7 +124,7 @@ classdef dpmm_sol
                 base_id = 0;
             end
             
-            if nargin >= 4
+            if nargin >= 5
                 if ~(isnumeric(r0) && isscalar(r0) && r0 >= 0 && r0 == fix(r0))
                     error('dpmm_sol:invalidarg', ...
                         'r0 should be a non-negative integer scalar.');
@@ -128,14 +133,12 @@ classdef dpmm_sol
             else
                 c0 = 8;
             end
-            
-            n = amdl.get_num_samples(obs);
-            
+                                    
             sol.nobs = n;
             sol.iatoms = zeros(1, n);
             sol.groups = [];
             
-            llik0 = amdl.evaluate_loglik([], obs);
+            llik0 = amdl.evaluate_logliks(basedist, obs);
             sol.asys = dpmm_sol.init_atomsys(c0, n, base_id, llik0);
             
         end
@@ -147,18 +150,19 @@ classdef dpmm_sol
     
     methods
         
-        function sol = update_atoms(sol, amdl, obs, H, ainds)
+        function sol = update_atoms(sol, amdl, basedist, obs, H, ainds)
             % Updating atoms based on grouped observations
             %
-            %   sol = sol.update_atoms(amdl, obs);
-            %   sol = sol.update_atoms(amdl, obs, H);
-            %   sol = sol.update_atoms(amdl, obs, H, ainds);
+            %   sol = sol.update_atoms(amdl, basedist, obs);
+            %   sol = sol.update_atoms(amdl, basedist, obs, H);
+            %   sol = sol.update_atoms(amdl, basedist, obs, H, ainds);
             %
             %       updates all (or selected) atoms based on the current
             %       labeling.
             %
             %       Input arguments:
             %       - amdl:     the underlying atom model
+            %       - basedist: the base distribution
             %       - obs:      the observation array
             %       - H:        the struct capturing the inherited atoms
             %                   (it can be omitted when there is no
@@ -169,7 +173,7 @@ classdef dpmm_sol
             
             % parse input arguments
             
-            if nargin < 4
+            if nargin < 5
                 H = [];
                 Kp = 0;
             else
@@ -182,7 +186,7 @@ classdef dpmm_sol
             
             AS = sol.asys;
             
-            if nargin < 5
+            if nargin < 6
                 ainds = 1 : AS.natoms;
             end
             na = numel(ainds);
@@ -204,10 +208,10 @@ classdef dpmm_sol
                 gk = grps{k};
                 
                 if k > Kp
-                    a = amdl.posterior_atom(obs, gk);
+                    a = amdl.posterior_params(basedist, obs, gk, 'atom');
                 else
                     if ~isempty(gk)
-                        a = amdl.posterior_atom(obs, gk, H.atoms{k});
+                        a = amdl.posterior_params(H.atoms{k}, obs, gk, 'atom');
                         AS.priweights(k) = H.pricounts(k);
                     else
                         a = H.atoms{k};
@@ -215,23 +219,24 @@ classdef dpmm_sol
                     end
                 end
                 AS.atoms{k} = a;
-                AS.logliks(k, :) = amdl.evaluate_loglik(a, obs);
+                AS.logliks(k, :) = amdl.evaluate_logliks(a, obs);
             end
             
             sol.asys = AS;
         end
         
         
-        function sol = update_labels(sol, amdl, obs, alpha, inds)
+        function sol = update_labels(sol, amdl, basedist, obs, alpha, inds)
             % Update the labels associated with the observations
             %
-            %   sol = sol.update_labels(amdl, obs, alpha);
-            %   sol = sol.update_labels(amdl, obs, alpha, inds);
+            %   sol = sol.update_labels(amdl, basedist, obs, alpha);
+            %   sol = sol.update_labels(amdl, basedist, obs, alpha, inds);
             %
             %       Updates the labels of all or selected observations.
             %
             %       Input arguments:
             %       - amdl:     the underlying atom model
+            %       - basedist: the base distribution
             %       - obs:      the observation array
             %       - alpha:    the concentration parameter
             %       - inds:     the indices of the observations selected
@@ -243,7 +248,7 @@ classdef dpmm_sol
             %       - the method will create new atoms when necessary.
             %
             
-            if nargin < 5
+            if nargin < 6
                 ni = sol.nobs;
                 s = 1:ni;
             else
@@ -253,8 +258,8 @@ classdef dpmm_sol
             AS = sol.asys;
             
             if sol.natoms == 0
-                a = amdl.posterior_atom(obs, s(1));
-                llik = amdl.evaluate_loglik(a, obs);
+                a = amdl.posterior_params(basedist, obs, s(1), 'atom');
+                llik = amdl.evaluate_logliks(a, obs);
                 AS = dpmm_sol.add_atom(AS, a, llik);
                 
                 sol.iatoms(s(1)) = 1;
@@ -293,8 +298,8 @@ classdef dpmm_sol
                 s = s(z == 0);
                 
                 if ~isempty(s)
-                    a = amdl.posterior_atom(obs, s(1));
-                    llik = amdl.evaluate_loglik(a, obs);
+                    a = amdl.posterior_params(basedist, obs, s(1), 'atom');
+                    llik = amdl.evaluate_logliks(a, obs);
                     AS = dpmm_sol.add_atom(AS, a, llik);
                     
                     K = AS.natoms;

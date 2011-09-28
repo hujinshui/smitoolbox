@@ -34,7 +34,7 @@ X = [Xs{:}];
 %% Construct underlying model
 
 gbase = gaussd.from_mp(0, Cu, 'ip');
-amodel = gauss_atom_model(gbase, Cx);
+amodel = gaussgm(d, Cx);
 
 %% Construct DPMM
 
@@ -50,7 +50,7 @@ pri_counts = 1000 * ones(1, Kp);
 inherits = dpmm_inherits(1:Kp, Kp, pri_atoms, pri_counts, 0.5, @gtransit);
 
 alpha = 1;
-prg = dpmm(amodel, alpha);
+prg = dpmm(amodel, gbase, alpha);
 
 
 %% Run DPMM
@@ -59,13 +59,13 @@ S0.inherits = inherits;
 
 opts = mcmc_options([], ...
     'burnin', 100, ...
-    'nsamples', 50, ...
+    'nsamples', 20, ...
     'ips', 20, ...
     'display', 'sample');
 
 R = smi_mcmc(prg, X, S0, opts);
 ss = R{1};
-s = dpmm_merge_samples(amodel, X, inherits, ss, 0.05);
+s = dpmm_merge_samples(prg, X, inherits, ss, 0.05);
 
 %% Visualize
 
