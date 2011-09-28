@@ -212,26 +212,24 @@ classdef fmm_std < smi_prg
             prior = prg.pri;
             X = Sc.obs; 
             K_ = Sc.K;
+            samp = Sc.do_samp;
 
             % estimate component parameters
             
-            if Sc.do_samp
-                Sd.params = gmdl.posterior_params(prior, X, Sd.grps, Sc.optype);
+            if samp
+                Z0 = Sd.grps;                
             else
-                Sd.params = gmdl.posterior_params(prior, X, Sd.Q, Sc.optype);
+                Z0 = Sd.Q;
             end
             
+            Sd.params = gmdl.posterior_params(prior, X, Z0, Sc.optype);
             Sd.Liks = gmdl.evaluate_logliks(Sd.params, X);
             
             % infer labels                                    
             
-            da = prg.dalpha;            
-            if isfinite(da)            
-                E = bsxfun(@plus, log(Sd.Pi).', Sd.Liks);
-            end
-            Q = nrmexp(E, 1);
+            Q = fmm_inferQ(Sd.Pi.', Sd.Liks);
             
-            if Sc.do_samp
+            if samp
                 Sd.Z = ddsample(Q, 1);
                 Sd.grps = intgroup(K_, Sd.Z);
             else
@@ -240,19 +238,11 @@ classdef fmm_std < smi_prg
             
             % estimate Pi
             
-            if isfinite(da)     % if dalpha is inf, Pi is fixed
-                
-                if Sc.do_samp
-                    tw = intcount(K_, Sd.Z);                    
-                    Sd.Pi = dirichlet_sample(K_, tw(:) + da, 1).';                    
-                else
-                    tw = sum(Q, 2).';
-                    if da > 1
-                        tw = tw + (da - 1);
-                    end
-                    Sd.Pi = tw ./ sum(tw);
-                end
-            end
+            if samp
+                Sd.Pi = fmm_estPi(K_, Sd.Z, prg.dalpha, 'sample').';
+            else
+                Sd.Pi = fmm_estPi(K_, Q, prg.dalpha).';
+            end            
             
         end
           
