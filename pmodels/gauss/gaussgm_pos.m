@@ -1,4 +1,4 @@
-function [h, J, u] = gaussgm_pos(gpri, X, Jx, A, Z)
+function [h, J, u] = gaussgm_pos(gpri, X, Jx, A, Z, skipverify)
 % Compute the posterior distribution of a Gaussian generative model
 %
 %   The Gaussian generative model is formulated as follows
@@ -67,75 +67,25 @@ function [h, J, u] = gaussgm_pos(gpri, X, Jx, A, Z)
  
 %% verify input arguments
 
-if ~isempty(gpri)
-    if ~(isa(gpri, 'gaussd') && gpri.num == 1 && gpri.has_ip)
-        error('gaussgm_pos:invalidarg', ...
-            'gpri should be an instance of class gaussd with gpri.num == 1.');
-    end
-    has_pri = true;
+if nargin < 4; A = []; end
+if nargin < 5; Z = []; end
+
+if nargin < 6 || ~skipverify
+    [xdim, n, K, zty] = verify_args(gpri, X, Jx, A, Z);
 else
-    has_pri = false;    
-end
-
-if ~(isfloat(X) && ndims(X) == 2 && isreal(X))
-    error('gaussgm_pos:invalidarg', 'X should be a real matrix.');
-end
-[xdim, n] = size(X);
-
-if ~(is_pdmat(Jx) && Jx.n == 1)
-    error('gaussgm_pos:invalidarg', ...
-        'Jx should be a pdmat struct with single matrix.');
-end
-
-if Jx.d ~= xdim
-    error('gaussgm_pos:invalidarg', ...
-        'The dimension of X is not consistent with Jx.d.');
-end
-
-
-if nargin < 4
-    A = [];
-end
-
-if isempty(A) || isscalar(A)   
-    if gpri.dim ~= xdim
-        error('gaussgm_pos:invalidarg', ...
-            'gpri.dim is inconsistent with the sample dimension.');
+    [xdim, n] = size(X);
+    if isempty(Z)
+        zty = 0;
+        K = 1;
+    elseif isnumeric(Z)
+        zty = 1;
+        K = size(Z, 1);
+    else
+        zty = 2;
+        K = numel(Z);
     end
-else
-    if ~( isfloat(A) && isreal(A) && ndims(A) == 2 && size(A,1) == xdim ) 
-        error('gaussgm_pos:invalidarg', ...
-            'A should be either a scalar or a real matrix with size(A,1) == size(X,1).');
-    end
+end
     
-    if has_pri
-        if size(A, 2) ~= gpri.dim
-            error('gaussgm_pos:invalidarg', ...
-                'The size of A is inconsistent with gpri.dim.');
-        end
-    end
-end
-
-if nargin < 5
-    zty = 0;   % no grouping and weighting
-    K = 1;
-else
-    if isnumeric(Z)
-        zty = 1;    % weighting
-        w = Z;
-        if ~(isfloat(w) && ndims(w) == 2 && isreal(w) && size(w,2) == n)
-            error('gaussgm_pos:invalidarg', ...
-                'w should be a real matrix with size(w,2) == n.');
-        end
-        K = size(w, 1);
-        
-    elseif iscell(Z)
-        zty = 2;    % grouping
-        g = Z;
-        K = numel(g);
-        
-    end
-end
 
 %% main
 
@@ -152,6 +102,7 @@ if zty == 0
     sw = n;
     
 elseif zty == 1  % weighting
+    w = Z;
     sx = X * w';
     sw = sum(w, 2).';
     
@@ -159,7 +110,7 @@ else  % grouping
     sx = zeros(xdim, K);
     sw = zeros(1, K);
     for k = 1 : K
-        Xk = X(:, g{k});
+        Xk = X(:, Z{k});
         sx(:, k) = sum(Xk, 2);
         sw(k) = size(Xk, 2);
     end
@@ -202,5 +153,74 @@ end
 if nargout >= 3    
     u = pdmat_lsolve(J, h);
 end
+
+
+%% Argument verification
+
+function [xdim, n, K, zty] = verify_args(gpri, X, Jx, A, Z)
+
+if ~isempty(gpri)
+    if ~(isa(gpri, 'gaussd') && gpri.num == 1 && gpri.has_ip)
+        error('gaussgm_pos:invalidarg', ...
+            'gpri should be an instance of class gaussd with gpri.num == 1.');
+    end
+    has_pri = true;
+else
+    has_pri = false;    
+end
+
+if ~(isfloat(X) && ndims(X) == 2 && isreal(X))
+    error('gaussgm_pos:invalidarg', 'X should be a real matrix.');
+end
+[xdim, n] = size(X);
+
+if ~(is_pdmat(Jx) && Jx.n == 1)
+    error('gaussgm_pos:invalidarg', ...
+        'Jx should be a pdmat struct with single matrix.');
+end
+
+if Jx.d ~= xdim
+    error('gaussgm_pos:invalidarg', ...
+        'The dimension of X is not consistent with Jx.d.');
+end
+
+
+if isempty(A) || isscalar(A)   
+    if gpri.dim ~= xdim
+        error('gaussgm_pos:invalidarg', ...
+            'gpri.dim is inconsistent with the sample dimension.');
+    end
+else
+    if ~( isfloat(A) && isreal(A) && ndims(A) == 2 && size(A,1) == xdim ) 
+        error('gaussgm_pos:invalidarg', ...
+            'A should be either a scalar or a real matrix with size(A,1) == size(X,1).');
+    end
+    
+    if has_pri
+        if size(A, 2) ~= gpri.dim
+            error('gaussgm_pos:invalidarg', ...
+                'The size of A is inconsistent with gpri.dim.');
+        end
+    end
+end
+
+if isempty(Z)
+    zty = 0;   % no grouping and weighting
+    K = 1;
+    
+elseif isnumeric(Z)
+    zty = 1;    % weighting
+    if ~(isfloat(Z) && ndims(Z) == 2 && isreal(Z) && size(Z,2) == n)
+        error('gaussgm_pos:invalidarg', ...
+            'w should be a real matrix with size(w,2) == n.');
+    end
+    K = size(Z, 1);
+    
+elseif iscell(Z)
+    zty = 2;    % grouping
+    K = numel(Z);
+    
+end
+
 
 

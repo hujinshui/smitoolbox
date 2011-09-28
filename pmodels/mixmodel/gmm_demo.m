@@ -15,7 +15,7 @@ function R = gmm_demo(optype)
 
 optype = lower(optype);
 if ~(strcmp(optype, 'sample') || strcmp(optype, 'varinfer'))
-    error('gaussgm_demo:invalidarg', 'Invalid option.');
+    error('gmm_demo:invalidarg', 'Invalid option.');
 end    
 
 
@@ -41,12 +41,9 @@ X = Gx0.sample(n * ones(1, K), 1:K);
 
 %% build program
 
-gprg = gmm_std(d, gpri0, Cx);
+gm = gaussgm(d, Cx);
+gprg = fmm_std(gm, gpri0, K);
 gprg.dalpha = 3;
-
-obs.X = X;
-obs.K = K;
-obs.mu = 0;
 
 %% run inference
 
@@ -62,10 +59,10 @@ switch optype
             'ips', 15, ...
             'display', 'sample');
         
-        R = smi_mcmc(gprg, obs, [], opts);
+        R = smi_mcmc(gprg, X, [], opts);
         R = R{1};
         
-        Us = cat(3, R.U);  % => d x K x nsamples
+        Us = cat(3, R.params);  % => d x K x nsamples
         Us = permute(Us, [1 3 2]);  % => d x nsamples x K
         
         Zs = vertcat(R.Z);  % => nsamples x N
@@ -77,8 +74,8 @@ switch optype
             'maxiters', 100, ...
             'display', 'eval');
         
-        R = smi_varinfer(gprg, obs, [], opts);     
-        Us = R.sol.U;
+        R = smi_varinfer(gprg, X, [], opts);     
+        Us = R.sol.params;
         [~, Zm] = max(R.sol.Q, [], 1);
 end
 
