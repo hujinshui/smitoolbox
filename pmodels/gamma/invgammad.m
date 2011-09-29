@@ -6,20 +6,18 @@ classdef invgammad
     %   two parameters:
     %
     %   - alpha:    the shape parameter 
-    %   - beta:     the scale parameter (inverse of scale)
-    %
-    %   The log-pdf is given by
-    %
-    %   f(x) = (alpha - 1) log(x) - beta x 
+    %   - beta:     the scale parameter (inverse of scale)   
     %  
     %   For an object with n distributions over d-dimensional space:    
-    %   - shape is a matrix of size 1 x n or d x n.
-    %   - scale can be a 1 x n row vector or a scale (shared)    
+    %
+    %   alpha and beta can be in respectively in either of the following
+    %   sizes: 1 x 1, d x 1, 1 x n, d x n.    
     %
     
     %   History
     %   -------
     %       - Created by Dahua Lin, on Sep 1, 2011
+    %       - Modified by Dahua Lin, on Sep 28, 2011
     %
     
     %% properties
@@ -33,7 +31,7 @@ classdef invgammad
         beta;   % the scale parameter(s)
         
         lpconst;   % a constant term in logpdf
-                   % = alpha * log(beta) - gammaln(alpha)
+                   % = sum( alpha * log(beta) - gammaln(alpha) )
                    % 1 x n row vector or 0, or empty (if not computed)
     end
         
@@ -51,19 +49,12 @@ classdef invgammad
             %   alpha > 1.
             %
         
-            a = obj.alpha;
-            b = obj.beta;
             d = obj.dim;
             
-            if isscalar(b)
-                v = b ./ (a - 1);
-            else
-                v = bsxfun(@rdivide, b, a - 1);
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, obj.beta, 1 ./ (obj.alpha - 1));
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
-            end                
+            end               
         end
                 
         function v = var(obj)
@@ -78,19 +69,14 @@ classdef invgammad
             %   alpha > 2.
             %
             
+            d = obj.dim;
             a = obj.alpha;
             b = obj.beta;
-            d = obj.dim;
             
-            if isscalar(b)
-                v = (b^2) ./ ((a - 1).^2 .* (a - 2));
-            else
-                v = bsxfun(@rdivide, (b.^2), (a-1).^2 .* (a-2));
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, b.^2, 1 ./ ((a - 1).^2 .* (a - 2)));
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
-            end
+            end 
         end
                 
         function v = mode(obj)
@@ -102,17 +88,10 @@ classdef invgammad
             %       to the i-th distribution in obj.
             %
             
-            a = obj.alpha;
-            b = obj.beta;
             d = obj.dim;
             
-            if isscalar(b)
-                v = b ./ (a + 1);
-            else
-                v = bsxfun(@rdivide, b, a + 1);
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, obj.beta, 1 ./ (obj.alpha + 1));
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
             end 
         end
@@ -127,26 +106,29 @@ classdef invgammad
             %       to the i-th distribution in obj.
             %            
             
+            d = obj.dim;
             a = obj.alpha;
             b = obj.beta;
-            d = obj.dim;
             
-            v = invgamma_entropy(a);
-            if ~isequal(b, 1)
-                if isscalar(b) 
-                    v = v + log(b);
+            t1 = a + gammaln(a) - (1 + a) .* psi(a);
+            if d > 1
+                if size(t1, 1) == 1
+                    t1 = d * t1;
                 else
-                    v = bsxfun(@plus, v, log(b));
+                    t1 = sum(t1, 1);
+                end
+            end            
+            
+            t2 = log(b);
+            if d > 1
+                if size(t2, 1) == 1
+                    t2 = d * t2;
+                else
+                    t2 = sum(t2, 1);
                 end
             end
             
-            if size(v, 1) == 1
-                if d > 1
-                    v = v * d;
-                end
-            else
-                v = sum(v, 1);
-            end
+            v = t1 + t2;
         end
         
     end
@@ -155,63 +137,60 @@ classdef invgammad
     
     methods 
         
-        function obj = invgammad(alpha, beta, d, op)
-            % Constructs an Inverse Gamma distribution object
+        function obj = invgammad(d, alpha, beta, op)
+            % Constructs a inverse gamma distribution object
             %
-            %   obj = invgammad(alpha);
-            %   obj = invgammad(alpha, beta);
+            %   obj = invgammad(d, alpha);
+            %   obj = invgammad(d, alpha, beta);
             %
-            %       constructs an inverse gamma distribution object given 
+            %       constructs a inverse Gamma distribution object given 
             %       the parameters.
             %
             %       Inputs:
-            %       - alpha:    the shape parameter of size d x n.
+            %       - alpha:    the shape parameter.
             %
-            %       - beta:     the scale parameter, which can be
-            %                   either a 1 x n row vector or a 
-            %                   scale (if shared by all distributions).
+            %       - beta:     the scale parameter. 
+            %                   (If omitted, beta is set to 1)
             %
-            %   obj = invgammad(alpha, beta, d);
-            %   
-            %       To construct multi-dimensional gamma distributions,
-            %       where each dimension has the same shape param, then
-            %       one can use this syntax.
-            %
-            %       Here, shape can be input a 1 x n row vector, and
-            %       use the 3rd argument to specify the dimension.
-            %
-            %   obj = invgammad(alpha, beta, [], 'pre');
-            %   obj = invgammad(alpha, beta, d, 'pre');
+            %   obj = invgammad(d, alpha, beta, 'pre');
             %
             %       Do pre-computation of the term 
-            %       alpha * log(beta) - gammaln(alpha), which might
-            %       speed-up the evaluation of logpdf or pdf later.
+            %       sum( alpha * log(beta) - gammaln(alpha) ), which 
+            %       might speed-up the evaluation of logpdf or pdf later.
             %
                         
             % verify inputs
             
-            if ~(isfloat(alpha) && ndims(alpha) == 2)
+            if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
                 error('invgammad:invalidarg', ...
-                    'alpha should be a numeric matrix.');
-            end            
-            [d_, n] = size(alpha);
+                    'd should be a positive integer scalar.');
+            end           
             
-            if ~( isfloat(beta) && (isscalar(beta) || ...
-                    isequal(size(beta), [1 n])) )
+            if ~(isfloat(alpha) && isreal(alpha) && ndims(alpha) == 2)
                 error('invgammad:invalidarg', ...
-                    'beta should be a scalar or a 1 x n row vector.');
+                    'alpha should be a real scalar/vector/matrix.');
+            end
+            [ma, na] = size(alpha);
+            if ~(ma == 1 || ma == d)
+                error('invgammad:invalidarg', 'The size of alpha is invalid.');
             end
             
-            if nargin < 3 || isempty(d)
-                d = d_;
+            if nargin < 3
+                beta = 1;
+                nb = 1;
             else
-                if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
+                if ~(isfloat(beta) && isreal(alpha) && ndims(beta) == 2)
                     error('invgammad:invalidarg', ...
-                        'd should be a positive integer scalar.');
+                        'beta should be a numeric scalar/vector/matrix.');
                 end
-                if d_ > 1 && d ~= d_
+                [mb, nb] = size(beta);
+                if ~(mb == 1 || mb == d)
+                    error('invgammad:invalidarg', 'The size of beta is invalid.');
+                end
+                
+                if ~(na == nb || na == 1 || nb == 1)
                     error('invgammad:invalidarg', ...
-                        'The size of shape is inconsistent with d.');
+                        'The sizes of alpha and beta are inconsistent.');
                 end
             end
             
@@ -222,13 +201,13 @@ classdef invgammad
                     error('invgammad:invalidarg', ...
                         'The 4th argument can only be ''pre''.');
                 end
-                lpc = invgammad.calc_lpconst(alpha, beta, d);
+                lpc = invgammad.calc_lpconst(d, alpha, beta);
             end
                                     
             % create object
             
             obj.dim = d;
-            obj.num = n;
+            obj.num = max(na, nb);
             obj.alpha = alpha;
             obj.beta = beta;
             obj.lpconst = lpc;
@@ -270,8 +249,10 @@ classdef invgammad
             lpc = obj.lpconst;
             
             if nargin >= 3 && ~isempty(si)
-                a = a(:, si);
-                if ~isscalar(b)
+                if size(a, 2) > 1
+                    a = a(:, si);
+                end
+                if size(b, 2) > 1
                     b = b(:, si);
                 end
                 if ~isempty(lpc)
@@ -280,7 +261,7 @@ classdef invgammad
             end
             
             if isempty(lpc)
-                lpc = invgammad.calc_lpconst(a, b, d);                
+                lpc = invgammad.calc_lpconst(d, a, b);                
             end
                                     
             if size(a, 1) == d
@@ -289,23 +270,26 @@ classdef invgammad
                 T1 = (a + 1)' * sum(log(X), 1);
             end
                             
-            if d == 1
-                srX = 1 ./ X;
+            if size(b, 1) == 1
+                if d == 1
+                    srX = 1 ./ X;
+                else
+                    srX = sum(1 ./ X, 1);
+                end
+                if isscalar(b)
+                    if b == 1
+                        T2 = srX;
+                    else
+                        T2 = srX * b;
+                    end
+                else
+                    T2 = b' * srX; 
+                end
             else
-                srX = sum(1 ./ X, 1);
-            end
-            
-            if isequal(b, 1)
-                T2 = srX;
-            else
-                T2 = b' * srX;
+                T2 = b' * (1 ./ X);
             end           
             
-            if size(T1, 1) == size(T2, 1)
-                L = - (T1 + T2);
-            else
-                L = - bsxfun(@plus, T1, T2);
-            end
+            L = - bsxfun(@plus, T1, T2);
                 
             if ~isequal(lpc, 0)
                 L = bsxfun(@plus, L, lpc.');                                
@@ -344,23 +328,16 @@ classdef invgammad
     
     methods(Static, Access='private')
         
-        function v = calc_lpconst(a, b, d)
+        function v = calc_lpconst(d, a, b)
             % Calculates the log-pdf constant term
+            %
+            % sum( alpha * log(beta) - gammaln(alpha) )
             %
             
             if isequal(b, 1)
                 c1 = 0;
             else
-                if d == 1
-                    sa = a;
-                else
-                    if size(a, 1) == 1
-                        sa = a * d;
-                    else
-                        sa = sum(a, 1);
-                    end
-                end
-                c1 = sa .* log(b);
+                c1 = calc_sumprod(1, d, a, log(b));
             end
             
             if isequal(a, 1)
@@ -432,12 +409,19 @@ classdef invgammad
                     error('invgammad:pos_sample:invalidarg', ...
                         'The sizes of n and i are inconsistent.');
                 end
+                K = numel(n);
                 
-                a = a(:, i);
-                if ~isscalar(b)
-                    b = b(i);
-                end                    
-                K = size(a, 2);
+                if size(a, 2) > 1
+                    a = a(:, i);
+                elseif K > 1
+                    a = a(:, ones(1, K));
+                end
+
+                if size(b, 2) > 1
+                    b = b(:, i);
+                elseif K > 1
+                    b = b(:, ones(1, K));
+                end
                 
                 if K == 1
                     X = gamma_sample(a, b, n, d);
@@ -453,7 +437,7 @@ classdef invgammad
                     for k = 1 : K
                         sk = ek + 1;
                         ek = ek + n(k);
-                        X(:, sk:ek) = gamma_sample(a(:,k), b(k), n(k), d);
+                        X(:, sk:ek) = gamma_sample(a(:,k), b(:,k), n(k), d);
                     end
                 end
                 
