@@ -66,7 +66,11 @@ classdef gaussgm < genmodel_base
         A;      % the transformation matrix
                 % A can be empty, indicating identity transform
                 % A can also be a scalar, indicating scaling transform
-    end
+                
+        tied_cov;   % whether the covariance of different components
+                    % are tied to the same
+    end        
+    
     
     
     %% Construction
@@ -75,14 +79,26 @@ classdef gaussgm < genmodel_base
         
         function model = gaussgm(dx, Cx, A)
             % Constructs a Gaussian generative model
-            %
-            %   model = gaussgm(dx);            
+            %                    
             %   model = gaussgm(dx, Cx);
-            %   model = gaussgm(dx, [], A);
             %   model = gaussgm(dx, Cx, A);
             %
             %       constructs a Gaussian generative model over a 
-            %       dx dimensional space. 
+            %       dx dimensional space, based on Formulation 1.
+            %
+            %   model = gaussgm(dx);
+            %   model = gaussgm(dx, [], A);
+            %
+            %       constructs a Gaussian generative model over a 
+            %       dx dimensional space, based on Formulation 2.
+            %
+            %   model = gaussgm(dx, 'tied_cov');
+            %   model = gaussgm(dx, 'tied_cov', A);
+            %
+            %       constructs a Gaussian generative model over a 
+            %       dx dimensional space, based on Formulation 2,
+            %       and with the setting that the covariance is
+            %       shared by different components.            
             %
             %       Here,
             %       - dx:       the dimension of observation space
@@ -105,11 +121,22 @@ classdef gaussgm < genmodel_base
             
             if nargin < 2 || isempty(Cx)
                 Cx = [];
+                c_tied = false;
+                
+            elseif ischar(Cx)
+                if ~strcmpi(Cx, 'tied_cov')
+                    error('gaussgm:invalidarg', ...
+                        'The 2nd argument in constructing gaussgm is invalid.');
+                end
+                Cx = [];
+                c_tied = true;
+                
             else
                 if ~(is_pdmat(Cx) && Cx.d == dx && Cx.n == 1)
                     error('gaussgm:invalidarg', ...
                         'Cx should be a pdmat struct with Cx.d == dx and Cx.n == 1.');
                 end
+                c_tied = true;
             end
                         
             if nargin >= 3 && ~isempty(A)
@@ -136,7 +163,8 @@ classdef gaussgm < genmodel_base
             if ~isempty(Cx)
                 model.Jx = pdmat_inv(Cx);
             end
-            model.A = A;                            
+            model.A = A;   
+            model.tied_cov = c_tied;
         end
         
     end
@@ -294,13 +322,28 @@ classdef gaussgm < genmodel_base
             % Estimate covariance matrix
             
             if estCx
-                error('estCx is not yet supported.');
+                switch optype
+                    case 'atom'
+                        [~, ~, Cx_e] = ...
+                            gaussgm_cov_pos(cf, cpri, X(:,I), U, [], c_tied, 'sample');
+                    case 'sample'
+                        [~, ~, Cx_e] = ...
+                            gaussgm_cov_pos(cf, cpri, X, U, Z, c_tied, 'sample');
+                    case 'varinfer'
+                        [~, ~, Cx_e] = ...
+                            gaussgm_cov_pos(cf, cpri, X, U, Z, c_tied);
+                end                
             end
             
             % Form output
             
             if ~estCx
                 params = U;
+            else
+                params = [];
+                params.U = U;
+                params.Cx = Cx_e;
+                aux.Cx = Cx_e;
             end
             
         end
@@ -427,7 +470,7 @@ classdef gaussgm < genmodel_base
                         tf2 = (e2 == 's' || e2 == 'd' || e2 == 'f');
                         cpri = [];
                         cf = e2;
-                    elseif isa(e2, 'scale_invchi2d')
+                    elseif isa(e2, 'invgammad')
                         tf2 = (e2.num == 1 && (e2.dim == 1 || e2.dim == du));
                         cpri = e2;
                         if e2.dim == 1

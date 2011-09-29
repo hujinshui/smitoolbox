@@ -41,15 +41,14 @@ classdef tsuite_invgammad
     
     methods(Static, Access='private')
         
-        function do_test_basics(d, m, uniform_shape, share_scale)
+        function do_test_basics(d, m, alpha, beta)
             
-            [g, A, B, gp] = tsuite_invgammad.make_obj(d, m, ...
-                uniform_shape, share_scale);
+            [g, gp, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
             
             assert(isempty(g.lpconst));
             assert(isequal(size(gp.lpconst), [1, m]));
             
-            lpc0 = bsxfun(@times, A, log(B)) - gammaln(A);
+            lpc0 = A .* log(B) - gammaln(A);
             lpc0 = sum(lpc0, 1);
             assert(isequal(size(lpc0), [1, m]));
             
@@ -57,17 +56,15 @@ classdef tsuite_invgammad
         end
     
         
-        function do_test_statistics(d, m, uniform_shape, share_scale)
+        function do_test_statistics(d, m, alpha, beta)
             
-            [g, A, B] = tsuite_invgammad.make_obj(d, m, ...
-                uniform_shape, share_scale);
+            [g, ~, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
             
             mean0 = bsxfun(@rdivide, B, A-1);
             var0 = bsxfun(@rdivide, B.^2, (A-1).^2 .* (A-2));
             mode0 = bsxfun(@rdivide, B, A+1);
             
-            E1 = A + gammaln(A) - (1 + A) .* psi(A);
-            E = bsxfun(@plus, E1, log(B));
+            E = A + gammaln(A) - (1 + A) .* psi(A) + log(B);
             ent0 = sum(E, 1);
             
             mean1 = mean(g);
@@ -87,10 +84,9 @@ classdef tsuite_invgammad
         end
     
         
-        function do_test_evaluation(d, m, uniform_shape, share_scale)
+        function do_test_evaluation(d, m, alpha, beta)
             
-            [g, A, B, gp] = tsuite_invgammad.make_obj(d, m, ...
-                uniform_shape, share_scale);
+            [g, gp, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
             
             N = 100;
             X = rand(d, N) + 0.5;
@@ -114,10 +110,9 @@ classdef tsuite_invgammad
         end
         
         
-        function do_test_sampling(d, m, uniform_shape, share_scale)
+        function do_test_sampling(d, m, alpha, beta)
             
-            g = tsuite_invgammad.make_obj(d, m, ...
-                uniform_shape, share_scale);            
+            g = tsuite_invgammad.make_obj(d, m, alpha, beta);           
             
             mean0 = mean(g);
             var0 = var(g);
@@ -127,16 +122,16 @@ classdef tsuite_invgammad
                 X1 = g.sample(ns);
                 assert(isequal(size(X1), [d, ns]));
                 
-                devcheck('sample 1 - mean', vecmean(X1), mean0, 1e-2);
-                devcheck('sample 1 - var',  vecvar(X1), var0, 8e-2);
+                devcheck('sample 1 - mean', vecmean(X1), mean0, 5e-3);
+                devcheck('sample 1 - var',  vecvar(X1), var0, 0.12);
             end
             
             X2 = g.sample(ns(ones(1, m)), 1:m);
             for k = 1 : m
                 cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
                 
-                devcheck('sample 2 - mean', vecmean(cX2), mean0(:,k), 1e-2);
-                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 8e-2);
+                devcheck('sample 2 - mean', vecmean(cX2), mean0(:,k), 5e-3);
+                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 0.12);
             end
         end
     end
@@ -153,12 +148,41 @@ classdef tsuite_invgammad
             ms = obj.nums;
             
             for d = ds
-                for m = ms
-                    tfunc(d, m, 0, 0);
-                    tfunc(d, m, 0, 1);
-                    tfunc(d, m, 1, 0);
-                    tfunc(d, m, 1, 1);
+            for m = ms
+                   
+                % config tables
+                
+                if d == 1
+                    dd = [1 1];
+                else
+                    dd = [1 1; 1 d; d 1; d d];
                 end
+                
+                if m == 1
+                    mm = [1 1];
+                else
+                    mm = [1 m; m 1; m m];
+                end
+                
+                % run
+                
+                for i = 1 : size(dd, 1)
+                for j = 1 : size(mm, 1)
+                    
+                    da = dd(i, 1); 
+                    db = dd(i, 2);
+                    ma = mm(j, 1);
+                    mb = mm(j, 2);
+                    
+                    alpha = rand(da, ma) + 3;
+                    beta = rand(db, mb) + 0.5;
+                    
+                    tfunc(d, m, alpha, beta);                    
+                    
+                end
+                end
+                    
+            end
             end
             
         end
@@ -167,31 +191,13 @@ classdef tsuite_invgammad
     
     methods(Static, Access='private')
                 
-        function [g, A, B, gp] = make_obj(d, m, uniform_shape, share_scale)
+        function [g, gp, A, B] = make_obj(d, m, alpha, beta)
             
-            if uniform_shape
-                alpha = rand(1, m) + 3;
-                A = repmat(alpha, [d, 1]);
-            else
-                alpha = rand(d, m) + 3;
-                A = alpha;
-            end
+            g  = invgammad(d, alpha, beta);
+            gp = invgammad(d, alpha, beta, 'pre');
             
-            if share_scale
-                beta = rand() + 0.5;
-                B = repmat(beta, 1, m);
-            else
-                beta = rand(1, m) + 0.5;
-                B = beta;
-            end
-            
-            if ~uniform_shape
-                g  = invgammad(alpha, beta);
-                gp = invgammad(alpha, beta, [], 'pre');
-            else
-                g  = invgammad(alpha, beta, d);
-                gp = invgammad(alpha, beta, d, 'pre');
-            end
+            A = bsxfun(@times, alpha, ones(d, m));
+            B = bsxfun(@times, beta, ones(d, m));
             
             assert(g.dim == d);
             assert(g.num == m);
@@ -212,13 +218,11 @@ classdef tsuite_invgammad
             
             L = zeros(m, n);
             
-            for k = 1 : m
-                
-                b = B(k);
-                
+            for k = 1 : m                
                 Pk = zeros(d, n);
                 for i = 1 : d
                     a = A(i, k);
+                    b = B(i, k);
                     x = X(i, :);
                     Pk(i, :) = ((b./x).^a .* exp(-b./x)) ./ (x * gamma(a));
                 end

@@ -14,13 +14,15 @@ classdef gammad
     %        - (alpha log(beta) + gammaln(alpha))
     %  
     %   For an object with n distributions over d-dimensional space:    
-    %   - shape is a matrix of size 1 x n or d x n.
-    %   - scale can be a 1 x n row vector or a scale (shared)    
+    %
+    %   alpha and beta can be in respectively in either of the following
+    %   sizes: 1 x 1, d x 1, 1 x n, d x n.    
     %
     
     %   History
     %   -------
     %       - Created by Dahua Lin, on Aug 31, 2011
+    %       - Modified by Dahua Lin, on Sep 28, 2011
     %
     
     %% Properties
@@ -34,7 +36,7 @@ classdef gammad
         beta;   % the scale parameter(s)
         
         lpconst;   % a constant term in logpdf
-                   % = -(alpha * log(beta) + gammaln(alpha))
+                   % = - sum( (alpha * log(beta) + gammaln(alpha)) )
                    % 1 x n row vector or 0, or empty (if not computed)
     end
     
@@ -51,23 +53,12 @@ classdef gammad
             %       to the i-th distribution in obj.
             %
         
-            a = obj.alpha;
-            b = obj.beta;
             d = obj.dim;
             
-            if isscalar(b)
-                if b == 1
-                    v = a;
-                else
-                    v = a * b;
-                end
-            else
-                v = bsxfun(@times, a, b);
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, obj.alpha, obj.beta);
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
-            end                
+            end
         end
                 
         function v = var(obj)
@@ -79,21 +70,11 @@ classdef gammad
             %       to the i-th distribution in obj.
             %
             
-            a = obj.alpha;
-            b = obj.beta;
+        
             d = obj.dim;
             
-            if isscalar(b)
-                if b == 1
-                    v = a;
-                else
-                    v = a * (b^2);
-                end
-            else
-                v = bsxfun(@times, a, (b.^2));
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, obj.alpha, obj.beta.^2);
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
             end
         end
@@ -108,24 +89,12 @@ classdef gammad
             %       to the i-th distribution in obj.
             %
             
-            a = obj.alpha;
-            b = obj.beta;
             d = obj.dim;
             
-            if isscalar(b)
-                if b == 1
-                    v = (a - 1);
-                else
-                    v = (a - 1) * b;
-                end
-            else
-                v = bsxfun(@times, a - 1, b);
-            end
-            
-            if size(a, 1) ~= d
+            v = bsxfun(@times, obj.alpha - 1, obj.beta);
+            if size(v, 1) < d
                 v = v(ones(d, 1), :);
-            end 
-            v = max(v, 0);
+            end
         end
         
         
@@ -138,26 +107,29 @@ classdef gammad
             %       to the i-th distribution in obj.
             %            
             
+            d = obj.dim;
             a = obj.alpha;
             b = obj.beta;
-            d = obj.dim;
             
-            v = gamma_entropy(a);
-            if ~isequal(b, 1)
-                if isscalar(b) 
-                    v = v + log(b);
+            t1 = a + gammaln(a) + (1 - a) .* psi(a);
+            if d > 1
+                if size(t1, 1) == 1
+                    t1 = d * t1;
                 else
-                    v = bsxfun(@plus, v, log(b));
+                    t1 = sum(t1, 1);
                 end
             end
             
-            if size(v, 1) == 1
-                if d > 1
-                    v = v * d;
+            t2 = log(b);
+            if d > 1
+                if size(t2, 1) == 1
+                    t2 = d * t2;
+                else
+                    t2 = sum(t2, 1);
                 end
-            else
-                v = sum(v, 1);
             end
+            
+            v = t1 + t2;    
         end
         
     end
@@ -166,33 +138,22 @@ classdef gammad
     
     methods 
         
-        function obj = gammad(alpha, beta, d, op)
+        function obj = gammad(d, alpha, beta, op)
             % Constructs a Gamma distribution object
             %
-            %   obj = gammad(alpha);
-            %   obj = gammad(alpha, beta);
+            %   obj = gammad(d, alpha);
+            %   obj = gammad(d, alpha, beta);
             %
             %       constructs a Gamma distribution object given 
             %       the parameters.
             %
             %       Inputs:
-            %       - alpha:    the shape parameter of size d x n.
+            %       - alpha:    the shape parameter.
             %
-            %       - beta:     the scale parameter, which can be
-            %                   either a 1 x n row vector or a 
-            %                   scale (if shared by all distributions).
+            %       - beta:     the scale parameter. 
+            %                   (If omitted, beta is set to 1)
             %
-            %   obj = gammad(alpha, beta, d);
-            %   
-            %       To construct multi-dimensional gamma distributions,
-            %       where each dimension has the same shape param, then
-            %       one can use this syntax.
-            %
-            %       Here, shape can be input a 1 x n row vector, and
-            %       use the 3rd argument to specify the dimension.
-            %
-            %   obj = gammad(alpha, beta, [], 'pre');
-            %   obj = gammad(alpha, beta, d, 'pre');
+            %   obj = gammad(d, alpha, beta, 'pre');
             %
             %       Do pre-computation of the term 
             %       alpha * log(beta) + gammaln(alpha), which might
@@ -201,28 +162,36 @@ classdef gammad
                         
             % verify inputs
             
-            if ~(isfloat(alpha) && ndims(alpha) == 2)
+            if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
                 error('gammad:invalidarg', ...
-                    'alpha should be a numeric matrix.');
-            end            
-            [d_, n] = size(alpha);
+                    'd should be a positive integer scalar.');
+            end           
             
-            if ~( isfloat(beta) && (isscalar(beta) || ...
-                    isequal(size(beta), [1 n])) )
+            if ~(isfloat(alpha) && isreal(alpha) && ndims(alpha) == 2)
                 error('gammad:invalidarg', ...
-                    'beta should be a scalar or a 1 x n row vector.');
+                    'alpha should be a real scalar/vector/matrix.');
+            end
+            [ma, na] = size(alpha);
+            if ~(ma == 1 || ma == d)
+                error('gammad:invalidarg', 'The size of alpha is invalid.');
             end
             
-            if nargin < 3 || isempty(d)
-                d = d_;
+            if nargin < 3
+                beta = 1;
+                nb = 1;
             else
-                if ~(isnumeric(d) && isscalar(d) && d == fix(d) && d >= 1)
+                if ~(isfloat(beta) && isreal(alpha) && ndims(beta) == 2)
                     error('gammad:invalidarg', ...
-                        'd should be a positive integer scalar.');
+                        'beta should be a numeric scalar/vector/matrix.');
                 end
-                if d_ > 1 && d ~= d_
+                [mb, nb] = size(beta);
+                if ~(mb == 1 || mb == d)
+                    error('gammad:invalidarg', 'The size of beta is invalid.');
+                end
+                
+                if ~(na == nb || na == 1 || nb == 1)
                     error('gammad:invalidarg', ...
-                        'The size of shape is inconsistent with d.');
+                        'The sizes of alpha and beta are inconsistent.');
                 end
             end
             
@@ -233,13 +202,13 @@ classdef gammad
                     error('gammad:invalidarg', ...
                         'The 4th argument can only be ''pre''.');
                 end
-                lpc = gammad.calc_lpconst(alpha, beta, d);
+                lpc = gammad.calc_lpconst(d, alpha, beta);
             end
                                     
             % create object
             
             obj.dim = d;
-            obj.num = n;
+            obj.num = max(na, nb);
             obj.alpha = alpha;
             obj.beta = beta;
             obj.lpconst = lpc;
@@ -281,8 +250,10 @@ classdef gammad
             lpc = obj.lpconst;
             
             if nargin >= 3 && ~isempty(si)
-                a = a(:, si);
-                if ~isscalar(b)
+                if size(a, 2) > 1
+                    a = a(:, si);
+                end
+                if size(b, 2) > 1
                     b = b(:, si);
                 end
                 if ~isempty(lpc)
@@ -291,7 +262,7 @@ classdef gammad
             end
             
             if isempty(lpc)
-                lpc = gammad.calc_lpconst(a, b, d);                
+                lpc = gammad.calc_lpconst(d, a, b);                
             end
                         
             if isequal(a, 1)
@@ -304,24 +275,31 @@ classdef gammad
                 end
             end
             
-            if d == 1
-                sX = X;
+            if size(b, 1) == 1
+                if d == 1
+                    sX = X;
+                else
+                    sX = sum(X, 1);
+                end
+                if isscalar(b)
+                    if b == 1
+                        T2 = sX;
+                    else
+                        T2 = sX * (1/b);
+                    end
+                else
+                    T2 = (1./b)' * sX; 
+                end
             else
-                sX = sum(X, 1);
-            end
-            if isequal(b, 1)
-                T2 = sX;
-            else
-                T2 = (1./b)' * sX;
+                T2 = (1./b)' * X;
             end
             
-            if size(T1, 1) == size(T2, 1)
-                L = T1 - T2;
+            L = bsxfun(@minus, T1, T2);                
+            if isscalar(lpc)
+                if lpc ~= 0
+                    L = L + lpc;
+                end
             else
-                L = bsxfun(@minus, T1, T2);
-            end
-                
-            if ~isequal(lpc, 0)
                 L = bsxfun(@plus, L, lpc.');                                
             end                        
         end
@@ -358,23 +336,15 @@ classdef gammad
     
     methods(Static, Access='private')
         
-        function v = calc_lpconst(a, b, d)
+        function v = calc_lpconst(d, a, b)
             % Calculates the log-pdf constant term
-            %
+            
+            % calculate: - sum( alpha * log(beta) + gammaln(alpha) )
             
             if isequal(b, 1)
                 c1 = 0;
             else
-                if d == 1
-                    sa = a;
-                else
-                    if size(a, 1) == 1
-                        sa = a * d;
-                    else
-                        sa = sum(a, 1);
-                    end
-                end
-                c1 = sa .* log(b);
+                c1 = calc_sumprod(1, d, a, log(b));
             end
             
             if isequal(a, 1)
@@ -440,16 +410,23 @@ classdef gammad
                     error('gammad:invalidarg', ...
                         'i must be a numeric vector');
                 end
-                if numel(n) ~= numel(i)
+                K = numel(n);
+                if K ~= numel(i)
                     error('gammad:invalidarg', ...
                         'The sizes of n and i are inconsistent.');
                 end
                 
-                a = a(:, i);
-                if ~isscalar(b)
-                    b = b(i);
-                end                    
-                K = size(a, 2);
+                if size(a, 2) > 1
+                    a = a(:, i);
+                elseif K > 1
+                    a = a(:, ones(1, K));
+                end
+
+                if size(b, 2) > 1
+                    b = b(:, i);
+                elseif K > 1
+                    b = b(:, ones(1, K));
+                end
                 
                 if K == 1
                     X = gamma_sample(a, b, n, d);
@@ -458,14 +435,11 @@ classdef gammad
                     N = sum(n);
                     X = zeros(d, N, class(a));
                     ek = 0;
-                    if isscalar(b)
-                        b = b(ones(1, K));
-                    end
                     
                     for k = 1 : K
                         sk = ek + 1;
                         ek = ek + n(k);
-                        X(:, sk:ek) = gamma_sample(a(:,k), b(k), n(k), d);
+                        X(:, sk:ek) = gamma_sample(a(:,k), b(:,k), n(k), d);
                     end
                 end
                 

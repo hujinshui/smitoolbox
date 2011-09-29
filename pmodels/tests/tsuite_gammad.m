@@ -43,9 +43,9 @@ classdef tsuite_gammad
     
     methods(Static, Access='private')
     
-        function do_test_basics(d, m, uniform_shape, share_scale)
+        function do_test_basics(d, m, alpha, beta)
             
-            [g, A, B, gp] = tsuite_gammad.make_obj(d, m, uniform_shape, share_scale);
+            [g, gp, A, B] = tsuite_gammad.make_obj(d, m, alpha, beta);
             
             assert(isempty(g.lpconst));
             assert(isequal(size(gp.lpconst), [1, m]));
@@ -55,16 +55,15 @@ classdef tsuite_gammad
         end
         
         
-        function do_test_statistics(d, m, uniform_shape, share_scale)
+        function do_test_statistics(d, m, alpha, beta)
             
-            [g, A, B] = tsuite_gammad.make_obj(d, m, uniform_shape, share_scale);
+            [g, ~, A, B] = tsuite_gammad.make_obj(d, m, alpha, beta);
             
             mean0 = bsxfun(@times, A, B);
             var0 = bsxfun(@times, A, B.^2);
             mode0 = bsxfun(@times, A-1, B);
             
-            E1 = A + gammaln(A) + (1 - A) .* psi(A);
-            E = bsxfun(@plus, E1, log(B));
+            E = A + gammaln(A) + (1 - A) .* psi(A) + log(B);
             ent0 = sum(E, 1);
             
             mean1 = mean(g);
@@ -84,9 +83,9 @@ classdef tsuite_gammad
         end
         
         
-        function do_test_evaluation(d, m, uniform_shape, share_scale)
+        function do_test_evaluation(d, m, alpha, beta)
             
-            [g, A, B, gp] = tsuite_gammad.make_obj(d, m, uniform_shape, share_scale);
+            [g, gp, A, B] = tsuite_gammad.make_obj(d, m, alpha, beta);
             
             N = 100;
             X = rand(d, N);
@@ -117,13 +116,13 @@ classdef tsuite_gammad
             mean0 = mean(g);
             var0 = var(g);
             
-            ns = 5e5;
+            ns = 1e5;
             if m == 1
                 X1 = g.sample(ns);
                 assert(isequal(size(X1), [d, ns]));
                 
                 devcheck('sample 1 - mean', vecmean(X1), mean0, 2e-2);
-                devcheck('sample 1 - var',  vecvar(X1), var0, 5e-2);
+                devcheck('sample 1 - var',  vecvar(X1), var0, 0.15);
             end
             
             X2 = g.sample(ns(ones(1, m)), 1:m);
@@ -132,7 +131,7 @@ classdef tsuite_gammad
                 cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
                 
                 devcheck('sample 2 - mean', vecmean(cX2), mean0(:,k), 2e-2);
-                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 5e-2);
+                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 0.15);
             end
         end
     end
@@ -150,12 +149,41 @@ classdef tsuite_gammad
             ms = obj.nums;
             
             for d = ds
-                for m = ms
-                    tfunc(d, m, 0, 0);
-                    tfunc(d, m, 0, 1);
-                    tfunc(d, m, 1, 0);
-                    tfunc(d, m, 1, 1);
+            for m = ms
+                   
+                % config tables
+                
+                if d == 1
+                    dd = [1 1];
+                else
+                    dd = [1 1; 1 d; d 1; d d];
                 end
+                
+                if m == 1
+                    mm = [1 1];
+                else
+                    mm = [1 m; m 1; m m];
+                end
+                
+                % run
+                
+                for i = 1 : size(dd, 1)
+                for j = 1 : size(mm, 1)
+                    
+                    da = dd(i, 1); 
+                    db = dd(i, 2);
+                    ma = mm(j, 1);
+                    mb = mm(j, 2);
+                    
+                    alpha = rand(da, ma) + 1.5;
+                    beta = rand(db, mb) + 0.5;
+                    
+                    tfunc(d, m, alpha, beta);                    
+                    
+                end
+                end
+                    
+            end
             end
             
         end
@@ -164,31 +192,13 @@ classdef tsuite_gammad
     
     methods(Static, Access='private')
         
-        function [g, A, B, gp] = make_obj(d, m, uniform_shape, share_scale)
-        
-            if uniform_shape
-                alpha = rand(1, m) + 1.2;
-                A = repmat(alpha, [d, 1]);
-            else
-                alpha = rand(d, m) + 1.2;
-                A = alpha;
-            end
+        function [g, gp, A, B] = make_obj(d, m, alpha, beta)
             
-            if share_scale
-                beta = rand() + 0.5;
-                B = repmat(beta, 1, m);
-            else
-                beta = rand(1, m) + 0.5;
-                B = beta;
-            end
+            g  = gammad(d, alpha, beta);
+            gp = gammad(d, alpha, beta, 'pre');
             
-            if ~uniform_shape
-                g  = gammad(alpha, beta);                
-                gp = gammad(alpha, beta, [], 'pre');                
-            else                
-                g  = gammad(alpha, beta, d);                
-                gp = gammad(alpha, beta, d, 'pre');
-            end
+            A = bsxfun(@times, alpha, ones(d, m));
+            B = bsxfun(@times, beta, ones(d, m));
             
             assert(g.dim == d);
             assert(g.num == m);
@@ -204,13 +214,8 @@ classdef tsuite_gammad
         
         function v = my_calc_lpconst(A, B)
             
-            v = bsxfun(@times, A, log(B)) + gammaln(A);
-            
-            if size(v, 1) > 1
-                v = sum(v, 1);
-            end
-            m = size(A, 2);
-            assert(isequal(size(v), [1, m]));
+            v = A .* log(B) + gammaln(A);
+            v = sum(v, 1);
             v = -v;
         end
         
@@ -221,13 +226,11 @@ classdef tsuite_gammad
             
             L = zeros(m, n);
             
-            for k = 1 : m
-                
-                b = B(k);
-                
+            for k = 1 : m                
                 Pk = zeros(d, n);
                 for i = 1 : d
                     a = A(i, k);
+                    b = B(i, k);
                     Pk(i, :) = gampdf(X(i, :), a, b);
                 end
                 
