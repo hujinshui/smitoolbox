@@ -281,6 +281,7 @@ classdef gaussgm < genmodel_base
                 aux.cpri = cpri;
                 aux.cf = cf;
                 aux.Cx = [];
+                Cx_ = [];
             else
                 upri = aux.upri;
                 cpri = aux.cpri;
@@ -292,7 +293,7 @@ classdef gaussgm < genmodel_base
             
             if estCx;
                 if isempty(Cx_)
-                    Cx_ = gaussgm.bootCx(cf, cpri);
+                    Cx_ = gaussgm.bootCx(model.xdim, cf, cpri);
                 end
                 Jx_ = pdmat_inv(Cx_);
             else
@@ -322,6 +323,7 @@ classdef gaussgm < genmodel_base
             % Estimate covariance matrix
             
             if estCx
+                c_tied = model.tied_cov;
                 switch optype
                     case 'atom'
                         [~, ~, Cx_e] = ...
@@ -376,7 +378,10 @@ classdef gaussgm < genmodel_base
                 
             elseif isa(params, 'gaussd')
                 g0 = params;
-                g = gaussd.from_mp(g0.mu, pdmat_plus(g0.C, model.Cx), 'ip');                
+                g = gaussd.from_mp(g0.mu, pdmat_plus(g0.C, model.Cx), 'ip');
+                
+            elseif isstruct(params)
+                g = gaussd.from_mp(params.U, params.Cx, 'ip');
             end
             
             if nargin < 5              
@@ -387,7 +392,7 @@ classdef gaussgm < genmodel_base
         end
         
                 
-        function lpri = evaluate_logpri(model, pri, params, ~) %#ok<MANU>
+        function lpri = evaluate_logpri(model, pri, params, aux) %#ok<MANU>
             % Evaluate the total log-prior of a given set of parameters
             %
             %   Lpri = model.evaluate_logpri(pri, params, aux);
@@ -398,14 +403,38 @@ classdef gaussgm < genmodel_base
             %       If U has K parameters, Lpri is a 1 x K vector.
             %
             
-            if isempty(pri)
-                lpri = 0;
-                
-            else
-                if isnumeric(params)
+            if isnumeric(params)
+                upri = aux.upri;
+                if isempty(upri)
+                    lpri = 0;
+                else
                     U = params;
                     lpri = sum(pri.logpdf(U));
-                end        
+                end
+            else
+                upri = aux.upri;
+                cpri = aux.cpri;
+               
+                if isempty(upri)
+                    lpri_u = 0;
+                else
+                    U = params.U;
+                    lpri_u = sum(upri.logpdf(U));
+                end
+                
+                if isempty(cpri)
+                    lpri_c = 0;
+                else
+                    C = params.Cx;
+                    cf = aux.cf;
+                    if cf == 's' || cf == 'd'
+                        lpri_c = sum(cpri.logpdf(C.v));
+                    else
+                        lpri_c = sum(cpri.logpdf(C));
+                    end
+                end
+               
+                lpri = lpri_u + lpri_c;
             end
         end
     end
@@ -455,7 +484,7 @@ classdef gaussgm < genmodel_base
                         tf1 = true;
                         upri = [];
                     elseif isa(e1, 'gaussd')
-                        tf1 = pri.dim == du && pri.num == 1 && pri.has_ip;
+                        tf1 = e1.dim == du && e1.num == 1 && e1.has_ip;
                         upri = e1;
                     else
                         tf1 = false;
@@ -523,11 +552,10 @@ classdef gaussgm < genmodel_base
                     
                 case 'f'
                     if isempty(cpri)
-                        C = eye(d);
+                        Cx = pdmat('f', d, eye(d));
                     else
-                        C = cpri.mode();
-                    end
-                    Cx = pdmat('d', d, C);                    
+                        Cx = cpri.mode();
+                    end             
             end            
         end
         

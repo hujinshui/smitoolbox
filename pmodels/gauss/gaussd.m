@@ -820,7 +820,7 @@ classdef gaussd
                 if scov || n == 1
                     cc = C_;
                 else
-                    cc = pdmat_sub(C_, i);
+                    cc = pdmat_pick(C_, i);
                 end                
                 u = mu_(:, i);                                
                 
