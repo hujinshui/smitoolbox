@@ -57,7 +57,7 @@ if nargin < 5; Z = []; end
 if nargin < 6; tied = false; end
 if nargin < 7; op = []; end
 
-if ~skipverify
+if nargin < 8 || ~skipverify
     [d, n, K, zty, tied, samp] = verify_args(cf, cpri, X, mu, Z, tied, op);
 else
     [d, n] = size(X);
@@ -97,13 +97,14 @@ if cf == 's' || cf == 'd'
         S_x = zeros(d, K);
         nu_x = zeros(1, K);
         for k = 1 : K
-            S_x(:,k) = vscatter(X, mu(:,k), Z{k}, 'v');
+            S_x(:,k) = vscatter(X(:,Z{k}), mu(:,k), 1, 'v');
             nu_x(k) = numel(Z{k});
         end
     end    
     
     if cf == 's' && d > 1
-        S_x = sum(S_x, 1) * (1 / d);
+        S_x = sum(S_x, 1);
+        nu_x = nu_x * d;
     end
     
     if tied && K > 1
@@ -111,19 +112,19 @@ if cf == 's' || cf == 'd'
         nu_x = sum(nu_x);
     end    
     
-else
+else  % cf == 'f'
     
     if zty == 0
-        S_x = vscatter(X, mu, 1, 'm');
+        S_x = vscatter(X, mu, 1, 'c');
         nu_x = n;
     elseif zty == 1
-        S_x = vscatter(X, mu, Z, 'm');
+        S_x = vscatter(X, mu, Z, 'c');
         nu_x = sum(Z, 2)';
     else
-        S_x = zeros(d, K);
+        S_x = zeros(d, d, K);
         nu_x = zeros(1, K);
         for k = 1 : K
-            S_x(:,k) = vscatter(X, mu(:,k), Z{k}, 'm');
+            S_x(:,:,k) = vscatter(X(:,Z{k}), mu(:,k), 1, 'c');
             nu_x(k) = numel(Z{k});
         end
     end 
@@ -159,8 +160,12 @@ else
         S = S_x;
         nu = nu_x - (d + 1);        
     else
-        S = S_x + pdmat_fullform(cpri.Phi);
-        nu = nu_x + cpri.deg;        
+        if K == 1
+            S = S_x + pdmat_fullform(cpri.Phi);
+        else
+            S = bsxfun(@plus, S_x, pdmat_fullform(cpri.Phi));
+        end
+        nu = nu_x + cpri.deg;
     end    
 end     
 
@@ -177,7 +182,10 @@ if mapest
         if tied || d == 1
             C = S .* (1 ./ (nu + d + 1));
         else
-            C = bsxfun(@times, S, 1 ./ (nu + d + 1));
+            C = zeros(d, d, K);
+            for k = 1 : K
+                C(:,:,k) = S(:,:,k) .* (1 ./ (nu(k) + d + 1));
+            end
         end
     end 
     C = pdmat(cf, d, C);
@@ -187,16 +195,34 @@ end
 
 if samp
     if cf == 's' || cf == 'd'
-        J = gamma_sample(nu, S, 1);
-        C = 1 ./ J;        
+        if K == 1
+            J = gamma_sample(nu, 1 ./ S, 1);
+        else
+            J = zeros(size(S,1), K);
+            for k = 1 : K
+                J(:,k) = gamma_sample(nu(k), 1 ./ S(:,k), 1);
+            end
+        end            
+        C = 1 ./ J;  
     else
-        J = wishart_sample(S, nu, 1);
-        C = inv(J);
-        C = 0.5 * (C + C');
+        if K == 1
+            J = wishart_sample(pdmat(inv(S)), nu, 1);
+            C = inv(J);
+            C = 0.5 * (C + C');
+        else
+            C = zeros(d, d, K);
+            for k = 1 : K
+                cJ = wishart_sample(pdmat(inv(S(:,:,k))), nu(k), 1);
+                cC = inv(cJ);
+                C(:,:,k) = 0.5 * (cC + cC');
+            end           
+        end
     end   
+    
     C = pdmat(cf, d, C);
 end
 
+        
 
 %% Argument verification
 
@@ -222,14 +248,14 @@ K = size(mu, 2);
 
 if cf == 's'
     if ~isempty(cpri)
-        if ~(isa(cpri, 'scale_invchi2d') && cpri.num == 1 && cpri.dim == 1)
+        if ~(isa(cpri, 'invgammad') && cpri.num == 1 && cpri.dim == 1)
             error('gaussgm_cov_pos:invalidarg', 'cpri is invalid.');
         end
     end
     
 elseif cf == 'd'
     if ~isempty(cpri)
-        if ~(isa(cpri, 'scale_invchi2d') && cpri.num == 1 && cpri.dim == d)
+        if ~(isa(cpri, 'invgammad') && cpri.num == 1 && cpri.dim == d)
             error('gaussgm_cov_pos:invalidarg', 'cpri is invalid.');
         end
     end
