@@ -1,7 +1,7 @@
-function [s, t] = localedges(siz, rgn)
+function [s, t] = gr_localedges(siz, rgn)
 % Get the edges of 1D or 2D locally connected graph
 %
-%   [s, t] = localedges(n, r);
+%   [s, t] = gr_localedges(n, r);
 %
 %       Gets the edges for locally connected graph over one-dimensional
 %       grid. Here, n is the number of nodes, and r is the local range.
@@ -12,8 +12,8 @@ function [s, t] = localedges(siz, rgn)
 %       the number of undirected edges. In each pair of s(i) and t(i),
 %       we have s(i) < t(i).
 %   
-%   [s, t] = localedges([m, n], r);
-%   [s, t] = localedges([m, n], [yr, xr]);
+%   [s, t] = gr_localedges([m, n], r);
+%   [s, t] = gr_localedges([m, n], [yr, xr]);
 %
 %       Gets the edges for locally connected graph over two-dimensional
 %       grid. Here, the grid size is m rows and n columns, and yr and xr
@@ -23,7 +23,7 @@ function [s, t] = localedges(siz, rgn)
 %       the number of undirected edges. s(i,:) and t(i,:) are the
 %       subscripts of the source and target end of the i-th edge
 %
-%   [s, t] = localedges([m, n], ker);
+%   [s, t] = gr_localedges([m, n], ker);
 %
 %       Gets the edges for locally connected graph over two-dimensional
 %       grid. Here, ker is a matrix specifying the connection pattern, 
@@ -37,23 +37,23 @@ function [s, t] = localedges(siz, rgn)
 %% verify input arguments
 
 if ~(isnumeric(siz) && ndims(siz) == 2 && all(siz == fix(siz)) )
-    error('localedges:invalidarg', 'The 1st argument is invalid.');
+    error('gr_localedges:invalidarg', 'The 1st argument is invalid.');
 end
 
 d = numel(siz);
 if ~(d == 1 || d == 2)
-    error('localedges:invalidarg', 'Only 1D or 2D grid is allowed.');
+    error('gr_localedges:invalidarg', 'Only 1D or 2D grid is allowed.');
 end
 
 if d == 1
     r = rgn;
     if ~(isnumeric(r) && isscalar(r) && r == fix(r) && r >= 0)
-        error('localedges:invalidarg', 'r should be a positive integer.');
+        error('gr_localedges:invalidarg', 'r should be a positive integer.');
     end
     
 else
     if ndims(rgn) ~= 2
-        error('localedges:invalidarg', 'The 2nd argument is invalid.');
+        error('gr_localedges:invalidarg', 'The 2nd argument is invalid.');
     end
     
     if isnumeric(rgn) && numel(rgn) <= 2
@@ -67,12 +67,12 @@ else
     elseif islogical(rgn)        
         pat = rgn;         
         if pat(1)
-            error('localedges:invalidarg', ...
+            error('gr_localedges:invalidarg', ...
                 'The first element of the kernel must be false for 2D.');
         end
         
     else
-        error('localedges:invalidarg', 'The 2nd argument is invalid.');
+        error('gr_localedges:invalidarg', 'The 2nd argument is invalid.');
     end
     
 end
