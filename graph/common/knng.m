@@ -1,7 +1,7 @@
-function G = knng(D, K, varargin)
+function [G, w] = knng(D, K, varargin)
 % Construct K-nearest-neighbor graph
 %
-%   G = knng(D, K, ...);
+%   [G, w] = knng(D, K, ...);
 %
 %       constructs a graph G by connecting each vertex to its K nearest
 %       neighbors.
@@ -14,13 +14,8 @@ function G = knng(D, K, varargin)
 %               - n x n sparse matrix, if D(i, j) is non-zero, then it
 %                 represents the distance between the i-th and j-th
 %                 vertices. 
-%               - a weighted & undirected graph represented by a 
-%                 gr_edgelist object.
-%
-%               Note that for each vertex v, v itself is not considered
-%               as a neighbor of v. In addition for input form as a 
-%               sparse matrix or a gr_adjlist object, only outgoing 
-%               neighbors can be included.
+%               - {g, w}: an graph struct together with edge weight/dist 
+%                 values.
 %
 %       - K:    the (maximum) number of nearest neighbors for each vertex.
 %
@@ -51,6 +46,7 @@ function G = knng(D, K, varargin)
 %   History
 %   -------
 %       - Created by Dahua Lin, on Nov 13, 2010
+%       - Modified by Dahua Lin, on Oct 28, 2011
 %
 
 %% verify input arguments
@@ -62,16 +58,31 @@ if isnumeric(D)
     n = size(D, 1); 
     
     if issparse(D)
-        D = gr_adjlist.from_amat('d', D);
+        [g, w] = gr_from_wmat(D, 'd');
+        use_g = 1;
+    else
+        use_g = 0;
     end
     
-elseif isa(D, 'gr_adjlist')    
+elseif iscell(D) && numel(D) == 2
     
-    if (~(D.is_weighted && D.dtype == 'u'))
+    g = D{1};
+    w = D{2};
+    
+    if ~(g.dty == 'u' && g.has_nbs)
         error('knng:invalidarg', ...
-        'The input graph should be weighted and undirected.');
-    end    
-    n = D.nv;
+            'The input graph should be undirected and have neighborhood.');
+    end
+    
+    n = double(g.n);
+    if ~(isnumeric(w) && isvector(w) && numel(w) == g.m)
+        error('knng:invalidarg', ...
+            'w should be a numeric vector of length m.');
+    end
+    
+    use_g = 1;
+else
+    error('knng:invalidarg', 'The 1st argument is invalid.');
 end
 
 if ~(isnumeric(K) && isscalar(K) && K >= 1 && K <= n-1)
@@ -101,18 +112,23 @@ end
 
 % extract neighboring edges
 
-if isnumeric(D)    
-    D = rmdiag(D, 'r');
-    [w, t] = top_k(D, opts.s, K, 1);
-    s = repmat(1:n, K, 1);
-    t(t >= s) = t(t >= s) + 1;  
+if use_g
+    [s, t, w] = knng_cimp(g, w, double(K), use_min); 
+else
+    if strcmp(opts.s, 'min')
+        rdv = inf;
+    else
+        rdv = -inf;
+    end
+    D(1:(n+1):n*n) = rdv;
+    
+    [w, t] = top_k(D, opts.s, K, 2);
+    s = repmat((1:n).', 1, K); 
     
     s = s(:);
     t = t(:);
     w = w(:);
-else    
-    [s, t, w] = knng_cimp(D, double(K), use_min); 
-end
+end    
 
     
 % filter edges
@@ -136,7 +152,7 @@ end
 % make graph
 
 if ~opts.sym
-    G = gr_adjlist.from_edges('d', n, s, t, w);
+    G = make_gr('d', n, s, t, 'nbs');
 else
     sa = [s; t];
     ta = [t; s];
@@ -147,14 +163,10 @@ else
     ta = ta(c);
     wa = wa(c);   
     
-    [s, t, w] = make_unique(n, sa, ta, wa);
-    
-    G = gr_adjlist.from_edges('u', n, s, t, w);
+    [s, t, w] = make_unique(n, sa, ta, wa);    
+    G = make_gr('u', n, s, t, 'nbs');
 end
     
-
-
-
 
 function [s, t, w] = make_unique(n, s, t, w)
 
