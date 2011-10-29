@@ -6,8 +6,7 @@ function [h, coords] = gr_plot(g, coords, varargin)
 %   h = gr_plot(g, coords, ...);
 %       plots the graph g. 
 %
-%       In input, g can be either an object of class gr_edgelist, or
-%       an affinity matrix.
+%       In input, g is a graph struct produced by make_gr
 %
 %       coords is an n x 2 or n x 3 array that gives the coordinates of 
 %       the graph (in 2D or 3D space). If coord is 2 or 3, then the
@@ -28,23 +27,16 @@ function [h, coords] = gr_plot(g, coords, varargin)
 %       - Created by Dahua Lin, on Nov 5, 2010
 %       - Modified by Dahua Lin, on Nov 13, 2010
 %           - use new graph class
+%       - Modified by Dahua Lin, on Oct 28, 2011
+%           - use new graph struct
 
 
 %% verify input arguments
    
-if isa(g, 'gr_edgelist')
-    n = g.nv;
-elseif (isnumeric(g) || islogical(g))
-    if ~(ndims(g) == 2 && size(g,1) == size(g,2))
-        error('gr_plot:invalidarg', ...
-            'The affinity matrix should be a square matrix.');
-    end
-    n = size(g,1);
-else
-    error('gr_plot:invalidarg', ...
-        'g should be either a gr_edgelist object or an affinity matrix.');
+if ~is_gr(g)
+    error('gr_plot:invalidarg', 'g should be a graph struct.');
 end
-
+n = g.n;
    
 if isscalar(coords)
     d = coords;
@@ -71,15 +63,15 @@ end
 % generate coordinates
 
 if isempty(coords)
-    coords = gsembed(g, d, 1);
+    coords = gsembed(g, 1, d, 1);
 else
     d = size(coords, 2);
 end
 
 % generate plot
 
-s = g.source_vs;
-t = g.target_vs;
+s = g.edges(1, :);
+t = g.edges(2, :);
 
 if d == 2
     x = gen_coord_seq(coords(:, 1), s, t);
