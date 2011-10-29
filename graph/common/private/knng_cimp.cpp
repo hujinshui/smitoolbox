@@ -9,14 +9,14 @@
  **********************************************************/ 
 
 #include <bcslib/matlab/bcs_mex.h>
-#include <bcslib/graph/bgl_port.h>
-#include <bcslib/matlab/mgraph.h>
+#include "../../clib/smi_graph_mex.h"
 
 #include <vector>
 #include <functional>
 
 using namespace bcs;
 using namespace bcs::matlab;
+using namespace smi;
 
 template<typename T>
 struct ewinfo
@@ -44,36 +44,35 @@ struct ewinfo
 
 
 template<typename TWeight, template<typename U> class TComp>
-gr_size_t knng_prune(const gr_wadjlist<TWeight, gr_undirected>& g, int K, 
+gindex_t knng_prune(const DGraph& g, 
+        const TWeight *weights,
+        int K, 
         std::vector<int>& ss,
         std::vector<int>& st, 
         std::vector<TWeight>& sw)
 {
-    gr_size_t ns = 0;
-    gr_size_t n = num_vertices(g);
+    gindex_t ns = 0;
+    gindex_t n = g.nnodes();
     
-    for (gr_size_t i = 0; i < n; ++i)
-    {
-        vertex_t v(i);
-        
-        gr_size_t d = out_degree(v, g);
+    for (gindex_t v = 1; v <= n; ++v)
+    {        
+        gindex_t d = g.out_degree(v);
         std::vector<ewinfo<TWeight> > tmp;
         tmp.reserve(d);        
-        
-        typedef typename gr_wadjlist<TWeight, gr_undirected>::adj_edge_iterator eiter_t;
-        eiter_t eit;
-        eiter_t eit_end;
-        
+                
         // collect local info
         
-        for (rbind(eit, eit_end) = out_edges(v, g); eit != eit_end; ++eit) 
+        const gindex_t *E = g.out_edges(v);
+        
+        for (gindex_t j = 0; j < d; ++j) 
         {
-            edge_t e = *eit;
+            gindex_t eidx = E[j];
+            const DEdge& e = g.edge(eidx);
             
             ewinfo<TWeight> ew;
-            ew.s = source(e, g).index;
-            ew.t = target(e, g).index;
-            ew.w = g.weight_of(e);
+            ew.s = e.s;
+            ew.t = e.t;
+            ew.w = weights[eidx];
             
             tmp.push_back(ew);
         }
@@ -85,7 +84,7 @@ gr_size_t knng_prune(const gr_wadjlist<TWeight, gr_undirected>& g, int K,
         if (K < (int)tmp.size()) 
         {
             std::nth_element(tmp.begin(), tmp.begin() + k, tmp.end(), 
-                    TComp<ewinfo<TWeight> >() );
+                    TComp<ewinfo<TWeight> >() ); 
         }
         else {
             k = (int)tmp.size();
@@ -102,7 +101,7 @@ gr_size_t knng_prune(const gr_wadjlist<TWeight, gr_undirected>& g, int K,
             sw.push_back(ew.w);            
         } 
         
-        ns += k;
+        ns += k;        
     }
     
     return ns;
@@ -110,11 +109,10 @@ gr_size_t knng_prune(const gr_wadjlist<TWeight, gr_undirected>& g, int K,
 
 
 template<typename TWeight>
-inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plhs[])
-{
-    gr_wadjlist<TWeight, gr_undirected> g = to_gr_wadjlist<TWeight, gr_undirected>(mG);
-    
-    gr_size_t n = num_vertices(g);
+inline void do_knng(const DGraph& g, const TWeight *weights, 
+        int K, bool use_min, int nlhs, mxArray *plhs[])
+{    
+    gindex_t n = g.nnodes();
     
     std::vector<int32_t> ss;
     std::vector<int32_t> st;
@@ -124,15 +122,15 @@ inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plh
     st.reserve(n * K);
     sw.reserve(n * K);
     
-    gr_size_t ns = 0;
+    gindex_t ns = 0;
     
     if (use_min)
     {
-        ns = knng_prune<TWeight, std::less>(g, K, ss, st, sw);
+        ns = knng_prune<TWeight, std::less>(g, weights, K, ss, st, sw);
     }
     else
     {
-        ns = knng_prune<TWeight, std::greater>(g, K, ss, st, sw);
+        ns = knng_prune<TWeight, std::greater>(g, weights, K, ss, st, sw);
     }
     
     marray mSS = create_marray<int32_t>(ns, 1);
@@ -143,10 +141,10 @@ inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plh
     int32_t *p_st = mST.data<int32_t>();
     TWeight *p_sw = mSW.data<TWeight>();
     
-    for (gr_size_t i = 0; i < ns; ++i)
+    for (gindex_t i = 0; i < ns; ++i)
     {
-        p_ss[i] = ss[i] + 1;
-        p_st[i] = st[i] + 1;
+        p_ss[i] = ss[i];
+        p_st[i] = st[i];
         p_sw[i] = sw[i];
     }
         
@@ -161,9 +159,10 @@ inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plh
  * main entry:
  *
  * In
- * [0]: g:  the gr_adjlist object
- * [1]: K:  the maximum number of neighbors 
- * [2]: use_min:  logical
+ * [0]: g:  the graph struct
+ * [1]: w:  the edge weights
+ * [2]: K:  the maximum number of neighbors 
+ * [3]: use_min:  logical
  *
  * Out
  * [0]: ss: the sources of selected edges
@@ -172,26 +171,30 @@ inline void do_knng(const_mgraph mG, int K, bool use_min, int nlhs, mxArray *plh
  */
 void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    const_mgraph mG(prhs[0]);    
-    int K = (int)(const_marray(prhs[1]).get_scalar<double>());
-    bool use_min = const_marray(prhs[2]).get_scalar<bool>();
+    const_marray mG(prhs[0]);
+    DGraph g(get_dgraph_spec(mG));    
     
-    switch (mG.weight_type())
+    const_marray mW(prhs[1]);
+    
+    int K = (int)(const_marray(prhs[2]).get_scalar<double>());
+    bool use_min = const_marray(prhs[3]).get_scalar<bool>();
+    
+    switch (mW.class_id())
     {
         case mxDOUBLE_CLASS:
-            do_knng<double>(mG, K, use_min, nlhs, plhs);
+            do_knng<double>(g, mW.data<double>(), K, use_min, nlhs, plhs);
             break;
             
         case mxSINGLE_CLASS:
-            do_knng<float>(mG, K, use_min, nlhs, plhs);
+            do_knng<float>(g, mW.data<float>(), K, use_min, nlhs, plhs);
             break;
             
         case mxINT32_CLASS:
-            do_knng<int32_t>(mG, K, use_min, nlhs, plhs);
+            do_knng<int32_t>(g, mW.data<int32_t>(), K, use_min, nlhs, plhs);
             break;
             
         case mxUINT32_CLASS:
-            do_knng<uint32_t>(mG, K, use_min, nlhs, plhs);
+            do_knng<uint32_t>(g, mW.data<uint32_t>(), K, use_min, nlhs, plhs);
             break;
             
         default:
