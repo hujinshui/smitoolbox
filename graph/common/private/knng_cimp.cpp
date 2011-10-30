@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <functional>
+#include <algorithm>
 
 using namespace bcs;
 using namespace bcs::matlab;
