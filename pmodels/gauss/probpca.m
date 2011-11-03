@@ -1,9 +1,19 @@
 classdef probpca
     % The class to represent a Probabilistic PCA model
     %
+    %   A Probabilistic PCA (PPCA) model is parameterized by a d x q
+    %   matrix W that relates the latent variables with the observed
+    %   variables, and sigma^2.
+    %
+    %       z ~ N(0, I);                    -- the latent variable x
+    %       x ~ N(W * z + mu, sigma^2 * I)  -- the observed vector y
+    %
     
     % Created by Dahua Lin, on Nov 20, 2010
+    % Modified by Dahua Lin, on Nov 3, 2011
     %
+    
+    %% Properties
     
     properties(GetAccess='public', SetAccess='private')
         
@@ -28,6 +38,8 @@ classdef probpca
         ldcov;      % the log-determinant of covariance        
     end
     
+    
+    %% Constructor
     
     methods
     
@@ -106,7 +118,12 @@ classdef probpca
             obj.ldcov = ldc;
             
         end
-        
+    end
+    
+    
+    %% Basic methods
+    
+    methods        
         
         function C = get_cov(obj)
             % Compute the covariance matrix
@@ -121,6 +138,22 @@ classdef probpca
             W_ = obj.W;
             C = adddiag(W_ * W_', obj.sigma2);
         end   
+        
+        
+        function J = get_precmat(obj)
+            % Compute the precision matrix (inverse covariance)
+            %
+            %   J = obj.get_precmat();
+            %       It returns a d x d precision matrix.
+            %
+            %       Note that C is a dense matrix, and be cautious in
+            %       using this method when d is very large.
+            %
+            
+            J = obj.W * obj.F;
+            J = (-0.5) * (J + J');
+            J = (1/obj.sigma2) * adddiag(J, 1);            
+        end
         
         
         function G = to_gauss(obj, op)
@@ -150,15 +183,13 @@ classdef probpca
             switch op
                 case 'mp'
                     C = get_cov(obj);
-                    G = gaussd.from_mp(obj.mu, gsymat(C));
+                    G = gaussd.from_mp(obj.mu, pdmat(C));
                 case 'ip'
-                    J = obj.W * obj.F;
-                    J = (-0.5) * (J + J');
-                    J = (1/obj.sigma2) * adddiag(J, 1);
-                    G = gaussd.from_ip(obj.h, gsymat(J), obj.c0);
+                    J = get_precmat(obj);
+                    G = gaussd.from_ip(obj.h, pdmat(J), obj.c0);
                 case 'both'
                     C = get_cov(obj);
-                    G = gaussd.from_mp(obj.mu, gsymat(C), 'ip');
+                    G = gaussd.from_mp(obj.mu, pdmat(C), 'ip');
                 otherwise
                     error('probpca:invalidarg', ...
                         'The 2nd argument is invalid.');
@@ -166,7 +197,7 @@ classdef probpca
         end
         
         
-        function X = reconstruct(obj, Y)
+        function X = reconstruct(obj, Z)
             % reconstructs from latent variables
             %
             %   X = obj.reconstruct(Y);
@@ -178,7 +209,7 @@ classdef probpca
             %       In the output, X(:,i) corresponds to Y(:,i).
             %
             
-            X = obj.W * Y;
+            X = obj.W * Z;
             mu_ = obj.mu;
             if ~isequal(mu_, 0)
                 X = bsxfun(@plus, X, mu_);
@@ -186,10 +217,10 @@ classdef probpca
         end
         
         
-        function Y = transform(obj, X)
+        function Z = transform(obj, X)
             % transform observed vectors to latent representation.
             %
-            %   Y = obj.transform(X);
+            %   Z = obj.transform(X);
             %       transforms observed vectors to the q-dimensional
             %       representation on latent space.
             %
@@ -198,7 +229,7 @@ classdef probpca
             if ~isequal(mu_, 0)
                 X = bsxfun(@minus, X, mu_);
             end            
-            Y = obj.T * X;          
+            Z = obj.T * X;          
         end
        
         
@@ -223,7 +254,7 @@ classdef probpca
             F_ = obj.F;
             
             Z = X - W_ * (F_ * X);
-            t2 = dot(X, Z, 1) * (1 / obj.sigma2);
+            t2 = sum(X .* Z, 1) * (1 / obj.sigma2);
             
             if isequal(h_, 0)
                 D = t2;
@@ -248,104 +279,218 @@ classdef probpca
             D = sqmahdist(obj, X);
             L = -0.5 * (D + (obj.dim * log(2*pi) + obj.ldcov));
         end
-                
+            
+        
+        function P = pdf(obj, X)
+            % Compute the pdf of observed vectors in X
+            %
+            %   L = obj.pdf(X);
+            %       Suppose there are n columns in X, then P will be
+            %       a row vector of length n. In particular, P(i)
+            %       corresponds to X(:,i).
+            %
+            
+            P = exp(logpdf(obj, X));
+        end
+        
     end
     
     
+    %% Estimation
+    
     methods(Static)
-       
-        function obj = from(varargin)
-            % Constructs a PPCA model from covariance or standard PCA
+        
+        function obj = mle(X, w, q, varargin)
+            % Performs Maximum Likelihood estimation of PPCA from data
             %
-            %   obj = probpca.from(mu, C, p);
-            %       constructs a Probabilistic PCA model with latent 
-            %       dimension p from a Gaussian distribution, whose
-            %       mean is mu, and covariance is C.
+            %   obj = probpca.mle(X, [], q, ...);
+            %   obj = probpca.mle(X, w, q, ...);
             %
-            %       Note that p should be less than rank(C).
+            %       performs Maximum Likelihood estimation of the PPCA
+            %       model from data. 
             %
-            %   obj = probpca.from(pca);
-            %   obj = probpca.from(pca, p);
-            %       constructs a PPCA model with latetn dimension p
-            %       from a standard PCA model. Here, pca should be
-            %       an object of class pca_std.
+            %       Input arguments:
+            %       - X:    The data matrix of size d x n, of which each
+            %               column is s sample.
+            %       - w:    The sample weights, a row vector of size 
+            %               1 x n. If all samples have the same weight,
+            %               it can be empty.
+            %       - q:    the dimension of the latent space. It should 
+            %               have q < min(d, n).
             %
-            %       When p is omitted, it uses pca.pdim as p.
+            %       One can specify further options to control the
+            %       estimation, in form of name/value pairs.
+            %
+            %       - 'method':     The method used to do the training,
+            %                       which can be
+            %                       - 'cov':    by computing the covariance
+            %                                   matrix, and compute the
+            %                                   eigenvectors of it.
+            %                       - 'std':    by doing SVD, this can be
+            %                                   faster when n < d.
+            %                       The default is 'cov'.
+            %
+            %       - 'zmean':      Whether to assume a zero mean vector.
             %
             
-            if isnumeric(varargin{1}) % from mu and cov
+            % verify arguments
+            
+            if ~(isfloat(X) && ndims(X) == 2 && isreal(X))
+                error('probpca:mle:invalidarg', ...
+                    'X should be a real matrix.');
+            end
+            [d, n] = size(X);
+            
+            if ~isempty(w)
+                if ~(isfloat(w) && isequal(size(w), [1 n]))
+                    error('probpca:mle:invalidarg', ...
+                        'w should be a vector of size 1 x n.');
+                end
+            end
+            
+            if ~(isnumeric(q) && isscalar(q) && q == fix(q) && ...
+                    q >= 1 && q < d && q < n);
+                error('probpca:mle:invalidarg', ...
+                    'q should be a positive integer less than min(d, n).');
+            end
+            
+            % check options
+            
+            method = 'cov';
+            zmean = false;
+            
+            if ~isempty(varargin)
+                onames = varargin(1:2:end);
+                ovals = varargin(2:2:end);
                 
-                % verify argument
-                
-                u = varargin{1};
-                C = varargin{2};
-                p = varargin{3};
-                                
-                d = size(C, 1);
-                if ~(isfloat(C) && ndims(C) == 2 && d == size(C,2))
-                    error('probpca:from:invalidarg', ...
-                        'C should be a d x d matrix.');
+                if ~(numel(onames) == numel(ovals) && iscellstr(onames))
+                    error('probpca:mle:invalidarg', ...
+                        'The name/value list for options is invalid.');
                 end
                 
-                if ~(isfloat(u) && (isequal(u, 0) || isequal(size(u), [d 1])))
-                    error('probpca:from:invalidarg', ...
-                        'mu should be either 0 or a column vector of size d x 1.');
-                end                
-                
-                if ~(isnumeric(p) && isscalar(p) && p == fix(p) && p >= 1 && p < d)
-                    error('probpca:from:invalidarg', ...
-                        'p should be an integer in [1, d-1]');
-                end
-                
-                % compute
-                
-                [U, evs] = eig(C);
-                evs = diag(evs);
-                
-                [evs, si] = sort(evs, 1, 'descend');
-                pevs = evs(1:p);
-                Up = U(:, si(1:p));
-                
-                sig2 = sum(evs(p+1:end)) / (d-p);
-                
-                % construct 
-                
-                obj = probpca(u, Up, pevs, sig2);                
-                
-            elseif isa(varargin{1}, 'pca_std')
-                
-                % verify argument
-                
-                S = varargin{1};
-                sp = S.pdim;
-                
-                if nargin < 2
-                    p = sp;
-                else
-                    p = varargin{2};
-                    if ~(isnumeric(p) && isscalar(p) && p == fix(p) && p >= 1 && p <= sp)
-                        error('probpca:from:invalidarg', ...
-                            'p should be an integer in [1, pca.dim]');
+                for i = 1 : numel(onames)
+                    cn = onames{i};
+                    cv = ovals{i};
+                    switch lower(cn)
+                        case 'method'
+                            if ~(ischar(cv) && ...
+                                    (strcmp(cv, 'cov') || strcmp(cv, 'std')))
+                                error('probpca:mle:invalidarg', ...
+                                    'The method should be either ''cov'' or ''std''.');
+                            end
+                            method = cv;
+                        case 'zmean'
+                            if ~(islogical(cv) && isscalar(cv))
+                                error('probpca:mle:invalidarg', ...
+                                    'zmean should be a logical scalar');
+                            end
+                            zmean = cv;
+                        otherwise
+                            error('probpca:mle:invalidarg', ...
+                                'Unknown option name %s', cn);
                     end
                 end
-                
-                % make
-                
-                if p == sp
-                    Up = S.basis;
-                    pevs = S.eigvals;
-                    sig2 = S.residue_var / (S.dim - p);
+            end
+            
+            % do estimation
+            
+            if zmean
+                u = 0;
+                Z = u;
+            else
+                if isempty(w)
+                    u = sum(X, 2) * (1 / n);
                 else
-                    Up = S.basis(:, 1:p);
-                    pevs = S.eigvals(1:p);
-                    sig2 = (sum(S.eigvals(p+1:end)) + S.residue_var) / (S.dim - p);
+                    sw = sum(w);
+                    u = (X * w') * (1 / sw);
                 end
-                
-                obj = probpca(S.center, Up, pevs, sig2);                
-            end            
+                Z = bsxfun(@minus, X, u);
+            end
+            
+            switch method
+                case 'cov'
+                    if isempty(w)
+                        C = (Z * Z') * (1/n);
+                    else
+                        C = (Z * bsxfun(@times, Z, w)') * (1/sw);
+                        C = 0.5 * (C + C');
+                    end
+                    [U, evs] = eig(C);
+                    evs = diag(evs);                    
+                        
+                case 'svd'
+                    if isempty(w)
+                        [U, svs] = svd(Z, 0); 
+                        svs = diag(svs);
+                        evs = (svs.^2) * (1/n);
+                    else
+                        [U, svs] = svd(bsxfun(@times, Z, w), 0);
+                        svs = diag(svs);
+                        evs = (svs.^2) * (1/sw);
+                    end                                        
+            end
+            
+            obj = probpca.make_obj(u, U, evs, q);
         end
         
+        
+        function obj = from_stats(mu, C, q)
+            % Constructs a PPCA model from a statistics
+            %
+            %   obj = probpca.from(mu, C, q);
+            %       constructs a PPCA model with latent dimension q, 
+            %       from a mean vector mu and a covariance matrix C.
+            %
+            %       Suppose the space of observed vectors has dimension d.
+            %       Then mu can be a d x 1 vector, and simply zero.
+            %       C is a covariance matrix of size d x d.
+            %
+            
+            % verify arguments
+            
+            if ~(isfloat(C) && ndims(C) == 2 && d == size(C,2))
+                error('probpca:from_stats:invalidarg', ...
+                    'C should be a d x d matrix.');
+            end
+            
+            if ~(isfloat(mu) && (isequal(mu, 0) || isequal(size(mu), [d 1])))
+                error('probpca:from_stats:invalidarg', ...
+                    'mu should be either 0 or a column vector of size d x 1.');
+            end
+            
+            if ~(isnumeric(q) && isscalar(q) && q == fix(q) && q >= 1 && q < d)
+                error('probpca:from_stats:invalidarg', ...
+                    'q should be an integer in [1, d-1]');
+            end
+            
+            % compute
+            
+            [U, evs] = eig(C);
+            evs = diag(evs);
+            
+            obj = probpca.make_obj(mu, U, evs, q);                        
+        end                      
                 
+    end
+        
+    
+    methods(Static, Access='private')
+        
+        function obj = make_obj(u, U, evs, q)
+            
+            d = size(U, 1);
+            [evs, si] = sort(evs, 1, 'descend');
+            qevs = evs(1:q);
+            Uq = U(:, si(1:q));
+            
+            sig2 = sum(evs(q+1:end)) / (d-q);
+            
+            % construct
+            
+            obj = probpca(u, Uq, qevs, sig2);
+            
+        end        
+        
     end
     
         
