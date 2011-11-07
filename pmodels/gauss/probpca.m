@@ -197,10 +197,10 @@ classdef probpca
         end
         
         
-        function X = reconstruct(obj, Z)
+        function X = transform_fwd(obj, Z)
             % reconstructs from latent variables
             %
-            %   X = obj.reconstruct(Y);
+            %   X = obj.transform_fwd(Y);
             %       reconstructs the vector in the d-dimensional space
             %       based on the latent representation in Y, as follows.
             %
@@ -217,10 +217,10 @@ classdef probpca
         end
         
         
-        function Z = transform(obj, X)
+        function Z = transform_bwd(obj, X)
             % transform observed vectors to latent representation.
             %
-            %   Z = obj.transform(X);
+            %   Z = obj.transform_bwd(X);
             %       transforms observed vectors to the q-dimensional
             %       representation on latent space.
             %
@@ -291,6 +291,31 @@ classdef probpca
             %
             
             P = exp(logpdf(obj, X));
+        end
+        
+        
+        function X = sample(obj, n)
+            % Draw samples from the probabilistic PCA model
+            %
+            %   X = sample(obj, n);
+            %
+            %       Draws n samples from the PPCA model. 
+            %       In the output, X will be a d x n matrix.
+            %
+            
+            d = obj.dim;
+            q = obj.ldim;
+            
+            Z = randn(q, n);
+            X = obj.W * Z;
+            
+            u = obj.mu;
+            if ~isequal(u, 0)
+                X = bsxfun(@plus, X, u);
+            end
+            
+            s = sqrt(obj.sigma2);
+            X = X + randn(d, n) * s;            
         end
         
     end
