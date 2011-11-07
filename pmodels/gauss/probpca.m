@@ -421,7 +421,7 @@ classdef probpca
             
             if zmean
                 u = 0;
-                Z = u;
+                Z = X;
             else
                 if isempty(w)
                     u = sum(X, 2) * (1 / n);
