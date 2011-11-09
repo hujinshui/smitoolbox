@@ -126,12 +126,21 @@ classdef ppca_gm < genmodel_base
             
             K = numel(params);
             n = size(X, 2);
-            Lliks = zeros(K, n);
             
-            for k = 1 : K
-                pm = params{k};
-                Lliks(k,:) = logpdf(pm, X);
-            end            
+            if ~(isa(X, 'gdouble') || isa(X, 'gsingle'))            
+                Lliks = zeros(K, n);            
+                for k = 1 : K
+                    pm = params{k};
+                    Lliks(k,:) = logpdf(pm, X);
+                end            
+            else
+                Lliks = cell(K, 1);
+                for k = 1 : K
+                    pm = params{k};
+                    Lliks{k} = logpdf(pm, X);
+                end
+                Lliks = vertcat(Lliks{:});
+            end
         end
         
         

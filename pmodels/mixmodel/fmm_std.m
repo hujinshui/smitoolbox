@@ -13,6 +13,7 @@ classdef fmm_std < smi_prg
         gm;         % The underlying generative model
         pri;        % The parameter prior 
         K;          % The number of mixture components
+        jak = 0;    % whether to use jacket GPU computation
     end
     
     
@@ -38,7 +39,7 @@ classdef fmm_std < smi_prg
     
     methods
         
-        function prg = fmm_std(gm, pri, K)
+        function prg = fmm_std(gm, pri, K, op)
             % Creates a standard Gaussian mixture model (GMM) program
             %                        
             %   prg = gmm_std(gm, pri, K);
@@ -57,6 +58,10 @@ classdef fmm_std < smi_prg
             %
             %       - K:        the number of mixture components to be
             %                   estimated.
+            %
+            %   prg = gmm_std(gm, pri, K, 'jak');
+            %
+            %       Tells the program to use Jacket GPU computation.
             %       
                         
             % verify input arguments
@@ -73,6 +78,10 @@ classdef fmm_std < smi_prg
             if ~(isnumeric(K) && isscalar(K) && K == fix(K) && K >= 1)
                 error('fmm_std:invalidarg', ...
                     'K should be a positive integer scalar.');
+            end
+            
+            if nargin >= 4 && strcmpi(op, 'jak')
+                prg.jak = 1;
             end
             
             % create object
@@ -169,6 +178,13 @@ classdef fmm_std < smi_prg
                 error('fmm_std:invalidarg', ...
                     'The optype %s is not supported by the underlying model', optype);
             end
+            
+            if prg.jak
+                if ~strcmp(optype, 'varinfer')
+                    error('fmm_std:invalidarg', ...
+                        'Only varinfer can be used with jacket GPU.');
+                end
+            end
                                 
             % create states
             
@@ -200,7 +216,12 @@ classdef fmm_std < smi_prg
                 else
                     Sd.Q = L0;
                 end
-            end                        
+            end 
+            
+            if prg.jak
+                Sd.Pi = gdouble(Sd.Pi);
+                Sd.Q = gdouble(Sd.Q);                 
+            end
             
         end    
         
@@ -292,6 +313,7 @@ classdef fmm_std < smi_prg
             % log-prior of component params
             
             lpri_u = gmdl.evaluate_logpri(prior, Sd.params, Sd.aux);
+            lpri_u = double(lpri_u);
             
             % log-prior of labeling and Pi
             
@@ -303,10 +325,12 @@ classdef fmm_std < smi_prg
                 tw = sum(Sd.Q, 2);
             end
             lpri_z = logPi * tw;  
+            lpri_z = double(lpri_z);
             
             da = prg.dalpha;
             if isfinite(da) && da > 1
                 lpri_pi = sum(logPi) * (da - 1);
+                lpri_pi = double(lpri_pi);
             else
                 lpri_pi = 0;
             end
@@ -319,7 +343,8 @@ classdef fmm_std < smi_prg
             else
                 llik = dot(Sd.Liks, Sd.Q, 1);
                 llik = sum(llik);
-            end                        
+            end      
+            llik = double(llik);
             
             % labeling entropy
             
@@ -327,6 +352,7 @@ classdef fmm_std < smi_prg
                 ent_z = 0;
             else
                 ent_z = sum(ddentropy(Sd.Q));
+                ent_z = double(ent_z);
             end
             
             % combine
