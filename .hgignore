@@ -1,0 +1,11 @@
+syntax: glob
+
+.DS_Store
+*.asv
+*.mex*
+*.m~
+*.cpp~
+*.txt~
+*.h~
+*.cfg~
+
