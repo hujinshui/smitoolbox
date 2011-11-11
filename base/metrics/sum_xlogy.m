@@ -40,8 +40,8 @@ end
 Y(X == 0) = 1;
 
 if nargin < 3
-    r = dot(X, log(Y));
+    r = sum(X .* log(Y));
 else
-    r = dot(X, log(Y), dim);
+    r = sum(X .* log(Y), dim);
 end
 
