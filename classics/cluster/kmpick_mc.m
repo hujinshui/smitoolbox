@@ -1,8 +1,8 @@
-function r = kmpick_mc(X, K, cost, cfunc, rstream)
+function r = kmpick_mc(X, K, cost, cfunc)
 % Progressively pick K samples with maximum cost to existing centers
 %
-%   r = kmpick_mc(X, K, cost, cfunc, rstream);
-%   r = kmpick_mc(n, K, cost, cmat, rstream);
+%   r = kmpick_mc(X, K, cost, cfunc);
+%   r = kmpick_mc(n, K, cost, cmat);
 %
 %       progressively pick K new centers with maximum cost.
 %
@@ -14,7 +14,6 @@ function r = kmpick_mc(X, K, cost, cfunc, rstream)
 %                   which can be empty.
 %       - cfunc:    the cost computation function
 %       - cmat:     the pairwise cost matrix of size n x n
-%       - rstream:  the random number stream 
 %
 %       Output argument:
 %       - r:        the indices of the samples selected to be new centers
@@ -26,10 +25,6 @@ function r = kmpick_mc(X, K, cost, cfunc, rstream)
 %
 
 %% verify input
-
-if nargin < 5
-    rstream = [];
-end
 
 if isscalar(X) && isnumeric(cfunc)
     n = X;
@@ -53,7 +48,7 @@ for k = 1 : K
     % pick a new center
     
     if isempty(cost)
-        i = randpick(n, 1, rstream);
+        i = randi(n);
     else
         [mc, i] = max(cost); %#ok<ASGLU>
     end

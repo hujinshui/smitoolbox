@@ -1,8 +1,8 @@
-function r = kmpick_pp(X, K, cost, cfunc, rstream) 
+function r = kmpick_pp(X, K, cost, cfunc) 
 % Randomly pick K samples according to Kmeans++ scheme.
 %
-%   r = kmpick_pp(X, K, cost, cfunc, rstream);
-%   r = kmpick_pp(n, K, cost, cmat, rstream);
+%   r = kmpick_pp(X, K, cost, cfunc);
+%   r = kmpick_pp(n, K, cost, cmat);
 %
 %       Randomly pick K samples according to Kmeans++ scheme, which is
 %       described by the following paper:
@@ -22,7 +22,6 @@ function r = kmpick_pp(X, K, cost, cfunc, rstream)
 %                   which can be empty.
 %       - cfunc:    the cost computation function
 %       - cmat:     the pairwise cost matrix of size n x n
-%       - rstream:  the random number stream 
 %
 %       Output argument:
 %       - r:        the indices of the samples selected to be new centers
@@ -35,10 +34,6 @@ function r = kmpick_pp(X, K, cost, cfunc, rstream)
 
 
 %% verify input
-
-if nargin < 5
-    rstream = [];
-end
 
 if isscalar(X) && isnumeric(cfunc)
     n = X;
@@ -62,10 +57,10 @@ for k = 1 : K
     % pick a new center
     
     if isempty(cost)
-        i = randpick(n, 1, rstream);
+        i = randi(n);
     else
         p = cost / sum(cost);
-        i = randpick(p, 1, rstream);
+        i = ddsample(p.', 1);
     end
     r(k) = i;
     

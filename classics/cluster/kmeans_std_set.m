@@ -36,8 +36,7 @@ if nargin < 1 || isempty(S0)
         'onnil', 'repick++', ...
         'onnilop', 1, ...
         'rpickfunc', @kmpick_pp, ...
-        'distfunc', @kmd_sqL2, ...
-        'rstream', []);    
+        'distfunc', @kmd_sqL2);    
 else    
     if ~(isstruct(S0) && numel(S0) == 1 && isfield(S0, 'tag') && ...
             strcmp(S0, 'kme_std_checked'))
@@ -119,14 +118,6 @@ for i = 1 : n
                 if ~isa(v, 'function_handle')
                     opterr('The value of dist_func is invalid.');
                 end
-            end
-            
-        case 'rstream'
-            if ~(isempty(v) || isa(v, 'RandStream'))
-                opterr('rstream should be either empty or a RandStream object.');
-            end
-            if isempty(v)
-                v = [];
             end
             
         otherwise
