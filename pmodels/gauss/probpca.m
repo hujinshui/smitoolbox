@@ -341,7 +341,7 @@ classdef probpca
             %               1 x n. If all samples have the same weight,
             %               it can be empty.
             %       - q:    the dimension of the latent space. It should 
-            %               have q < min(d, n).
+            %               have q < min(d, n).            
             %
             %       One can specify further options to control the
             %       estimation, in form of name/value pairs.
@@ -509,6 +509,7 @@ classdef probpca
             Uq = U(:, si(1:q));
             
             sig2 = sum(evs(q+1:end)) / (d-q);
+            sig2 = max(sig2, 1e-12);
             
             % construct
             
