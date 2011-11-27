@@ -1,8 +1,8 @@
-function r = kmpick_rand(X, K, cost, cfunc, rstream) 
+function r = kmpick_rand(X, K, cost, cfunc) 
 % Randomly pick K samples whose cost to existing centers are positive
 %
-%   r = kmpick_rand(X, K, cost, cfunc, rstream);
-%   r = kmpick_rand(n, K, cost, cmat, rstream);
+%   r = kmpick_rand(X, K, cost, cfunc);
+%   r = kmpick_rand(n, K, cost, cmat);
 %
 %       Randomly pick K samples whose cost to existing centers are 
 %       positive. If cost is empty, then simply pick K distinct
@@ -16,7 +16,6 @@ function r = kmpick_rand(X, K, cost, cfunc, rstream)
 %                   which can be empty.
 %       - cfunc:    the cost computation function
 %       - cmat:     the pairwise cost matrix of size n x n
-%       - rstream:  the random number stream 
 %
 %       Output argument:
 %       - r:        the indices of the samples selected to be new centers
@@ -28,10 +27,6 @@ function r = kmpick_rand(X, K, cost, cfunc, rstream)
 %
 
 %% verify input
-
-if nargin < 5
-    rstream = [];
-end
 
 if isscalar(X) && isnumeric(cfunc)
     n = X;
@@ -45,10 +40,10 @@ end
 %% main
 
 if isempty(cost)
-    r = randpick(n, K, rstream);
+    r = randpick(n, K);
 else
     I = find(cost > 0);
-    r = randpick(numel(I), K, rstream);
+    r = randpick(numel(I), K);
     r = I(r);
 end
 

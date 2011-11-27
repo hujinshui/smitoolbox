@@ -1,4 +1,4 @@
-function x = laplacesm(G, a, y)
+function x = laplacesm(G, w, a, y)
 % Performs Laplacian smooth based on a Gaussian MRF
 %
 %   The problem formulation is to minimize the following objective
@@ -7,12 +7,13 @@ function x = laplacesm(G, a, y)
 %         (1/2) * sum_e w_e ||X(:,e_i) - X(:,e_j)||^2
 %       + (1/2) * sum_i (1/2) * a_i ||X(:,i) - Y(:,i)||^2.
 %
-%   x = laplacesm(g, a, y);
+%   x = laplacesm(g, w, a, y);
 %       solves the problem above using (regularized) Laplacian matrix.
 %       
 %       Inputs:
 %       - G:    the input graph, in form of either an object of class
 %               gr_edgelist, or an affinity matrix
+%       - w:    the edge weight vector.
 %       - a:    the regularization coefficients, in form of either
 %               a scalar or a vector of length n.
 %       - y:    the observation, which can be either a column vector of 
@@ -31,13 +32,15 @@ function x = laplacesm(G, a, y)
 %           - based on new graph struct
 %       - Modified by Dahua Lin, on Nov 13, 2010
 %           - based on new graph class
+%       - Modified by Dahua Lin, on Nov 19, 2011
+%           - based on new graph struct
 %
 
 
 %% main
 
-L = laplacemat(G, a);  % this will verify the validity of g and a
-if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == G.nv)
+L = laplacemat(G, w, a);  % this will verify the validity of g and a
+if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == G.n)
     error('laplacesm:invalidarg', 'The size of y is invalid.');
 end
 
