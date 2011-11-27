@@ -1,10 +1,10 @@
 function [L, M, info] = kmeans_std(X, M0, varargin)
 % Standard K-means algorithm
 %
-%   [L, M] = kmeans_ex(X, K, ...);
-%   [L, M] = kmeans_ex(X, M0, ...);
-%   [L, M] = kmeans_ex({X, w}, K, ...);
-%   [L, M] = kmeans_ex({X, w}, M0, ...);
+%   [L, M] = kmeans_std(X, K, ...);
+%   [L, M] = kmeans_std(X, M0, ...);
+%   [L, M] = kmeans_std({X, w}, K, ...);
+%   [L, M] = kmeans_std({X, w}, M0, ...);
 %       
 %       This function implements the K-means algorithm, which is an
 %       extension of the standard implementation.
@@ -77,10 +77,6 @@ function [L, M, info] = kmeans_std(X, M0, varargin)
 %                       
 %                     Or, it can be a user-defined function handle. 
 %                     (refer to the remarks below for details).
-%
-%       - Rstream:  the random number stream to use, which can be either
-%                   empty (using default) or a RandStream object.
-%                   (default = []).
 %
 %       The user can also use kmeans_ex_set function to construct
 %       an option struct and input it to this function.   
@@ -186,7 +182,7 @@ costfunc = @(x, y) dfunc(x, y, 'c');
 % initialize centers
 
 if isempty(M0)    
-    seeds = opts.initfunc(X, K, [], costfunc, opts.rstream);    
+    seeds = opts.initfunc(X, K, [], costfunc);    
     M0 = X(:, seeds);
 end
 M = M0;

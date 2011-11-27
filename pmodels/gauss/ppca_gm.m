@@ -94,11 +94,17 @@ classdef ppca_gm < genmodel_base
             
             q = model.ldim;
             K = size(Z, 1);
+            n = size(Z, 2);
             
             params = cell(1, K);
                         
             for k = 1 : K
                 z = Z(k, :);
+                if sum(z) < max(q, 1e-4 * (n / K))
+                    ts = randpick(n, 3 * q);
+                    z = zeros(1, n);
+                    z(ts) = 1;
+                end
                 params{k} = probpca.mle(X, z, q);
             end
         

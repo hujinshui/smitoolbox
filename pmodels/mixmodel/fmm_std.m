@@ -157,7 +157,7 @@ classdef fmm_std < smi_prg
                 end
                 
                 if size(L0, 1) == 1
-                    if ~all(L0 == fix(L0) && L0 >= 1 && L0 <= K_)
+                    if ~all(L0 == fix(L0) & L0 >= 1 & L0 <= K_)
                         error('fmm_std:invalidarg', ...
                             'Some labels in L0 is invalid.');
                     end
