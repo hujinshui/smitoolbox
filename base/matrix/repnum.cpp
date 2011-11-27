@@ -127,7 +127,7 @@ marray do_repnum_ex(const_marray mVs, const_marray mNs)
     
     for (index_t i = 0; i < n; ++i)
     {
-        double v = vs(i);
+        T v = vs(i);
         for (int32_t j = 0; j < ns(i); ++j)
         {                        
             *(r++) = v;

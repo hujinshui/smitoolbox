@@ -22,19 +22,6 @@ end
 bopts = [bopts, {['-I' bcslib_home]}];
 
 
-% require_boost = ismember('graph', {mdls.name});
-% 
-% if require_boost
-%     boost_home = getenv('BOOST_HOME');
-%     if isempty(boost_home)
-%         error('smi_build_mex:enverror', ...
-%             'Cannot find Boost C++ Library. Please add environment variable BOOST_HOME.');
-%     end
-%     
-%     bopts = [bopts, {['-I' boost_home]}];
-% end
-
-
 % get the list
 
 S = vertcat(mdls.mex);
