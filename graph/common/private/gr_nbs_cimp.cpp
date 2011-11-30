@@ -1,6 +1,6 @@
 /********************************************************************
  *
- *  make_gr_cimp.cpp
+ *  gr_nbs_cimp.cpp
  *
  *  The C++ mex implementation of part of make_gr functionality
  *

@@ -91,8 +91,7 @@ g.has_nbs = false;
 % setup neighborhood
 
 if use_nbs
-    [g.o_nbs, g.o_eds, g.o_degs, g.o_os] = make_gr_cimp(g);
-    g.has_nbs = true;
+    g = gr_nbs(g);
 end
 
 
