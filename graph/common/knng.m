@@ -58,7 +58,7 @@ if isnumeric(D)
     n = size(D, 1); 
     
     if issparse(D)
-        [g, w] = gr_from_wmat(D, 'd');
+        [g, w] = gr_from_wmat(D, 'd', 'nbs');
         use_g = 1;
     else
         use_g = 0;

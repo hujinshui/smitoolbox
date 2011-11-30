@@ -9,42 +9,62 @@
  ********************************************************************/
 
 #include <bcslib/matlab/bcs_mex.h>
-#include "smi_graph.h"
+#include <bcslib/graph/gedgelist_view.h>
+#include <bcslib/graph/ginclist_view.h>
 
 namespace smi
-{    
-    
-    
-inline DGraphSpec get_dgraph_spec(bcs::matlab::const_marray mGr)
 {
-    DGraphSpec s;
+
+// Typedefs    
     
-    char dty = (char)mGr.get_field(0, "dty").get_scalar<mxChar>();
-    s.n = mGr.get_field(0, "n").get_scalar<gindex_t>();
-    s.m = mGr.get_field(0, "m").get_scalar<gindex_t>();
-    s.edges = mGr.get_field(0, "edges").data<DEdge>();
-      
-    if (dty == 'u') s.m *= 2;
-                
-    bool has_nbs = mGr.get_field(0, "has_nbs").get_scalar<bool>();
-    
-    if (has_nbs)
-    {
-        s.out_nbs = mGr.get_field(0, "o_nbs").data<gindex_t>();
-        s.out_edges = mGr.get_field(0, "o_eds").data<gindex_t>();
-        s.out_degs = mGr.get_field(0, "o_degs").data<gindex_t>();
-        s.offsets = mGr.get_field(0, "o_os").data<gindex_t>();
-    }
-    else
-    {
-        s.out_nbs = 0;
-        s.out_edges = 0;
-        s.out_degs = 0;
-        s.offsets = 0;
-    }
-    
-    return s;
+typedef bcs::int32_t gint;
+typedef bcs::gvertex<gint> vertex_t;
+typedef bcs::gedge<gint> edge_t;
+typedef bcs::gvertex_pair<gint> vertex_pair;
+
+typedef bcs::gedgelist_view<gint> gedgelist_t;
+typedef bcs::ginclist_view<gint> ginclist_t;
+
+typedef bcs::natural_vertex_iterator<gint>::type natural_viter_t;
+typedef bcs::natural_edge_iterator<gint>::type natural_eiter_t;
+
+// Interoperability
+
+bool isdirected_from_char(char dty)
+{
+    return dty == 'd' || dty == 'D';
 }
-        
+
+
+inline gedgelist_t mx_to_gedgelist(bcs::matlab::const_marray mG)
+{
+    char dty = (char)mG.get_field(0, "dty").get_scalar<mxChar>();
+    gint n = mG.get_field(0, "n").get_scalar<gint>();
+    gint m = mG.get_field(0, "m").get_scalar<gint>();
+    const vertex_pair* edges = mG.get_field(0, "edges").data<vertex_pair>();
     
+    bool is_dir = isdirected_from_char(dty);
+    
+    return gedgelist_t(n, m, is_dir, edges);
 }
+
+inline ginclist_t mx_to_ginclist(bcs::matlab::const_marray mG)
+{    
+    char dty = (char)mG.get_field(0, "dty").get_scalar<mxChar>();
+    gint n = mG.get_field(0, "n").get_scalar<gint>();
+    gint m = mG.get_field(0, "m").get_scalar<gint>();
+    const vertex_pair* edges = mG.get_field(0, "edges").data<vertex_pair>(); 
+    
+    const vertex_t* nbs = mG.get_field(0, "o_nbs").data<vertex_t>();
+    const edge_t* eds = mG.get_field(0, "o_eds").data<edge_t>();
+    const gint* degs = mG.get_field(0, "o_degs").data<gint>();
+    const gint* ofs = mG.get_field(0, "o_os").data<gint>();
+    
+    bool is_dir = isdirected_from_char(dty);
+    
+    return ginclist_t(n, m, is_dir, edges, nbs, eds, degs, ofs);
+}
+
+
+} // end namespace smi
+

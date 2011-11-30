@@ -30,27 +30,38 @@ using namespace smi;
 void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
     const_marray mG(prhs[0]);
-    DGraphSpec s = get_dgraph_spec(mG);
+    gedgelist_t E = mx_to_gedgelist(mG);
     
-    // build the graph with neighborhood system
+    // prepare storage
     
-    DGraph g(s.n, s.m);
+    gint n = E.nvertices();
+    gint ma = E.is_directed() ? E.nedges() : 2 * E.nedges();
     
-    for (gindex_t i = 0; i < s.m; ++i)
-    {
-        g.add_edge(s.edges[i]);
-    }
+    marray mNbs = create_marray<gint>(1, ma);
+    marray mEds = create_marray<gint>(1, ma);
+    marray mDegs = create_marray<gint>(1, n);
+    marray mOfs = create_marray<gint>(1, n);
     
-    g.build_neighborhood_system();
+    vertex_t *nbs = mNbs.data<vertex_t>();
+    edge_t *eds = mEds.data<edge_t>();
+    gint *degs = mDegs.data<gint>();
+    gint *ofs = mOfs.data<gint>();
+    
+    // build neighborhood
+    
+    gint *temp = new gint[n];
+    
+    const vertex_pair* vps = E.vertex_pairs_begin();
+    prepare_ginclist_arrays(n, ma, vps, nbs, eds, degs, ofs, temp);
+    
+    delete[] temp;
     
     // export
-    
-    s = g.get_spec();
         
-    plhs[0] = to_matlab_row(make_caview1d(s.out_nbs, s.m)).mx_ptr();
-    plhs[1] = to_matlab_row(make_caview1d(s.out_edges, s.m)).mx_ptr();
-    plhs[2] = to_matlab_row(make_caview1d(s.out_degs, s.n)).mx_ptr();
-    plhs[3] = to_matlab_row(make_caview1d(s.offsets, s.n)).mx_ptr();        
+    plhs[0] = mNbs.mx_ptr();
+    plhs[1] = mEds.mx_ptr();
+    plhs[2] = mDegs.mx_ptr();
+    plhs[3] = mOfs.mx_ptr();        
 }
 
 
