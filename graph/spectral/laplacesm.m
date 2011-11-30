@@ -37,12 +37,15 @@ function x = laplacesm(G, w, a, y)
 %
 
 
+%% verify input
+
+if ~(isfloat(y) && isreal(y) && ndims(y) == 2 && size(y,1) == G.n)
+    error('laplacesm:invalidarg', 'y should be a real matrix with n rows.');
+end
+
 %% main
 
 L = laplacemat(G, w, a);  % this will verify the validity of g and a
-if ~(isfloat(y) && ndims(y) == 2 && size(y,1) == G.n)
-    error('laplacesm:invalidarg', 'The size of y is invalid.');
-end
 
 if size(a, 2) > 1; a = a.'; end     % turns a into a column vector
     

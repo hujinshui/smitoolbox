@@ -1,4 +1,4 @@
-function G = gr_local(siz, rgn)
+function [G, varargout] = gr_local(siz, rgn)
 % Create a degree-bounded graph with links between local neighbors
 %
 %   G = gr_local(n, r);
@@ -7,6 +7,12 @@ function G = gr_local(siz, rgn)
 %       grid. Here, n is the number of nodes, and r is the local range.
 %       In this graph, each node is connected to a neighboring node,
 %       within distance r.
+%
+%   [G, dx] = gr_local(n, r);
+%
+%       additionally returns the distances between sources and targets.
+%       The size of dx is K x 1. The neighbors in G.nbs(k ,:) have the 
+%       same distance to the centers, which is dx(k).
 %   
 %   G = gr_local([m, n], r);
 %   G = gr_local([m, n], [yr, xr]);
@@ -25,6 +31,15 @@ function G = gr_local(siz, rgn)
 %       the node (i, j) is connected to (i+di, j+dj) if ker(di', dj') 
 %       is non-zero. Here, ker is a matrix of size [2*yr+1, 2*xr+1], and
 %       di' = di+(yr+1) and dj' = dj+(dx+1).
+%
+%   [G, dy, dx] = gr_local([m, n], ...);
+%
+%       additionally returns the distances along y- and x-dimension 
+%       between sources and targets. dy and dx have the same sizes as
+%       G.nbs.
+%
+%       The size of dx and dy is K x 1. The neighbors in G.nbs(k,:) have
+%       the same distances to the centers. 
 %
 
 % Created by Dahua Lin, on Nov 30, 2011
@@ -88,6 +103,11 @@ if d == 1
     delta = [-r:-1, 1:r].'; 
     nbs = bsxfun(@plus, delta, 1:n);
     nbs(nbs < 0 | nbs > n) = 0;
+    
+    if nargout >= 2
+        varargout{1} = delta;
+    end
+    
 else
     [dx, dy] = meshgrid(-xr:xr, -yr:yr);
     [x, y] = meshgrid(1:n, 1:m);
@@ -103,6 +123,10 @@ else
     is_out = nx < 1 | nx > n | ny < 1 | ny > m;
     nbs = ny + (nx - 1) * m;
     nbs(is_out) = 0;
+    
+    if nargout >= 2
+        varargout = {dy, dx};
+    end
 end
     
 G = make_gr_bnd(nbs);

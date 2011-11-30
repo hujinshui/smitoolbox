@@ -67,9 +67,9 @@ if isstruct(arg1)
     end
     n = double(g.n);
     
-    if ~(isfloat(w) && (isscalar(w) || (isvector(w) && numel(w) == n)))                
+    if ~(isfloat(w) && (isscalar(w) || (isvector(w) && numel(w) == g.m)))                
         error('laplacemat:invalidarg', ...
-            'w should be a numeric vector of length n.');
+            'w should be a numeric vector of length g.m.');
     end
     
     is_wmat = false;
