@@ -6,7 +6,7 @@ function X = gsample(mu, C, n, op)
 %       covariance are respectively given by mu and C.
 %
 %       Input arguments:
-%       - mu:       the mean vector [d x 1]
+%       - mu:       the mean vector [d x 1], or just a zero.
 %       - C:        the covariance given in pdmat struct.
 %       - n:        the number of sameples to be acquired from the model.
 %   
@@ -20,33 +20,39 @@ function X = gsample(mu, C, n, op)
 %       - Created by Dahua Lin, on Aug 17, 2011
 %       - Modified by Dahua Lin, on Aug 25, 2011
 %       - Modified by Dahua Lin, on Sep 27, 2011
+%       - Modified by Dahua Lin, on Nov 30, 2011
 %
 
 %% verify input arguments
 
-if ~(isfloat(mu) && isreal(mu) && ndims(mu) == 2 && size(mu, 2) == 1)
-    error('gsample:invalidarg', ...
-        'The 1st arg to gsample should be a floating-point real vector.');
-end
+if isfloat(C)
+    if ~(isreal(C) && size(C,1) == size(C,2))
+        error('gsample:invalidarg', 'C or J should be a real square matrix.');
+    end
+    if isscalar(C)
+        ty = 's';
+        d = size(mu, 1);
+    else
+        ty = 'f';
+        d = size(C, 1);
+    end
+    v = C;
+    
+elseif is_pdmat(C)
+    if C.n ~= 1
+        error('gsample:invalidarg', 'C.n or J.n must equal 1 for gsample.');
+    end
+    ty = C.ty;
+    v = C.v;
+    d = C.d;
 
-if ~(is_pdmat(C))
-    error('gsample:invalidarg', ...
-        'The 2nd arg to gsample should be a pdmat struct.');
-end
-
-d = C.d;
-if ~(size(mu, 1) == d || isequal(mu, 0))
-    error('gsample:invalidarg', 'The dim of mu and C are inconsistent.');
-end
-
-if ~(isnumeric(n) && isscalar(n) && n == fix(n) && n >= 0)
-    error('gsample:invalidarg', ...
-        'n should be a numeric real integer scalar.');
+else
+    error('gsample:invalidarg', 'The 2nd arg to gsample is invalid.');
 end
 
 use_ip = 0;
 if nargin >= 4
-    if ~(ischar(op) && strcmpi(op, 'ip'))
+    if ~strcmp(op, 'ip')
         error('gsample:invalidarg', ...
             'The 4th arg to gsample can only be ''ip'' if given.');
     end
@@ -56,28 +62,52 @@ end
 
 %% main
 
-if use_ip
-    h = mu;
-    J = C;
+X = randn(d, n);
+
+if ty == 's' || ty == 'd'   
+    if ~isequal(v, 1);
+        if use_ip
+            v = 1 ./ v;
+            if ~isequal(mu, 0)
+                mu = mu .* v;
+            end
+        end
+        if isscalar(v) || n == 1
+            X = X .* sqrt(v);
+        else
+            X = bsxfun(@times, X, sqrt(v));
+        end
+    end
+        
+elseif ty == 'f'
     
-    C = pdmat_inv(J);    
-    
-    if isequal(h, 0)
-        mu = 0;
+    if ~use_ip
+        L = chol(v, 'lower');
+        X = L * X;        
     else
-        mu = pdmat_mvmul(C, h);
+        L = chol(v);
+        g = L' \ mu;
+        A = L \ [X g];
+        X = A(:, 1:n);
+        mu = A(:, n+1);
     end    
+    
 end
 
+X = add_mu(d, n, X, mu);
 
-X = pdmat_choltrans(C, randn(d, n));
+
+
+
+%% sub functions
+
+function X = add_mu(d, n, X, mu)
 
 if ~isequal(mu, 0)
-    X = bsxfun(@plus, X, mu);
+    if d == 1 || n == 1
+        X = mu + X;
+    else
+        X = bsxfun(@plus, X, mu);
+    end
 end
-
-
-
-
-
 
