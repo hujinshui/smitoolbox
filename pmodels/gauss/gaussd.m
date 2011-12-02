@@ -702,11 +702,8 @@ classdef gaussd
                 end
                 [hp, Jp] = add_info(G, ho, Jo, i);
             end
-            
-            C_p = pdmat_inv(Jp);
-            mu_p = pdmat_mvmul(C_p, hp);
-            
-            X = gsample(mu_p, C_p, n);            
+                        
+            X = gsample(hp, Jp, n, 'ip');            
         end        
         
         
