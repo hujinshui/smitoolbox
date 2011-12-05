@@ -1,0 +1,29 @@
+Specification of Gaussian model related structs
+=================================================
+
+1. Gaussian model with mean parameters
+
+f(x) \propto exp( -(1/2) (x - mu)' * inv(C) * (x - mu) );
+
+- tag:  a tag string: 'gaussd'
+- ty:   'm'
+- n:    the number of distributions packed in the model
+- d:    the dimension of the vector space
+- mu:   the mean vectors [d x n matrix or just a zero scalar]
+- C:    the covarianace [pdmat struct C.n == 1 or n]
+
+This can be made using gaussd function
+
+2. Gaussian model with information (canonical) parameters
+
+f(x) \propto exp( -(1/2) x' * J * x + h' * x ); 
+
+- tag:  a tag string: 'gaussd'
+- ty:   'c'
+- n:    the number of distributions packed in the model
+- d:    the dimension of the vector space
+- h:    the potential vector
+- J:    the precision matrix (information matrix)
+
+This can be made using gaussd function
+
