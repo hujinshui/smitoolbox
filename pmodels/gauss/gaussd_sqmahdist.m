@@ -55,30 +55,68 @@ if ty == 'm'
     
     C = G.C;
     mu = G.mu;
-
-    JX = pdmat_lsolve(C, X);
-    M2 = dot(X, JX, 1);
     
     if isequal(mu, 0)
         zm = 1;
     else
         zm = 0;
-        M1 = mu' * JX; 
-    end    
+        h = pdmat_lsolve(C, mu);
+        M1 = h' * X;
+    end
+
+    if d == 1
+        M2 = (1 ./ C.v(:)) * (X.^2);
+    else
+        switch C.ty
+            case 's'
+                M2 = (1 ./ C.v)' * sum(X.^2, 1);
+            case 'd'
+                M2 = (1 ./ C.v)' * (X.^2);
+            case 'f'
+                Cmat = C.v;
+                if C.n == 1
+                    M2 = dot(X, Cmat \ X, 1);
+                else
+                    M2 = zeros(C.n, size(X,2));
+                    for k = 1 : C.n
+                        M2(k,:) = dot(X, Cmat(:,:,k) \ X, 1);
+                    end
+                end
+        end
+    end
+ 
     
 elseif ty == 'c'
     
     J = G.J;
     h = G.h;
     
-    JX = pdmat_mvmul(J, X);
-    M2 = dot(X, JX, 1);
-    
     if isequal(h, 0)
         zm = 1;
     else
         zm = 0;
         M1 = h' * X;
+    end    
+    
+    if d == 1
+        M2 = J.v(:) * (X.^2);
+    else
+        switch J.ty
+            case 's'
+                M2 = J.v' * sum(X.^2, 1);
+            case 'd'
+                M2 = J.v' * (X.^2);
+            case 'f'
+                Jmat = J.v;
+                if J.n == 1
+                    M2 = dot(X, Jmat * X, 1);
+                else
+                    M2 = zeros(J.n, size(X,2));
+                    for k = 1 : J.n
+                        M2(k,:) = dot(X, Jmat(:,:,k) * X, 1);
+                    end
+                end
+        end
     end
     
 end

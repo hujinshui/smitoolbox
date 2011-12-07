@@ -26,8 +26,8 @@ classdef tsuite_gaussd
             run_multi(obj, @tsuite_gaussd.do_test_construction);
         end
                 
-        function test_statistics(obj)
-            run_multi(obj, @tsuite_gaussd.do_test_statistics);
+        function test_calculation(obj)
+            run_multi(obj, @tsuite_gaussd.do_test_calculation);
         end
         
         function test_evaluation(obj)
@@ -45,166 +45,168 @@ classdef tsuite_gaussd
     
     methods(Static, Access='private')
         
-        function do_test_construction(ty, d, m, is_zeromean, is_shared)
+        function do_test_construction(cf, d, m, is_zeromean, is_shared)
+            
+            % parse settings
+            
+            if is_zeromean; assert(m == 1); end            
+            if is_shared; m2 = 1; else m2 = m; end
+            
+            % generate mean-param model
             
             if is_zeromean
-                assert(m == 1);
-            end
-            
-            if is_shared
-                m2 = 1;
-            else
-                m2 = m;
-            end
-            
-            if is_zeromean
-                mu = zeros(d, m);
+                mu = 0;
             else
                 mu = randn(d, m);
             end
             
-            C = rand_pdmat(ty, d, m2, [1, 3]);
+            C = rand_pdmat(cf, d, m2, [1, 3]);
             
-            g_mp0 = gaussd.from_mp(mu, C);
-            g_mp1 = gaussd.from_mp(mu, C, 'ip');
+            g_m0 = gaussd('m', mu, C);
+            tsuite_gaussd.verify_mp(g_m0, d, m, cf, mu, C);
+            
+            % generate canon-param model
                         
-            assert(g_mp0.zmean == is_zeromean);
-            assert(g_mp0.shared_cov == (m2 == 1));
-            assert(g_mp1.zmean == is_zeromean);
-            assert(g_mp1.shared_cov == (m2 == 1));
-            
-            h = g_mp1.h;
-            J = g_mp1.J;
-            c0 = g_mp1.c0;
-            
-            g_cp0 = gaussd.from_ip(h, J, c0);
-            g_cp1 = gaussd.from_ip(h, J, c0, 'mp');
-            
-            g_cp0_a = gaussd.from_ip(h, J);
-            g_cp1_a = gaussd.from_ip(h, J, [], 'mp');
-                                    
-            assert(g_cp0.zmean == is_zeromean);
-            assert(g_cp0.shared_cov == (m2 == 1));
-            assert(g_cp1.zmean == is_zeromean);
-            assert(g_cp1.shared_cov == (m2 == 1));
-            
-            % basic verification
-            
-            tsuite_gaussd.basic_verify(g_mp0, d, m, true, false);
-            tsuite_gaussd.basic_verify(g_mp1, d, m, true, true);
-            tsuite_gaussd.basic_verify(g_cp0, d, m, false, true);
-            tsuite_gaussd.basic_verify(g_cp1, d, m, true, true);
-            tsuite_gaussd.basic_verify(g_cp0_a, d, m, false, true);
-            tsuite_gaussd.basic_verify(g_cp1_a, d, m, true, true);
-            
-            tsuite_gaussd.verify_mp(g_mp0, mu, C);
-            tsuite_gaussd.verify_mp(g_mp1, mu, C);
-            tsuite_gaussd.verify_cp(g_cp0, h, J, c0);
-            tsuite_gaussd.verify_cp(g_cp1, h, J, c0);
-            tsuite_gaussd.verify_cp(g_cp0_a, h, J);
-            tsuite_gaussd.verify_cp(g_cp1_a, h, J);
-            
-            devcheck('c0 consistency', g_cp0_a.c0, c0, 1e-12);
-            devcheck('c0 consistency', g_cp1_a.c0, c0, 1e-12);
-            
             if is_zeromean
-                assert(isequal(g_cp1.mu, 0));
-            else            
-                devcheck('mu consistency', g_cp1.mu, mu, 1e-12);
+                h = 0;
+            else
+                h = pdmat_lsolve(C, mu);
             end
-            devcheck('C consistency', g_cp1.C.v, C.v, 1e-12);                        
+            J = pdmat_inv(C);
+                        
+            g_c0 = gaussd('c', h, J);
+            tsuite_gaussd.verify_cp(g_c0, d, m, cf, h, J);
+            
+            % mean to canon conversion
+                        
+            g_c1 = gaussd('c', g_m0);
+            
+            tsuite_gaussd.verify_cp(g_c1, d, m, cf, [], []);            
+            devcheck('mp->cp conversion (h)', g_c1.h, h, 1e-12);
+            devcheck('mp->cp conversion (J)', g_c1.J.v, J.v, 1e-12);
+            
+            % canon to mean conversion
+            
+            g_m1 = gaussd('m', g_c0);
+            
+            tsuite_gaussd.verify_mp(g_m1, d, m, cf, [], []);
+            devcheck('cp->mp conversion (mu)', g_m1.mu, mu, 1e-12);
+            devcheck('cp->mp conversion (C)', g_m1.C.v, C.v, 1e-12);            
+            
         end
         
         
-        function do_test_statistics(ty, d, m, is_zeromean, is_shared)
+        function do_test_calculation(ty, d, m, is_zeromean, is_shared)
                                     
+            % parse settings
+            
             if is_zeromean; assert(m == 1); end            
             if is_shared; m2 = 1; else m2 = m; end            
+            
+            % generate model 
+            
             if is_zeromean; 
-                mu = zeros(d, m); 
+                mu = 0; 
             else
                 mu = randn(d, m);
             end
             
             C = rand_pdmat(ty, d, m2, [1, 3]);
             
-            g_mp = gaussd.from_mp(mu, C, 'ip');            
-            g_cp = gaussd.from_ip(g_mp.h, g_mp.J);
+            g_mp = gaussd('m', mu, C);            
+            g_cp = gaussd('c', g_mp);
 
-            vars = pdmat_diag(C);
-            if is_shared && m > 1
-                vars = repmat(vars, [1 m]);
-            end
+            % calculate ground-truths
             
-            assert(isequal(mean(g_mp), mu));
-            assert(isequal(var(g_mp), vars));
-            if m == 1 || is_shared
-                assert(isequal(cov(g_mp), pdmat_fullform(C)));
-            end
-            for i = 1 : m
-                if is_shared
-                    assert(isequal(cov(g_mp, i), pdmat_fullform(C)));
+            if m == 1
+                if is_zeromean
+                    gt.ca = 0;                
                 else
-                    assert(isequal(cov(g_mp, i), pdmat_fullform(C, i)));
+                    gt.ca = tsuite_gaussd.calc_ca(mu, C);
+                end
+            else
+                gt.ca = zeros(1, m);
+                for k = 1 : m
+                    if C.n == 1
+                        Ck = C;
+                    else
+                        Ck = pdmat_pick(C, k);
+                    end
+                    gt.ca(k) = tsuite_gaussd.calc_ca(mu(:,k), Ck);
                 end
             end
             
-            ents0 = zeros(1, m);
-            for i = 1 : m
-                if is_shared
-                    sig_i = C;
-                else
-                    sig_i = pdmat_pick(C, i);
+            if m2 == 1
+                gt.cb = tsuite_gaussd.calc_cb(C);
+                gt.ent = tsuite_gaussd.calc_entropy(C);
+            else
+                gt.cb = zeros(1, m);
+                gt.ent = zeros(1, m);
+                for k = 1 : m
+                    Ck = pdmat_pick(C, k);
+                    gt.cb(k) = tsuite_gaussd.calc_cb(Ck);
+                    gt.ent(k) = tsuite_gaussd.calc_entropy(Ck);
                 end
-                ents0(i) = (1/2) * ( d * log( (2*pi*exp(1)) ) + pdmat_lndet(sig_i) );
-            end
-            ents1 = entropy(g_mp);
-            ents2 = entropy(g_cp);
-            
-            ents1a = zeros(1, m);
-            ents2a = zeros(1, m);
-            for i = 1 : m
-                ents1a(i) = entropy(g_mp, i);
-                ents2a(i) = entropy(g_cp, i);
             end
             
-            assert(isequal(size(ents1), [1, m]));
-            assert(isequal(size(ents2), [1, m]));
+            % test ca and cb
             
-            devcheck('entropy calc (C)', ents0, ents1, 1e-12);
-            devcheck('entropy calc (J)', ents0, ents2, 1e-12);
-            devcheck('entropy calc (C-i)', ents0, ents1a, 1e-12);
-            devcheck('entropy calc (J-i)', ents0, ents2a, 1e-12);                        
+            [ca_m, cb_m] = gaussd_const(g_mp);
+            [ca_c, cb_c] = gaussd_const(g_cp);
+            
+            devcheck('ca_m', ca_m, gt.ca, 1e-12);
+            devcheck('cb_m', cb_m, gt.cb, 1e-12);                                    
+            devcheck('ca_c', ca_c, gt.ca, 1e-12);
+            devcheck('cb_c', cb_c, gt.cb, 1e-12);  
+            
+            % test entropy
+            
+            ent_m = gaussd_entropy(g_mp.C, 'm');
+            ent_c = gaussd_entropy(g_cp.J, 'c');
+            
+            devcheck('ent_m', ent_m, gt.ent, 1e-12);
+            devcheck('ent_c', ent_c, gt.ent, 1e-12);            
         end        
         
                 
         function do_test_evaluation(ty, d, m, is_zeromean, is_shared)
                         
+            % parse settings
+            
             if is_zeromean; assert(m == 1); end
             if is_shared; m2 = 1; else m2 = m; end
+            
+            % generate models
+            
             if is_zeromean;
-                mu = zeros(d, m);
+                mu = 0;
             else
                 mu = randn(d, m);
             end
             
-            C = rand_pdmat(ty, d, m2, [1, 3]);            
-            g = gaussd.from_mp(mu, C, 'ip');
+            C = rand_pdmat(ty, d, m2, [1, 3]);    
+            
+            g_mp = gaussd('m', mu, C);
+            g_cp = gaussd('c', g_mp);
 
+            % calculate ground-truths            
+            
+            % generate full form of mu and C
+            
             if isequal(mu, 0)
                 mu = zeros(d, m);
             end
             
             if m == 1
-                C2 = pdmat_fullform(g.C);
+                C2 = pdmat_fullform(g_mp.C);
             else
                 C2 = zeros(d, d, m);
-                if g.shared_cov
-                    sC2 = pdmat_fullform(g.C);
-                    C2 = repmat(sC2, [1, 1, m]);
+                if is_shared
+                    C2 = pdmat_fullform(g_mp.C);
+                    C2 = repmat(C2, [1, 1, m]);
                 else
                     for k = 1 : m
-                        C2(:,:,k) = pdmat_fullform(g.C, k);
+                        C2(:,:,k) = pdmat_fullform(g_mp.C, k);
                     end
                 end
             end
@@ -216,89 +218,74 @@ classdef tsuite_gaussd
                 Q2(:,:,k) = inv(C2(:,:,k));
             end
             
+            % generate sample points
+            
             n0 = 100;
-            X0 = randn(d, n0);
+            X = randn(d, n0);
             
-            Dsq0 = tsuite_gaussd.comp_sq_mahdist(mu, Q2, X0);
+            % evaluate ground-truths
             
-            Dsq1 = sqmahdist(g, X0);
-            Dsq2 = zeros(m, n0);
-            for i = 1 : m
-                Dsq2(i, :) = sqmahdist(g, X0, i);
-            end
+            gt.D = tsuite_gaussd.comp_sq_mahdist(mu, Q2, X);    
+            ldv = pdmat_lndet(C);
+            gt.LP = bsxfun(@plus, -0.5 * gt.D, 0.5 * (- ldv.' - d * log(2*pi)));
             
-            assert(isequal(size(Dsq1), [m n0]));
-            devcheck('sqmahdist_1', Dsq0, Dsq1, 1e-8 * max(abs(Dsq0(:))));
-            devcheck('sqmahdist_2', Dsq0, Dsq2, 1e-8 * max(abs(Dsq0(:))));
+            % compare with ground-truths
             
-            LP0 = bsxfun(@plus, -0.5 * Dsq0, 0.5 * (- ld.' - d * log(2*pi)));
-            LP1 = logpdf(g, X0);
-            LP2 = zeros(m, n0);
-            for i = 1 : m
-                LP2(i, :) = logpdf(g, X0, i);
-            end
+            D_m = gaussd_sqmahdist(g_mp, X);
+            D_c = gaussd_sqmahdist(g_cp, X);
             
-            assert(isequal(size(LP1), [m n0]));
-            devcheck('logpdf_1', LP0, LP1, 1e-8 * max(abs(LP0(:))));
-            devcheck('logpdf_2', LP0, LP2, 1e-8 * max(abs(LP0(:))));
+            LP_m = gaussd_logpdf(g_mp, X);
+            LP_c = gaussd_logpdf(g_cp, X);
             
-            if d == 1
-                pint = zeros(1, m);
-                for i = 1 : m
-                    pint(i) = tsuite_gaussd.prob_integrate_1d(g, i, mu(:,i), Q2(:,:,i));
-                end
-                devcheck('prob_integrate_1d', pint, ones(1, m), 1e-7);
-            elseif d == 2
-                pint = zeros(1, m);
-                for i = 1 : m
-                    pint(i) = tsuite_gaussd.prob_integrate_2d(g, i, mu(:,i), Q2(:,:,i));
-                end
-                devcheck('prob_integrate_2d', pint, ones(1, m), 1e-5);
-            end
+            devcheck('sqmahdist (m)', D_m, gt.D, 1e-8 * max(abs(gt.D(:))));
+            devcheck('sqmahdist (c)', D_c, gt.D, 1e-8 * max(abs(gt.D(:))));
+            
+            devcheck('logpdf (m)', LP_m, gt.LP, 1e-8 * max(abs(gt.LP(:))));
+            devcheck('logpdf (c)', LP_c, gt.LP, 1e-8 * max(abs(gt.LP(:))));          
         end
         
         
         function do_test_sampling(ty, d, m, is_zeromean, is_shared)
+                        
+            % parse settings
+                        
+            if m > 1
+                return;
+            end            
             
             if is_zeromean; assert(m == 1); end
             if is_shared; m2 = 1; else m2 = m; end
+            
+            % generate models
+            
             if is_zeromean;
-                mu = zeros(d, m);
+                mu = 0;
             else
                 mu = randn(d, m);
             end
             
             C = rand_pdmat(ty, d, m2, [1, 3]);            
-            g = gaussd.from_mp(mu, C, 'ip');
+            g_mp = gaussd('m', mu, C);
+            g_cp = gaussd('c', g_mp);
             
-            C0 = zeros(d, d, m);
-            for i = 1 : m
-                if is_shared
-                    C0(:,:,i) = pdmat_fullform(C);
-                else
-                    C0(:,:,i) = pdmat_fullform(C, i);
-                end
-            end
+            if is_zeromean
+                mu0 = zeros(d, 1);
+            else
+                mu0 = mu;
+            end                            
+            C0 = pdmat_fullform(C);
+            
+            % perform sampling
                         
             n = 100000;
-            ns = n * ones(1, m);
-                                  
-            if m == 1
-                X = g.sample(ns);
-            else
-                X = g.sample(ns, 1:m);
-            end
             
-            mu_s = zeros(d, m);
-            C_s = zeros(d, d, m);
-            
-            for i = 1 : m
-                Xi = X(:, (i-1)*n+1 : i*n);
-                [C_s(:,:,i), mu_s(:,i)] = veccov(Xi);
-            end                        
-                        
-            devcheck('sample_mean', mu, mu_s, 2e-2);
-            devcheck('sample_cov', C0, C_s, 5e-2);
+            X_m = gaussd_sample(g_mp, n);
+            X_c = gaussd_sample(g_cp, n);                                  
+                                           
+            devcheck('sample_mean (m)', vecmean(X_m), mu0, 2e-2);
+            devcheck('sample_cov (m)', veccov(X_m), C0, 5e-2);                        
+            devcheck('sample_mean (c)', vecmean(X_c), mu0, 2e-2);
+            devcheck('sample_cov (c)', veccov(X_c), C0, 5e-2);
         end
     end    
     
@@ -334,33 +321,53 @@ classdef tsuite_gaussd
     
     methods(Static, Access='private')
         
-        function basic_verify(g, d, m, has_mp, has_ip)
-            
-            assert(g.dim == d && g.num == m && ...
-                g.has_mp == has_mp && g.has_ip == has_ip);
-        end
-        
-        
-        function verify_mp(g, mu, C)
-            
-            if size(mu,2) == 1 && all(mu == 0)
-                assert(isequal(g.mu, 0) && g.zmean)
-            else
-                assert(isequal(g.mu, mu) && ~g.zmean);
+        function verify_mp(g, d, m, cf, mu, C)
+            assert(strcmp(g.tag, 'gaussd'));
+            assert(isequal(g.ty, 'm'));
+            assert(g.d == d);
+            assert(g.n == m);
+            assert(isequal(g.C.ty, cf));
+            if ~isempty(mu)
+                assert(isequal(g.mu, mu));
             end
-            assert(isequal(g.C, C));
-        end
-        
-        
-        function verify_cp(g, h, J, c0)
-            
-            assert(isequal(g.h, h) && isequal(g.J, J));
-            
-            if nargin >= 4
-                assert(isequal(g.c0, c0));
+            if ~isempty(C)
+                assert(isequal(g.C, C));
             end
         end
         
+        
+        function verify_cp(g, d, m, cf, h, J)
+            assert(strcmp(g.tag, 'gaussd'));
+            assert(isequal(g.ty, 'c'));
+            assert(g.d == d);
+            assert(g.n == m);
+            assert(isequal(g.J.ty, cf));
+            if ~isempty(h)
+                assert(isequal(g.h, h));
+            end
+            if ~isempty(J)
+                assert(isequal(g.J, J));
+            end
+        end
+        
+        
+        function v = calc_entropy(C)
+            d = C.d;
+            ldv = pdmat_lndet(C);
+            v = 0.5 * (d * (log(2*pi) + 1) + ldv);
+        end
+        
+        function v = calc_ca(mu, C)
+            C = pdmat_fullform(C);
+            v = mu' * (C \ mu);
+        end
+        
+        function v = calc_cb(C)
+            d = C.d;
+            ldv = pdmat_lndet(C);
+            v = -0.5 * (d * log(2*pi) + ldv);
+        end
+                        
         function D = comp_sq_mahdist(mu, icov, X)
             % compute squared Mahalanobis distance to Gaussian centers
             
@@ -374,40 +381,7 @@ classdef tsuite_gaussd
                 D(i, :) = pwsqmahdist(v, X, A);
             end
         end
-        
-        function v = prob_integrate_1d(g, i, mu, icov)
-            
-            assert(g.dim == 1);
-            s = sqrt(1 / icov);
-            
-            n = 2000;
-            x = linspace(mu - 10 * s, mu + 10 * s, n);
-            p = g.pdf(x, i);
-            
-            v = trapz(x, p);
-        end
-        
-        function v = prob_integrate_2d(g, i, mu, icov)
-            
-            assert(g.dim == 2);
-            C = inv(icov);
-            
-            [V, D] = eig(C);
-            v1 = V(:,1);
-            v2 = V(:,2);
-            s1 = sqrt(D(1,1));
-            s2 = sqrt(D(2,2));
-            
-            [X1, X2] = meshgrid(-8:0.1:8, -8:0.1:8);
-            
-            X = bsxfun(@times, X1(:)' * s1, v1) + bsxfun(@times, X2(:)' * s2, v2);
-            X = bsxfun(@plus, X, mu);
-            
-            p = g.pdf(X, i);
-            
-            v = sum(p) * (s1 * s2) * 0.01;
-            
-        end
+
     end
             
 end

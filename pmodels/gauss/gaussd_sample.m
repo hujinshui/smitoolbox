@@ -100,7 +100,9 @@ if ty == 's' || ty == 'd'
     
     if ~isequal(v, 1);
         v = 1 ./ v;
-        if ~isequal(h, 0)
+        if isequal(h, 0)
+            mu = 0;
+        else
             mu = h .* v;
         end
 
@@ -113,11 +115,16 @@ if ty == 's' || ty == 'd'
         
 elseif ty == 'f'
     L = chol(v);
-    g = L' \ h;
-    A = L \ [X g];
-    X = A(:, 1:n);
-    mu = A(:, n+1);
     
+    if isequal(h, 0)
+        mu = 0;
+        X = L \ X;
+    else                
+        g = L' \ h;
+        A = L \ [X g];
+        X = A(:, 1:n);
+        mu = A(:, n+1);
+    end    
 end
 
 X = add_mu(d, n, X, mu);
