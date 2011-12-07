@@ -8,7 +8,7 @@ function [ca, cb] = gaussd_const(G)
 %       pdf evaluation.
 %
 %       ca = mu' * h = mu' * inv(C) * mu = h' * inv(J) * h
-%       cb = -(1/2) * log(2 * pi * |C|) 
+%       cb = -(1/2) * log((2 * pi)^d * |C|) 
 %
 %       If there is only one output arguments, then only ca is computed.
 %
@@ -46,9 +46,9 @@ end
 
 if nargout >= 2
     if ty == 'm'
-        cb = log(2 * pi) + pdmat_lndet(G.C);
+        cb = G.d * log(2 * pi) + pdmat_lndet(G.C);
     else
-        cb = log(2 * pi) - pdmat_lndet(G.J);
+        cb = G.d * log(2 * pi) - pdmat_lndet(G.J);
     end
     cb = (-0.5) * cb;
 end

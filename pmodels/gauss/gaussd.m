@@ -170,7 +170,11 @@ function G = cvt_c2m(G0)
 %
 
 C = pdmat_inv(G0.J);
-mu = pdmat_mvmul(C, G0.h);
+if isequal(G0.h, 0)
+    mu = 0;
+else
+    mu = pdmat_mvmul(C, G0.h);
+end
 
 G.tag = 'gaussd';
 G.ty = 'm';
@@ -188,10 +192,14 @@ function G = cvt_m2c(G0)
 %
 
 J = pdmat_inv(G0.C);
-h = pdmat_mvmul(J, G0.mu);
+if isequal(G0.mu, 0)
+    h = 0;
+else
+    h = pdmat_mvmul(J, G0.mu);
+end
 
 G.tag = 'gaussd';
-G.ty = 'm';
+G.ty = 'c';
 G.d = G0.d;
 G.n = G0.n;
 G.h = h;

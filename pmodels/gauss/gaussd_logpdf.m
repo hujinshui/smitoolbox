@@ -40,9 +40,9 @@ end
 D = gaussd_sqmahdist(G, X, ca);
 
 if isscalar(cb)
-    LP = D + cb;
+    LP = cb - 0.5 * D;
 else
-    LP = bsxfun(@plus, D, cb);
+    LP = bsxfun(@minus, cb(:), 0.5 * D);
 end
 
 
