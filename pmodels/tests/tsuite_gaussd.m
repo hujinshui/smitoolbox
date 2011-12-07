@@ -161,8 +161,8 @@ classdef tsuite_gaussd
             
             % test entropy
             
-            ent_m = gaussd_entropy(g_mp.C, 'm');
-            ent_c = gaussd_entropy(g_cp.J, 'c');
+            ent_m = gaussd_entropy(g_mp);
+            ent_c = gaussd_entropy(g_cp);
             
             devcheck('ent_m', ent_m, gt.ent, 1e-12);
             devcheck('ent_c', ent_c, gt.ent, 1e-12);            

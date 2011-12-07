@@ -27,7 +27,8 @@ function LP = gaussd_logpdf(G, X, ca_cb)
 %% main
 
 if nargin < 3
-    [ca, cb] = gaussd_const(G);
+    ca = [];
+    cb = [];
 else
     if ~(iscell(ca_cb) && numel(ca_cb) == 2)
         error('gaussd_logpdf:invalidarg', ...
@@ -37,7 +38,15 @@ else
     cb = ca_cb{2};
 end
     
-D = gaussd_sqmahdist(G, X, ca);
+if isempty(ca)
+    D = gaussd_sqmahdist(G, X);
+else
+    D = gaussd_sqmahdist(G, X, ca);
+end
+
+if isempty(cb)
+    cb = G.d / 2 - gaussd_entropy(G);
+end
 
 if isscalar(cb)
     LP = cb - 0.5 * D;
