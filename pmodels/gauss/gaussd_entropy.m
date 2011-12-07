@@ -15,6 +15,11 @@ function v = gaussd_entropy(C, op)
 %
 %       computes the entropy based on the information matrix.
 %
+%   v = gaussd_entropy(G);
+%
+%       computes the entropy of the given Gaussian model, where G is
+%       a gaussd struct.
+%
 
 %   History
 %   -------
@@ -24,25 +29,39 @@ function v = gaussd_entropy(C, op)
 
 %% verify input
 
-if ~is_pdmat(C)
-    error('gaussd_entropy:invalidarg', 'The first arg should be a pdmat struct.');
+if is_pdmat(C)    
+    if nargin < 2
+        is_cov = 1;
+    else
+        if ~(ischar(op) && isscalar(op))
+            error('gaussd_entropy:invalidarg', ...
+                'The second arg to gauss_entropy should be a character.');
+        end
+        if op == 'm'
+            is_cov = 1;
+        elseif op == 'i' || op == 'c'
+            is_cov = 0;
+        else
+            error('gaussd_entropy:invalidarg', 'The 2nd arg to gauss_entropy is invalid.');
+        end
+    end
+    
+elseif is_gaussd(C)
+    
+    if C.ty == 'm'
+        C = C.C;
+        is_cov = 1;
+    elseif C.ty == 'c'
+        C = C.J;
+        is_cov = 0;
+    end
+        
+else
+    error('gaussd_entropy:invalidarg', ...
+        'The first arg should be either a pdmat struct or a gaussd struct.');
 end
 
-if nargin < 2
-    is_cov = 1;
-else
-    if ~(ischar(op) && isscalar(op))
-        error('gaussd_entropy:invalidarg', ...
-            'The second arg to gauss_entropy should be a character.');
-    end
-    if op == 'm'
-        is_cov = 1;
-    elseif op == 'i' || op == 'c'
-        is_cov = 0;
-    else
-        error('gaussd_entropy:invalidarg', 'The 2nd arg to gauss_entropy is invalid.');
-    end
-end
+
 
 %% main
 

@@ -1,4 +1,4 @@
-function D = gaussd_sqmahdist(G, X)
+function D = gaussd_sqmahdist(G, X, ca)
 % Evaluate the squared Mahalanobis distances to Gaussian centers
 %
 %   D = gaussd_sqmahdist(G, X);
@@ -61,24 +61,72 @@ if ty == 'm'    % with mean params
     else
         zm = 0;
     end
-    
-    if zm
-        % obtain M2 only
         
-        switch C.ty
-            case 's'                
-            case 'd'
-            case 'f'
-        end
+    if d == 1
+        r = 1 ./ C.v(:);
+        M2 = r * (X.^2);
+        
+        if ~zm
+            if G.n == 1
+                h = r * mu;
+            else
+                h = bsxfun(@times, r.', mu);
+            end
+        end        
     else
-        % obtain M2 and h
-        
         switch C.ty
             case 's'
+                r = 1 ./ C.v;
+                M2 = r' * sum(X.^2, 1);
+                
+                if ~zm
+                    if G.n == 1
+                        h = r * mu;
+                    else
+                        h = bsxfun(@times, r, mu);
+                    end
+                end
+                
             case 'd'
+                r = 1 ./ C.v;
+                M2 = r' * (X.^2);
+                
+                if ~zm
+                    if C.n == G.n
+                        h = r .* mu;
+                    else
+                        h = bsxfun(@times, r, mu);
+                    end
+                end
+                
             case 'f'
+                Cm = C.v;
+                if C.n == 1                    
+                    if zm
+                        JX = Cm \ X;
+                    else
+                        [JX, h] = solve_two(Cm, X, mu);
+                    end
+                    
+                    M2 = dot(X, JX, 1);
+
+                else
+                    M2 = zeros(C.n, size(X,2));
+                    
+                    if zm                    
+                        for k = 1 : C.n
+                            M2(k, :) = dot(X, Cm(:,:,k) \ X, 1);
+                        end
+                    else
+                        h = zeros(d, G.n);
+                        for k = 1 : C.n
+                            [JX, h(:,k)] = solve_two(Cm(:,:,k), X, mu(:,k));
+                            M2(k, :) = dot(X, JX, 1);
+                        end
+                    end
+                end
         end
-    end     
+    end    
     
 elseif ty == 'c'    % with canonical params
     
@@ -93,7 +141,7 @@ elseif ty == 'c'    % with canonical params
     
     M2 = pdmat_quad(J, X);
     
-    if isempty(ca)      % need mu to calculate ca
+    if isempty(ca) && ~zm      % need mu to calculate ca
         mu = pdmat_lsolve(J, h);
     end
 end
@@ -129,4 +177,13 @@ end
 
 D(D < 0) = 0;
 
+
+%% auxiliary function
+
+function [JX, h] = solve_two(C, X, mu)
+
+n = size(X, 2);
+JX = C \ [X mu];
+h = JX(:, n+1:end);
+JX = JX(:, 1:n);
 

@@ -8,7 +8,7 @@ function [ca, cb] = gaussd_const(G)
 %       pdf evaluation.
 %
 %       ca = mu' * h = mu' * inv(C) * mu = h' * inv(J) * h
-%       cb = -(1/2) * log((2 * pi)^d * |C|) 
+%       cb = -(1/2) * log((2 * pi)^d * |C|) = d/2 - entropy
 %
 %       If there is only one output arguments, then only ca is computed.
 %
