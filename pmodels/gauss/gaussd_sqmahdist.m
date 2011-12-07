@@ -1,4 +1,4 @@
-function D = gaussd_sqmahdist(G, X, ca)
+function D = gaussd_sqmahdist(G, X)
 % Evaluate the squared Mahalanobis distances to Gaussian centers
 %
 %   D = gaussd_sqmahdist(G, X);
@@ -47,11 +47,11 @@ end
 
 %% main
 
-% type-specific computation of individual terms
+% compute M2 (and at the same time mu or h)
 
 ty = G.ty;
 
-if ty == 'm'
+if ty == 'm'    % with mean params
     
     C = G.C;
     mu = G.mu;
@@ -60,33 +60,27 @@ if ty == 'm'
         zm = 1;
     else
         zm = 0;
-        h = pdmat_lsolve(C, mu);
-        M1 = h' * X;
     end
-
-    if d == 1
-        M2 = (1 ./ C.v(:)) * (X.^2);
+    
+    if zm
+        % obtain M2 only
+        
+        switch C.ty
+            case 's'                
+            case 'd'
+            case 'f'
+        end
     else
+        % obtain M2 and h
+        
         switch C.ty
             case 's'
-                M2 = (1 ./ C.v)' * sum(X.^2, 1);
             case 'd'
-                M2 = (1 ./ C.v)' * (X.^2);
             case 'f'
-                Cmat = C.v;
-                if C.n == 1
-                    M2 = dot(X, Cmat \ X, 1);
-                else
-                    M2 = zeros(C.n, size(X,2));
-                    for k = 1 : C.n
-                        M2(k,:) = dot(X, Cmat(:,:,k) \ X, 1);
-                    end
-                end
         end
-    end
- 
+    end     
     
-elseif ty == 'c'
+elseif ty == 'c'    % with canonical params
     
     J = G.J;
     h = G.h;
@@ -95,30 +89,13 @@ elseif ty == 'c'
         zm = 1;
     else
         zm = 0;
-        M1 = h' * X;
     end    
     
-    if d == 1
-        M2 = J.v(:) * (X.^2);
-    else
-        switch J.ty
-            case 's'
-                M2 = J.v' * sum(X.^2, 1);
-            case 'd'
-                M2 = J.v' * (X.^2);
-            case 'f'
-                Jmat = J.v;
-                if J.n == 1
-                    M2 = dot(X, Jmat * X, 1);
-                else
-                    M2 = zeros(J.n, size(X,2));
-                    for k = 1 : J.n
-                        M2(k,:) = dot(X, Jmat(:,:,k) * X, 1);
-                    end
-                end
-        end
-    end
+    M2 = pdmat_quad(J, X);
     
+    if isempty(ca)      % need mu to calculate ca
+        mu = pdmat_lsolve(J, h);
+    end
 end
 
 % combine terms
@@ -128,7 +105,11 @@ if zm
 else
     K = G.n;
     if isempty(ca)
-        ca = gaussd_const(G);
+        if K == 1
+            ca = h' * mu;
+        else
+            ca = dot(h, mu, 1);            
+        end
     else        
         if ~(isfloat(ca) && isreal(ca) && isvector(ca) && numel(ca) == K)
             error('gaussd_sqmahdist:invalidarg', ...
@@ -136,6 +117,7 @@ else
         end
     end
     
+    M1 = h' * X;
     if size(M1, 1) == size(M2, 1)
         D = M2 - 2 * M1;
     else
