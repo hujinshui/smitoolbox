@@ -34,6 +34,10 @@ classdef tsuite_gaussd
             run_multi(obj, @tsuite_gaussd.do_test_evaluation);
         end
         
+        function test_mle(obj)
+            run_multi(obj, @tsuite_gaussd.do_test_mle);
+        end
+        
         function test_sampling(obj)
             run_multi(obj, @tsuite_gaussd.do_test_sampling);
         end
@@ -245,6 +249,53 @@ classdef tsuite_gaussd
         end
         
         
+        function do_test_mle(ty, d, m, is_zeromean, is_shared)
+            
+            % parse settings
+            
+            if is_zeromean
+                return;
+            end
+            
+            % generate data
+            
+            mu0 = randn(d, 1);
+            L0 = rand(d, d);            
+            n = 1000;
+            X = bsxfun(@plus, mu0, L0 * randn(d, n));
+            w = rand(m, n);
+            
+            % perform estimation
+            
+            if m == 1
+                Ge0 = gaussd_mle(X, [], ty, is_shared);                
+                tsuite_gaussd.verify_mp(Ge0, d, m, ty, [], []);
+                                                
+                Ge = gaussd_mle(X, w, ty, is_shared);
+                tsuite_gaussd.verify_mp(Ge, d, m, ty, [], []);
+                
+                Gr0 = tsuite_gaussd.gmle(X, ones(1, n), ty, is_shared);
+                Gr = tsuite_gaussd.gmle(X, w, ty, is_shared);  
+                
+                devcheck('mle (mean)', Ge0.mu, Gr0.mu, 1e-12);
+                devcheck('mle (cov)', Ge0.C.v, Gr0.C.v, 1e-12);
+                devcheck('w-mle (mean)', Ge.mu, Gr.mu, 1e-12);
+                devcheck('w-mle (cov)', Ge.C.v, Gr.C.v, 1e-12);
+
+            else
+                Ge = gaussd_mle(X, w, ty, is_shared);
+                tsuite_gaussd.verify_mp(Ge, d, m, ty, [], []);
+                
+                Gr = tsuite_gaussd.gmle(X, w, ty, is_shared); 
+                
+                devcheck('w-mle (mean)', Ge.mu, Gr.mu, 1e-12);
+                devcheck('w-mle (cov)', Ge.C.v, Gr.C.v, 1e-12);
+            end            
+            
+        end
+        
+        
+        
         function do_test_sampling(ty, d, m, is_zeromean, is_shared)
                         
             % parse settings
@@ -287,6 +338,10 @@ classdef tsuite_gaussd
             devcheck('sample_mean (c)', vecmean(X_c), mu0, 2e-2);
             devcheck('sample_cov (c)', veccov(X_c), C0, 5e-2);
         end
+        
+        
+        
+        
     end    
     
     
@@ -382,6 +437,42 @@ classdef tsuite_gaussd
             end
         end
 
+        
+        function G = gmle(X, w, cf, cov_tied)
+            % A slow (but straightforward) way to implement MLE
+            
+            mu = vecmean(X, w);
+            d = size(X, 1);
+            m = size(w, 1);
+            
+            if cov_tied && m > 1
+                sw = sum(w, 2);
+                sw = sw / sum(sw);
+            end
+            
+            switch cf
+                case {'s', 'd'}
+                    v = vecvar(X, w, mu);
+                    if cf == 's'
+                        v = mean(v, 1);
+                    end
+                    if cov_tied && m > 1
+                        v = v * sw;
+                    end
+                    C = pdmat(cf, d, v);
+                    
+                case 'f'
+                    v = veccov(X, w, mu);
+                    if cov_tied && m > 1
+                        v = reshape(v, d * d, m) * sw;
+                        v = reshape(v, d, d);
+                    end
+                    C = pdmat(cf, d, v);
+            end
+            
+            G = gaussd('m', mu, C);            
+        end
+        
     end
             
 end

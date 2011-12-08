@@ -86,8 +86,8 @@ else
     % normalize the weights
     Wt = W.';    
     
-    sw = sum(W, 1);
-    Wt = bsxfun(@times, Wt, 1 ./ sw).';
+    sw = sum(Wt, 1);
+    Wt = bsxfun(@times, Wt, 1 ./ sw);
     sw = sw.' / sum(sw);
 end
 
