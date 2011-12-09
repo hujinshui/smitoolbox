@@ -120,6 +120,9 @@ if is_wmat
     else
         L = -W;
         dv = sum(W, 1);
+        if ~isempty(a)
+            dv = dv + a;
+        end
         dind = 1 : n+1 : n*n;
         L(dind) = L(dind) + dv;
     end
