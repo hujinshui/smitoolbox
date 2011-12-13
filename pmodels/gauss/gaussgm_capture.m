@@ -62,7 +62,7 @@ elseif is_pdmat(Jx)
         error('gaussgm_capture:invalidarg', ...
             'Jx should have Jx.n == 1 and Jx.d == d.');
     end
-    if Jx.d == 1 || Jx.ty == 's'
+    if Jx.ty == 's'
         jv = Jx.v;
         Jsca = 1;
     else
@@ -77,26 +77,69 @@ else
         error('gaussgm_capture:invalidarg', ...
             'A should be a real matrix with size(A,1) == d.');
     end
+    use_A = 1;
+    q = size(A, 2);
 end
 
 %% main
 
-% compute Jx * X
+% compute dh
 
-if Jsca
-   
+if Jsca   
     if isscalar(w)
+        dh = sum(X, 2) * (jv * w);        
     else
-    end
-        
+        dh = X * (jv * w)';
+    end        
+else
+    JX = pdmat_mvmul(Jx, X);
+    if isscalar(w)
+        dh = sum(JX, 2) * w;
+    else
+        dh = JX * w';
+    end    
+end
+
+if use_A
+    dh = A' * dh;
+end
+
+    
+% compute dJ    
+
+if isscalar(w)
+    tw = w * n;
+else
+    tw = sum(w, 2).';
+end
+
+    
+if ~use_A                
+    if Jsca
+        dJ = pdmat('s', d, tw * jv);
+    else
+        dJ = pdmat_scale(Jx, tw);
+    end    
 else
     
+    if Jsca        
+        dJ0 = jv * (A' * A);
+    else
+        dJ0 = pdmat_pwquad(Jx, A);
+        dJ0 = 0.5 * (dJ0 + dJ0');
+    end    
     
-    
+    if isscalar(tw)
+        dJ = pdmat('f', q, dJ0 * tw);
+    else
+        dJ = zeros([size(dJ0), m]);
+        for k = 1 : m
+            dJ(:,:,k) = dJ0 * tw(k);
+        end
+        dJ = pdmat('f', q, dJ);
+    end        
 end
-    
-    
-    
+
     
 
 
