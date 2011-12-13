@@ -1,7 +1,8 @@
-classdef gaussgm
-    % The class that implements a Gaussian generative model
+classdef ggm_simplegen
+    % The class that implements a simple Gaussian generative model
     %
-    %   The Gaussian generative model, with parameter u, is formulated as
+    %   The simple Gaussian generative model, with parameter u, is 
+    %   formulated as
     %   
     %       x ~ N(A * u, Cx),   or x ~ N(u, Cx) if A is identity.
     %
@@ -52,17 +53,17 @@ classdef gaussgm
                 if v > 0
                     model.Jx = pdmat_mat('s', d, v);
                 else
-                    error('gaussgm:invalidarg', ...
+                    error('ggm_simplegen:invalidarg', ...
                         'The precision (Jx) should be a positive value.');
                 end
             elseif is_pdmat(v)
                 if ~(v.n == 1 && v.d == d)
-                    error('gaussgm:invalidarg', ...
+                    error('ggm_simplegen:invalidarg', ...
                         'Jx should have Jx.n == 1 and Jx.d == d.');
                 end
                 model.Jx = v;
             else
-                error('gaussgm:invalidarg', ...
+                error('ggm_simplegen:invalidarg', ...
                     'Attempt to set Jx to an invalid value.');
             end
                         
@@ -80,7 +81,7 @@ classdef gaussgm
             q = model.pdim;
             
             if ~(isfloat(v) && isreal(v) && isequal(size(v), [d q]))
-                error('gaussgm:invalidarg', ...
+                error('ggm_simplegen:invalidarg', ...
                     'A should be a real matrix of size d x q.');
             end
             
@@ -98,11 +99,11 @@ classdef gaussgm
         
         %% constructor
         
-        function model = gaussgm(Jx, A)
+        function model = ggm_simplegen(Jx, A)
             % Construct a Gaussian generative model as formulated above
             %
-            %   model = gaussgm(d);                       
-            %   model = gaussgm(d, q);
+            %   model = ggm_simplegen(d);                       
+            %   model = ggm_simplegen(d, q);
             %
             %       Creates an empty model with xdim == d and pdim == q.
             %       If q is omitted, then it assumes q == d.
@@ -111,8 +112,8 @@ classdef gaussgm
             %       One has to set Jx (and optionally A) before using
             %       the model.
             %
-            %   model = gaussgm(Jx);
-            %   model = gaussgm(Jx, A);
+            %   model = ggm_simplegen(Jx);
+            %   model = ggm_simplegen(Jx, A);
             %       
             %       Creates a model with given precision matrix Jx, 
             %       and (optionally) the transform matrix A.
@@ -121,7 +122,7 @@ classdef gaussgm
             if isnumeric(Jx) && isscalar(Jx)
                 d = Jx;                                
                 if ~(isreal(d) && d == fix(d) && d > 0)
-                    error('gaussgm:invalidarg', 'd should be a positive integer.');
+                    error('ggm_simplegen:invalidarg', 'd should be a positive integer.');
                 end
                 
                 if nargin < 2
@@ -129,10 +130,10 @@ classdef gaussgm
                 elseif isnumeric(A) && isscalar(A)
                     q = A;                                    
                     if ~(isreal(q) && q == fix(q) && q > 0)
-                        error('gaussgm:invalidarg', 'q should be a positive integer.');
+                        error('ggm_simplegen:invalidarg', 'q should be a positive integer.');
                     end
                 else
-                    error('gaussgm:invalidarg', 'The 2nd argument is invalid.');
+                    error('ggm_simplegen:invalidarg', 'The 2nd argument is invalid.');
                 end
 
                 model.xdim = double(d);
@@ -141,7 +142,7 @@ classdef gaussgm
             else
                 
                 if ~is_pdmat(Jx)
-                    error('gaussgm:invalidarg', 'Jx should be a pdmat struct.');
+                    error('ggm_simplegen:invalidarg', 'Jx should be a pdmat struct.');
                 end
                 
                 d = Jx.d;
@@ -150,7 +151,7 @@ classdef gaussgm
                     uA = false;
                 else
                     if ~(isfloat(A) && isreal(A) && ndims(A) == 2 && size(A,1) == d)
-                        error('gaussgm:invalidarg', ...
+                        error('ggm_simplegen:invalidarg', ...
                             'A should be a real matrix with d rows.');
                     end
                     q = size(A, 2);
@@ -184,7 +185,7 @@ classdef gaussgm
             
             d = model.xdim;
             if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == d)
-                error('gaussgm:invalidarg', ...
+                error('ggm_simplegen:invalidarg', ...
                     'The observations should be a real matrix with d rows.');
             end
             n = size(X, 2);            
@@ -205,7 +206,7 @@ classdef gaussgm
             
             q = model.pdim;
             if ~(isfloat(U) && isreal(U) && ndims(U) == 2 && size(U, 1) == q)
-                error('gaussgm:invalidarg', ...
+                error('ggm_simplegen:invalidarg', ...
                     'The params U should be a real matrix with q rows.');
             end
             
@@ -261,7 +262,7 @@ classdef gaussgm
             else
                 if ~(isfloat(w) && isreal(w) && ...
                         (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
-                    error('gaussgm:invalidarg', ...
+                    error('ggm_simplegen:invalidarg', ...
                         'w should be a real scalar or a matrix with n columns.');
                 end
                 m = size(w, 1);
