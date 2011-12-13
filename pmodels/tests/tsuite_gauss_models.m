@@ -1,5 +1,5 @@
-classdef tsuite_gauss_capture
-    % The test suite for various observation capturing functions for Gauss
+classdef tsuite_gauss_models
+    % The test suite for various Gauss based generative models
     %
     
     % Created by Dahua Lin, on Dec 13, 2011
@@ -17,8 +17,8 @@ classdef tsuite_gauss_capture
     
     methods
         
-        function test_gaussgm_capture(obj)
-            run_multi(obj, @tsuite_gauss_capture.do_test_gaussgm_capture);
+        function test_gaussgm(obj)
+            run_multi(obj, @tsuite_gauss_models.do_test_gaussgm);
         end
                 
         
@@ -51,7 +51,7 @@ classdef tsuite_gauss_capture
         
         %% gaussgn_capture
         
-        function do_test_gaussgm_capture(cf, d, K, n)
+        function do_test_gaussgm(cf, d, K, n)
             % Perform the test of gaussgm_capture on a specific setting
             %
             %   cf:     the form of Jx
@@ -71,7 +71,7 @@ classdef tsuite_gauss_capture
                 d = d(1);
             end
             
-            % prepare arguments
+            % prepare model
             
             Jx = rand_pdmat(cf, d, 1, [1 2]);
             
@@ -86,25 +86,69 @@ classdef tsuite_gauss_capture
             
             if use_A
                 A = randn(d, q);
+            else
+                A = [];
             end
-                            
-            % run the functions
             
             if ~use_A
-                [dh0, dJ0] = tsuite_gauss_capture.gaussgm_capture_gt(X, w, Jx, []);            
-                [dh, dJ] = gaussgm_capture(X, w, Jx);
-                
-                if cf == 's'
-                    [dh2, dJ2] = gaussgm_capture(X, w, Jx.v);                                    
-                    assert(isequal(dh, dh2));
-                    assert(isequal(dJ, dJ2));
-                end
-            else                
-                [dh0, dJ0] = tsuite_gauss_capture.gaussgm_capture_gt(X, w, Jx, A);
-                [dh, dJ] = gaussgm_capture(X, w, Jx, A);
+                g0 = gaussgm(d);
+                gm = gaussgm(Jx);
+            else
+                g0 = gaussgm(d, q);
+                gm = gaussgm(Jx, A);
             end
             
-            % verify results
+            % verify models
+            
+            assert(g0.xdim == d);
+            assert(g0.pdim == q);
+            assert(isempty(g0.Gx));
+            assert(isempty(g0.Gx_cb));
+            assert(isempty(g0.Jx));
+            assert(isempty(g0.A));
+            
+            assert(gm.xdim == d);
+            assert(gm.pdim == q);
+            assert(is_pdmat(gm.Jx) && isequal(gm.Jx, Jx));
+            assert(isempty(gm.A) == ~use_A);
+            if use_A
+                assert(isequal(gm.A, A));
+            end
+            assert(is_gaussd(gm.Gx) && gm.Gx.ty == 'c' && gm.Gx.n == 1);
+            assert(isequal(gm.Gx.h, 0));
+            assert(isequal(gm.Gx.J, Jx));
+            assert(isscalar(gm.Gx_cb));
+            
+            [~, cb] = gaussd_const(gm.Gx);
+            devcheck('gaussgm (cb)', cb, gm.Gx_cb, 1e-15);                        
+                            
+            assert(g0.query_obs(X) == n);
+            assert(gm.query_obs(X) == n);
+            
+            % verify loglik evaluation
+            
+            U = randn(q, K);
+            
+            LL = gm.loglik(U, X);
+            
+            if ~use_A
+                AU = U;
+            else
+                AU = A * U;
+            end            
+            
+            LL0 = zeros(K, n);
+            for k = 1 : K
+                lv = gaussd_logpdf(gm.Gx, bsxfun(@minus, X, AU(:,k)));
+                LL0(k,:) = lv;
+            end
+            
+            devcheck('gaussgm (LL)', LL, LL0, 1e-12);            
+            
+            % verify capturing (conjugate updates)
+            
+            [dh0, dJ0] = tsuite_gauss_models.gaussgm_capture_gt(X, w, Jx, A);
+            [dh, dJ] = gm.capture(X, w);            
            
             assert(isequal(size(dh0), [q, K]));
             assert(isequal(size(dh), [q, K]));
