@@ -17,8 +17,8 @@ classdef tsuite_gauss_models
     
     methods
         
-        function test_gaussgm(obj)
-            run_multi(obj, @tsuite_gauss_models.do_test_gaussgm);
+        function test_simplegen(obj)
+            run_multi(obj, @tsuite_gauss_models.do_test_simplegen);
         end
                 
         
@@ -51,7 +51,7 @@ classdef tsuite_gauss_models
         
         %% gaussgn_capture
         
-        function do_test_gaussgm(cf, d, K, n)
+        function do_test_simplegen(cf, d, K, n)
             % Perform the test of gaussgm_capture on a specific setting
             %
             %   cf:     the form of Jx
@@ -91,11 +91,11 @@ classdef tsuite_gauss_models
             end
             
             if ~use_A
-                g0 = gaussgm(d);
-                gm = gaussgm(Jx);
+                g0 = ggm_simplegen(d);
+                gm = ggm_simplegen(Jx);
             else
-                g0 = gaussgm(d, q);
-                gm = gaussgm(Jx, A);
+                g0 = ggm_simplegen(d, q);
+                gm = ggm_simplegen(Jx, A);
             end
             
             % verify models
@@ -147,7 +147,7 @@ classdef tsuite_gauss_models
             
             % verify capturing (conjugate updates)
             
-            [dh0, dJ0] = tsuite_gauss_models.gaussgm_capture_gt(X, w, Jx, A);
+            [dh0, dJ0] = tsuite_gauss_models.simplegen_capture_gt(X, w, Jx, A);
             [dh, dJ] = gm.capture(X, w);            
            
             assert(isequal(size(dh0), [q, K]));
@@ -162,7 +162,7 @@ classdef tsuite_gauss_models
         end
         
         
-        function [dh, dJ] = gaussgm_capture_gt(X, w, Jx, A)
+        function [dh, dJ] = simplegen_capture_gt(X, w, Jx, A)
             % Calculate the ground-truth for gaussgm_capture
             
             n = size(X, 2);
