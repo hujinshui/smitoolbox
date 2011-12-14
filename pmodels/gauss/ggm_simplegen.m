@@ -40,6 +40,11 @@ classdef ggm_simplegen
         A;          % the transform matrix [empty or d x q]
     end    
     
+    properties(GetAccess='private', SetAccess='private')
+        AtJA;       % the matrix equals A' * Jx * A
+    end        
+    
+    
     methods
         
         function model = set_Jx(model, v)
@@ -67,8 +72,13 @@ classdef ggm_simplegen
                     'Attempt to set Jx to an invalid value.');
             end
                         
-            model.Gx.J = model.Jx;
-            model.Gx_cb = d / 2 - gaussd_entropy(model.Jx, 'c');            
+            Jx_ = model.Jx;
+            model.Gx.J = Jx_;
+            model.Gx_cb = d / 2 - gaussd_entropy(Jx_, 'c');     
+            
+            if model.use_A
+                model.AtJA = ggm_simplegen.calc_AtJA(Jx_, model.A);
+            end
         end
         
         function model = set_A(model, v)
@@ -87,6 +97,9 @@ classdef ggm_simplegen
             
             model.A = v;
             model.use_A = true;
+            if ~isempty(model.Jx)
+                model.AtJA = ggm_simplegen.calc_AtJA(Jx_, v);
+            end
         end
         
     end
@@ -165,6 +178,7 @@ classdef ggm_simplegen
                 
                 if uA
                     model.A = A;
+                    model.AtJA = ggm_simplegen.calc_AtJA(Jx, A);
                 end
                                 
                 model.Gx = gaussd('c', 0, Jx);
@@ -175,12 +189,16 @@ classdef ggm_simplegen
         
         %% observation query
         
-        function n = query_obs(model, X)
+        function [n, nc] = query_obs(model, X)
             % Get the number of observation samples
             %
             %   n = model.query_obs(X);
             %       verifies the validity of X as an observation set,
             %       and returns the number of samples in X.
+            %
+            %   [n, nc] = model.query_obs(X);
+            %       additionally returns the number of output arguments
+            %       by the 'capture' method.
             %
             
             d = model.xdim;
@@ -188,7 +206,8 @@ classdef ggm_simplegen
                 error('ggm_simplegen:invalidarg', ...
                     'The observations should be a real matrix with d rows.');
             end
-            n = size(X, 2);            
+            n = size(X, 2);
+            nc = 2;
         end
         
         
@@ -225,6 +244,50 @@ classdef ggm_simplegen
             LL = gaussd_logpdf(g, X, {ca, cb});            
         end        
         
+        
+        %% maximum likelihood estimation
+        
+        function U = mle(model, X, w)
+            % Performs maximum likelihood estimation of the parameters
+            %
+            %   U = model.mle(X, w);
+            %
+            %       performs maximum likelihood estimation based on
+            %       given (weighted) set of data
+            %
+            
+            % verify inputs
+            
+            n = model.query_obs(X);
+            
+            if isempty(w)
+                w = 1;
+            else                
+                if ~(isfloat(w) && isreal(w) && ...
+                        (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
+                    error('ggm_simplegen:invalidarg', ...
+                        'w should be a real scalar or a matrix with n columns.');
+                end 
+            end
+            
+            % compute
+            
+            if isscalar(w)
+                U = sum(X, 2) * (1 / n);
+            else
+                wt = w.';
+                sw = sum(wt, 1);
+                U = bsxfun(@times, X * wt, 1 ./ sw);
+            end
+            
+            if model.use_A
+                H_ = model.AtJA;
+                A_ = model.A;
+                
+                U = H_ \ (A_' * pdmat_mvmul(model.Jx, U));
+            end            
+        end                
+                
         
         %% conjugate update
         
@@ -315,12 +378,7 @@ classdef ggm_simplegen
                 end
             else
                 
-                if Jsca
-                    dJ0 = jv * (A_' * A_);
-                else
-                    dJ0 = pdmat_pwquad(Jx_, A_);
-                    dJ0 = 0.5 * (dJ0 + dJ0');
-                end
+                dJ0 = model.AtJA;
                 
                 if isscalar(tw)
                     dJ = pdmat('f', q, dJ0 * tw);
@@ -336,6 +394,24 @@ classdef ggm_simplegen
         
         
     end
+    
+    
+    %% Auxiliary implementation
+    
+    methods(Static, Access='private')
+        
+        function H = calc_AtJA(J, A)            
+            if J.ty == 's'
+                jv = J.v;
+                H = jv * (A' * A);
+            else
+                H = pdmat_pwquad(J, A);
+                H = 0.5 * (H + H');
+            end            
+        end
+        
+    end
+    
     
              
 end

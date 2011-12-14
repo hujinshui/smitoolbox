@@ -143,7 +143,7 @@ classdef tsuite_gauss_models
                 LL0(k,:) = lv;
             end
             
-            devcheck('gaussgm (LL)', LL, LL0, 1e-12);            
+            devcheck('simplegen (LL)', LL, LL0, 1e-12);            
             
             % verify capturing (conjugate updates)
             
@@ -156,9 +156,17 @@ classdef tsuite_gauss_models
             assert(is_pdmat(dJ) && dJ.d == q && dJ.n == K);
             assert(isequal(dJ0.ty, dJ.ty));
             
-            devcheck('gaussgm_capture (dh)', dh, dh0, 1e-12);
-            devcheck('gaussgm_capture (dJ)', dJ.v, dJ0.v, 1e-12);
+            devcheck('simplegen (dh)', dh, dh0, 1e-12);
+            devcheck('simplegen (dJ)', dJ.v, dJ0.v, 1e-12);
             
+            % verify MLE
+            
+            U = gm.mle(X, w);
+            U0 = pdmat_lsolve(dJ0, dh0);
+            
+            assert(isequal(size(U0), [q, K]));
+            assert(isequal(size(U), [q, K]));
+            devcheck('simplegen (U)', U, U0, 1e-10);            
         end
         
         
