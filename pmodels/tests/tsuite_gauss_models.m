@@ -17,8 +17,8 @@ classdef tsuite_gauss_models
     
     methods
         
-        function test_simplegen(obj)
-            run_multi(obj, @tsuite_gauss_models.do_test_simplegen);
+        function test_gaussgen(obj)
+            run_multi(obj, @tsuite_gauss_models.do_test_gaussgen);
         end
                 
         
@@ -51,7 +51,7 @@ classdef tsuite_gauss_models
         
         %% gaussgn_capture
         
-        function do_test_simplegen(cf, d, K, n)
+        function do_test_gaussgen(cf, d, K, n)
             % Perform the test of gaussgm_capture on a specific setting
             %
             %   cf:     the form of Jx
@@ -91,11 +91,11 @@ classdef tsuite_gauss_models
             end
             
             if ~use_A
-                g0 = ggm_simplegen(d);
-                gm = ggm_simplegen(Jx);
+                g0 = gaussgen(d);
+                gm = gaussgen(Jx);
             else
-                g0 = ggm_simplegen(d, q);
-                gm = ggm_simplegen(Jx, A);
+                g0 = gaussgen(d, q);
+                gm = gaussgen(Jx, A);
             end
             
             % verify models

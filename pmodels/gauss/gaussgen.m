@@ -1,4 +1,4 @@
-classdef ggm_simplegen
+classdef gaussgen
     % The class that implements a simple Gaussian generative model
     %
     %   The simple Gaussian generative model, with parameter u, is 
@@ -58,17 +58,17 @@ classdef ggm_simplegen
                 if v > 0
                     model.Jx = pdmat_mat('s', d, v);
                 else
-                    error('ggm_simplegen:invalidarg', ...
+                    error('gaussgen:invalidarg', ...
                         'The precision (Jx) should be a positive value.');
                 end
             elseif is_pdmat(v)
                 if ~(v.n == 1 && v.d == d)
-                    error('ggm_simplegen:invalidarg', ...
+                    error('gaussgen:invalidarg', ...
                         'Jx should have Jx.n == 1 and Jx.d == d.');
                 end
                 model.Jx = v;
             else
-                error('ggm_simplegen:invalidarg', ...
+                error('gaussgen:invalidarg', ...
                     'Attempt to set Jx to an invalid value.');
             end
                         
@@ -77,7 +77,7 @@ classdef ggm_simplegen
             model.Gx_cb = d / 2 - gaussd_entropy(Jx_, 'c');     
             
             if model.use_A
-                model.AtJA = ggm_simplegen.calc_AtJA(Jx_, model.A);
+                model.AtJA = gaussgen.calc_AtJA(Jx_, model.A);
             end
         end
         
@@ -91,14 +91,14 @@ classdef ggm_simplegen
             q = model.pdim;
             
             if ~(isfloat(v) && isreal(v) && isequal(size(v), [d q]))
-                error('ggm_simplegen:invalidarg', ...
+                error('gaussgen:invalidarg', ...
                     'A should be a real matrix of size d x q.');
             end
             
             model.A = v;
             model.use_A = true;
             if ~isempty(model.Jx)
-                model.AtJA = ggm_simplegen.calc_AtJA(Jx_, v);
+                model.AtJA = gaussgen.calc_AtJA(Jx_, v);
             end
         end
         
@@ -112,11 +112,11 @@ classdef ggm_simplegen
         
         %% constructor
         
-        function model = ggm_simplegen(Jx, A)
+        function model = gaussgen(Jx, A)
             % Construct a Gaussian generative model as formulated above
             %
-            %   model = ggm_simplegen(d);                       
-            %   model = ggm_simplegen(d, q);
+            %   model = gaussgm(d);                       
+            %   model = gaussgm(d, q);
             %
             %       Creates an empty model with xdim == d and pdim == q.
             %       If q is omitted, then it assumes q == d.
@@ -125,8 +125,8 @@ classdef ggm_simplegen
             %       One has to set Jx (and optionally A) before using
             %       the model.
             %
-            %   model = ggm_simplegen(Jx);
-            %   model = ggm_simplegen(Jx, A);
+            %   model = gaussgen(Jx);
+            %   model = gaussgen(Jx, A);
             %       
             %       Creates a model with given precision matrix Jx, 
             %       and (optionally) the transform matrix A.
@@ -135,7 +135,7 @@ classdef ggm_simplegen
             if isnumeric(Jx) && isscalar(Jx)
                 d = Jx;                                
                 if ~(isreal(d) && d == fix(d) && d > 0)
-                    error('ggm_simplegen:invalidarg', 'd should be a positive integer.');
+                    error('gaussgen:invalidarg', 'd should be a positive integer.');
                 end
                 
                 if nargin < 2
@@ -143,10 +143,10 @@ classdef ggm_simplegen
                 elseif isnumeric(A) && isscalar(A)
                     q = A;                                    
                     if ~(isreal(q) && q == fix(q) && q > 0)
-                        error('ggm_simplegen:invalidarg', 'q should be a positive integer.');
+                        error('gaussgen:invalidarg', 'q should be a positive integer.');
                     end
                 else
-                    error('ggm_simplegen:invalidarg', 'The 2nd argument is invalid.');
+                    error('gaussgen:invalidarg', 'The 2nd argument is invalid.');
                 end
 
                 model.xdim = double(d);
@@ -155,7 +155,7 @@ classdef ggm_simplegen
             else
                 
                 if ~is_pdmat(Jx)
-                    error('ggm_simplegen:invalidarg', 'Jx should be a pdmat struct.');
+                    error('gaussgen:invalidarg', 'Jx should be a pdmat struct.');
                 end
                 
                 d = Jx.d;
@@ -164,7 +164,7 @@ classdef ggm_simplegen
                     uA = false;
                 else
                     if ~(isfloat(A) && isreal(A) && ndims(A) == 2 && size(A,1) == d)
-                        error('ggm_simplegen:invalidarg', ...
+                        error('gaussgen:invalidarg', ...
                             'A should be a real matrix with d rows.');
                     end
                     q = size(A, 2);
@@ -178,7 +178,7 @@ classdef ggm_simplegen
                 
                 if uA
                     model.A = A;
-                    model.AtJA = ggm_simplegen.calc_AtJA(Jx, A);
+                    model.AtJA = gaussgen.calc_AtJA(Jx, A);
                 end
                                 
                 model.Gx = gaussd('c', 0, Jx);
@@ -203,7 +203,7 @@ classdef ggm_simplegen
             
             d = model.xdim;
             if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == d)
-                error('ggm_simplegen:invalidarg', ...
+                error('gaussgen:invalidarg', ...
                     'The observations should be a real matrix with d rows.');
             end
             n = size(X, 2);
@@ -225,7 +225,7 @@ classdef ggm_simplegen
             
             q = model.pdim;
             if ~(isfloat(U) && isreal(U) && ndims(U) == 2 && size(U, 1) == q)
-                error('ggm_simplegen:invalidarg', ...
+                error('gaussgen:invalidarg', ...
                     'The params U should be a real matrix with q rows.');
             end
             
@@ -265,7 +265,7 @@ classdef ggm_simplegen
             else                
                 if ~(isfloat(w) && isreal(w) && ...
                         (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
-                    error('ggm_simplegen:invalidarg', ...
+                    error('gaussgen:invalidarg', ...
                         'w should be a real scalar or a matrix with n columns.');
                 end 
             end
@@ -325,7 +325,7 @@ classdef ggm_simplegen
             else
                 if ~(isfloat(w) && isreal(w) && ...
                         (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
-                    error('ggm_simplegen:invalidarg', ...
+                    error('gaussgen:invalidarg', ...
                         'w should be a real scalar or a matrix with n columns.');
                 end
                 m = size(w, 1);
