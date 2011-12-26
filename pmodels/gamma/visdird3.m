@@ -45,10 +45,6 @@ end
 
 %% main
 
-% construct distribution
-
-D = dirichletd(3, alpha, 'pre');
-
 % gather the points at which pdf is calculated
 
 tarref = [-1 0 1; 0 sqrt(3) 1; 1 0 1]';
@@ -78,7 +74,7 @@ is_valid = all(s > 1e-3, 1);
 % compute pdf
 
 v = zeros(1, np);
-v(is_valid) = D.pdf(s(:, is_valid));
+v(is_valid) = dird_logpdf(alpha, s(:, is_valid));
 vv = reshape(v, size(xx));
 
 % visualize
