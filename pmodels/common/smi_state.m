@@ -16,6 +16,8 @@ classdef smi_state
         R = output(obj);
         % Make the output from the current state        
     
+        b = is_ready(obj);
+        % Whether the object is properly initialized 
     end
     
 end

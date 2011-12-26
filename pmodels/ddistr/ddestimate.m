@@ -74,14 +74,13 @@ else
 end
 
 if nargin >= 3 && ~isempty(c0)
-    has_pri = 1;
     if ~(isfloat(c0) && isreal(c0) && ...
             (isscalar(c0) || isequal(size(c0), [K 1])))
         error('ddestimate:invalidarg', ...
             'c0 should be either a scalar or a real vector of size K x 1.');
     end
 else
-    has_pri = 0;
+    c0 = 0;
 end
 
 
@@ -113,7 +112,7 @@ end
 
 % incorporate prior
 
-if has_pri
+if ~isequal(c0, 0)
     if isscalar(c0) || size(s, 2) == 1
         s = s + c0;
     else

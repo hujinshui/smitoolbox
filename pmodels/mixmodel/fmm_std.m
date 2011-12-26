@@ -1,37 +1,45 @@
-classdef fmm_std < smi_prg
-    % The class that implements standard finite mixture model     
+classdef fmm_std < smi_state
+    % The class that implements standard finite mixture model
     %
     
     %   History
     %   -------
     %       - Created by Dahua Lin, on Sep 27, 2011
+    %       - Modified by Dahua Lin, on Dec 26, 2011
     %
     
     %% Properties
     
+    % configurations
+    
     properties(GetAccess='public', SetAccess='private')
-        gm;         % The underlying generative model
-        pri;        % The parameter prior 
-        K;          % The number of mixture components
-        jak = 0;    % whether to use jacket GPU computation
+        gmodel;     % The underlying generative model
+        prior;      % The parameter prior
+        pricount;   % The prior count of each component
+        
+        Zmethod;    % the method code for choosing Z
+                    % 0 - let Z = Q, the posterior probabilities
+                    % 1 - set Z to the best label
+                    % 2 - sample Z
     end
     
+    % observations
+    
+    properties(GetAccess='public', SetAccess='private')
+        obs;        % the observations
+        nobs;       % the number of observations (n)
+    end
+    
+    
+    % run-time state
     
     properties
-        dalpha = 1; % the concentration parameter of the Dirichlet prior of pi
-                    % dird_alpha >= 1
-                    % one can set dird_alpha to inf, in that case
-                    % pi is fixed to [1/k, ..., 1/k].        
-    end
-    
-    methods
-        function prg = set.dalpha(prg, v)
-            if ~(isfloat(v) && isreal(v) && v >= 1)
-                error('fmm_std:invalidarg', ...
-                    'The value of dalpha should be a real numberin [1, inf]');
-            end
-            prg.dalpha = v;
-        end
+        K;          % the number of mixture components (K)
+        Pi;         % the distribution over mixture components [K x 1]
+        params;     % the estimated component parameters
+        Z;          % the posterior probabilities or the estimated labels
+        
+        Llik;       % the log-likelihood w.r.t. all components [K x n]
     end
     
     
@@ -39,329 +47,285 @@ classdef fmm_std < smi_prg
     
     methods
         
-        function prg = fmm_std(gm, pri, K, op)
-            % Creates a standard Gaussian mixture model (GMM) program
-            %                        
-            %   prg = gmm_std(gm, pri, K);
+        function obj = fmm_std(method, gm, pri, c0)
+            % Create a standard finite mixture model estimator
             %
-            %       Construsts an SMI program that implements the 
-            %       inference of FMM parameters.
+            %   obj = fmm_std(method, gm, pri);
+            %   obj = fmm_std(method, gm, pri, c0);
             %
-            %       Input arguments:
-            %       - gm:       the underlying generative model, which
-            %                   should be an instance of a derived class
-            %                   of genmodel_base.
+            %       Creates a standard finite mixture model estimator
             %
-            %       - pri:      the prior distribution of the parameters,
-            %                   which should be in a form acceptable by
-            %                   gm.
+            %       Inputs:
+            %       - method:   either of the following method names:
+            %                   - 'em':         standard E-M method
+            %                   - 'hard-em':    hard E-M method, assigning
+            %                                   each sample completely
+            %                                   to the best class
+            %                   - 'gibbs':      Gibbs sampling
             %
-            %       - K:        the number of mixture components to be
-            %                   estimated.
+            %       - gm:       the generative model object
             %
-            %   prg = gmm_std(gm, pri, K, 'jak');
+            %       - pri:      the prior model object or empty
             %
-            %       Tells the program to use Jacket GPU computation.
-            %       
-                        
-            % verify input arguments
+            %       - c0:       the prior count of each component
+            %                   (if omitted, it is set to zero).
+            %
+            
+            % verify input
+            
+            if ~ischar(method)
+                error('fmm_std:invalidarg', 'method should be a char string.');
+            end
+            
+            switch lower(method)
+                case 'em'
+                    zmd = 0;
+                    samp = false;
+                case 'hard-em'
+                    zmd = 1;
+                    samp = false;
+                case 'gibbs'
+                    zmd = 2;
+                    samp = true;
+                otherwise
+                    error('fmm_std:invalidarg', ...
+                        'Invalid method name %s', method);
+            end
             
             if ~isa(gm, 'genmodel_base')
                 error('fmm_std:invalidarg', ...
-                    'gm should be an instance of a derived class of genmodel_base.');
+                    'gm should be an instance of a sub-class of genmodel_base.');
             end
             
-            if ~gm.is_valid_prior(pri)
-                error('fmm_std:invalidarg', 'The input pri is not valid.');
+            if isempty(pri)
+                if samp
+                    error('fmm_std:invalidarg', ...
+                        'pri should be provided when using sampling.');
+                end
+            else
+                if ~isa(pri, 'prior_base')
+                    error('fmm_std:invalidarg', ...
+                        'pri should be an instance of a sub-class of prior_base.');
+                end
             end
             
-            if ~(isnumeric(K) && isscalar(K) && K == fix(K) && K >= 1)
-                error('fmm_std:invalidarg', ...
-                    'K should be a positive integer scalar.');
+            
+            if nargin < 4
+                c0 = 0;
+            else
+                if ~(isfloat(c0) && isreal(c0) && isscalar(c0) && c0 >= 0)
+                    error('fmm_std:invalidarg', ...
+                        'c0 should be a nonnegative real value scalar.');
+                end
             end
             
-            if nargin >= 4 && strcmpi(op, 'jak')
-                prg.jak = 1;
-            end
+            % set fields
             
-            % create object
-            
-            prg.gm = gm;
-            prg.pri = pri;
-            prg.K = double(K);
+            obj.gmodel = gm;
+            obj.prior = pri;
+            obj.pricount = double(c0);
+            obj.Zmethod = zmd;
+            obj.sampling = samp;
         end
         
     end
     
-    
-    %% Implementation
+    %% Interface methods
     
     methods
-    
-        function [Sd, Sc] = initialize(prg, obs, L0, optype)
-            % Initialize the states
+        
+        function obj = initialize(obj, obs, params_init)
+            % Initialize the FMM estimator state
             %
-            %   [Sd, Sc] = prg.initialize(obs, L0, 'sample');
-            %   [Sd, Sc] = prg.initialize(obs, L0, 'varinfer');
+            %   obj = obj.initialize(obs, params_init);
+            %       initializes the state of finite mixture model
+            %       estimator.
             %
             %       Input arguments:
-            %       - obs:  The observation set (in a form acceptable by
-            %               gm).
-            %
-            %       - L0:   It can be given in three forms:
-            %               - empty:  use default method to initialize
-            %               - 1 x n label vector
-            %               - K x n label distribution matrix            
-            %
-            %       Note that these two arguments are packed in a 
-            %       1 x 2 cell array as a single input.
-            %
-            %       Output arguments:
-            %       - Sd:   dynamic state struct, with fields: 
-            %               - params:   the parameters
-            %               - aux:      the auxiliary structure created
-            %                           by the underlying model
-            %               - Liks:     K x n pairwise likelihood table
-            %               - Pi:       prior probabilities of components
-            %                           (1 x K vector, initialized to
-            %                            a uniform distribution)
-            %
-            %           If optype is 'sample', Sd also has
-            %               - Z:    1 x n label vector
-            %               - grps: 1 x K cell array of grouped indices
-            %
-            %           If optype is 'varinfer', Sd also has
-            %               - Q:    K x n matrix: posterior label
-            %                       distributions.
-            %               
-            %       - Sc:   fixed state struct, with fields:
-            %               - obs:      the observation set
-            %               - n:        the number of samples in obs
-            %               - K:        the number of mixture components
-            %               - optype;   the operation type string
-            %               - do_samp;  whether it does sampling            
+            %       - obs:          the observations
+            %       - params_init:  the initial set of component parameters
             %
             
-            % verify inputs
+            gm = obj.gmodel;
             
-            gmdl = prg.gm;
-            K_ = prg.K;
+            n = gm.query_obs(obs);
+            K_ = gm.query_params(params_init);
             
-            n = gmdl.get_num_observations(obs);                                  
+            obj.obs = obs;
+            obj.nobs = n;
             
-            if ~isempty(L0)
-                if ~(isnumeric(L0) && ndims(L0) == 2 && ...
-                        size(L0,2) == n && (size(L0,1) == 1 || size(L0,1) == K_));
-                    error('fmm_std:invalidarg', ...
-                        'L0 should be a 1 x n row vector or K x n matrix.');                
-                end
-                
-                if size(L0, 1) == 1
-                    if ~all(L0 == fix(L0) & L0 >= 1 & L0 <= K_)
-                        error('fmm_std:invalidarg', ...
-                            'Some labels in L0 is invalid.');
-                    end
-                end                                        
-            end
-                            
-            switch optype
-                case 'sample'                    
-                    do_samp = true;
-                case 'varinfer'
-                    do_samp = false;
-                otherwise
-                    error('fmm_std:invalidarg', ...
-                        'Unsupported operation type %s', optype);
-            end
+            obj.K = K_;
+            obj.Pi = (1/K_) * ones(K_,1);
+            obj.params = params_init;            
+            obj.Llik = gm.loglik(params_init, obs);
+        end
+        
+        
+        function obj = update(obj)
+            % Update the state
+            %
+            %   obj.update();
+            %       updates the object state (perform one-step of E-M
+            %       optimization or one move of Gibbs sampling)
+            %
             
-            if ~gmdl.is_supported_optype(optype)
-                error('fmm_std:invalidarg', ...
-                    'The optype %s is not supported by the underlying model', optype);
-            end
+            gm = obj.gmodel;
+            K_ = obj.K;
             
-            if prg.jak
-                if ~strcmp(optype, 'varinfer')
-                    error('fmm_std:invalidarg', ...
-                        'Only varinfer can be used with jacket GPU.');
-                end
-            end
-                                
-            % create states
+            % E-step (labeling)
             
-            Sc.obs = obs;
-            Sc.n = n;
-            Sc.K = prg.K;
-            Sc.optype = optype;
-            Sc.do_samp = do_samp; 
+            Pi_ = obj.Pi;
+            L = obj.Llik;
             
-            Sd.params = []; 
-            Sd.aux = [];
-            Sd.Liks = [];
-            Sd.Pi = constmat(1, Sc.K, 1 / Sc.K);
-                        
-            if do_samp
-                if isempty(L0)
-                    Sd.Z = rand_label(Sc.K, n, 'v');
-                elseif size(L0, 1) == 1
-                    Sd.Z = L0;
-                else
-                    [~, Sd.Z] = max(L0, [], 1);
-                end
-                Sd.grps = intgroup(Sc.K, Sd.Z);
+            Q = ddposterior(Pi_, L, 'LL');
+            
+            zmd = obj.Zmethod;
+            if zmd == 0
+                Z_ = Q;
+            elseif zmd == 1
+                [~, Z_] = max(Q, [], 1);
             else
-                if isempty(L0)
-                    Sd.Q = rand_label(Sc.K, n, 'b');
-                elseif size(L0, 1) == 1
-                    Sd.Q = l2mat(Sc.K, L0);
-                else
-                    Sd.Q = L0;
-                end
-            end 
-            
-            if prg.jak
-                Sd.Pi = gdouble(Sd.Pi);
-                Sd.Q = gdouble(Sd.Q);                 
+                Z_ = ddsample(Q, 1);
             end
             
-        end    
-        
-        
-        function [Sd, Sc] = update(prg, Sd, Sc)
-            % Updates the states (one iteration)
-            %
-            %   [Sd, Sc] = prg.update(Sd, Sc);
-            %
-                        
-            gmdl = prg.gm;
-            prior = prg.pri;
-            X = Sc.obs; 
-            K_ = Sc.K;
-            samp = Sc.do_samp;
-
+            obj.Z = Z_;
+            
+            % M-step (parameter estimation)
+            
             % estimate component parameters
             
-            if samp
-                Z0 = Sd.grps;                
+            pri = obj.prior;
+            X = obj.obs;
+            samp = obj.sampling;
+            
+            if zmd == 0
+                H = Z_;
             else
-                Z0 = Sd.Q;
+                H = {K_, Z_};
             end
             
-            [Sd.params, Sd.aux] = gmdl.posterior_params(prior, X, Sd.aux, Z0, Sc.optype);
-            Sd.Liks = gmdl.evaluate_logliks(Sd.params, X, Sd.aux);
-            
-            % infer labels                                    
-            
-            Q = fmm_inferQ(Sd.Pi.', Sd.Liks);
-            
-            if samp
-                Sd.Z = ddsample(Q, 1);
-                Sd.grps = intgroup(K_, Sd.Z);
+            if isempty(pri)
+                thetas = gm.mle(X);
             else
-                Sd.Q = Q;
-            end
-            
-            % estimate Pi
-            
-            if samp
-                Sd.Pi = fmm_estPi(K_, Sd.Z, prg.dalpha, 'sample').';
-            else
-                Sd.Pi = fmm_estPi(K_, Q, prg.dalpha).';
-            end            
-            
-        end
-          
+                cap = gm.capture(X, H);
                 
-        function Sp = make_output(prg, Sd, Sc) %#ok<MANU>
-            % Makes output struct from given states
-            %
-            %   Sp = prg.make_output(Sd, Sc);
-            %       
-            %       The output struct has the following fields:
-            %       - params:   the estimated/sampled component params
-            %       - Pi:       the estimated/sampled prior probability of
-            %                   components. [1 x K]
-            %
-            %       If it is doing sampling, Sp also has:
-            %       - Z:    the label vector [1 x n]
-            %
-            %       If it is doing variational EM, Sp also has
-            %       - Q:    the posterior distribution of labels [K x n]
-            %
+                if samp
+                    thetas = pri.pos_sample(cap);
+                else
+                    thetas = pri.mapest(cap);
+                end
+            end
             
-            Sp.params = Sd.params;            
-            Sp.Pi = Sd.Pi;
+            obj.params = thetas;
+            obj.Llik = gm.loglik(thetas, X);
             
-            if Sc.do_samp
-                Sp.Z = Sd.Z;
-            else
-                Sp.Q = Sd.Q;
-            end                               
+            % estimate component prior
+            
+            obj.Pi = ddestimate(H, obj.pricount);
+            
         end
         
         
-        function objv = evaluate_objective(prg, Sd, Sc)
-            % Evaluates the objective value w.r.t the given states
+        function R = output(obj)
+            % Outputs a sample
             %
-            %   objv = prg.evaluate_objective(Sd, Sc);
+            %   R = obj.output();
             %
             
-            gmdl = prg.gm;
-            prior = prg.pri;
-            K_ = Sc.K;
-            n = Sc.n;
-            
-            % log-prior of component params
-            
-            lpri_u = gmdl.evaluate_logpri(prior, Sd.params, Sd.aux);
-            lpri_u = double(lpri_u);
-            
-            % log-prior of labeling and Pi
-            
-            logPi = log(Sd.Pi);
-            
-            if Sc.do_samp
-                tw = intcount(K_, Sd.Z).';
-            else
-                tw = sum(Sd.Q, 2);
-            end
-            lpri_z = logPi * tw;  
-            lpri_z = double(lpri_z);
-            
-            da = prg.dalpha;
-            if isfinite(da) && da > 1
-                lpri_pi = sum(logPi) * (da - 1);
-                lpri_pi = double(lpri_pi);
-            else
-                lpri_pi = 0;
-            end
-            
-            % log-likelihood
-            
-            if Sc.do_samp                
-                llik = Sd.Liks(sub2ind([K_, n], Sd.Z, 1:n));
-                llik = sum(llik);                
-            else
-                llik = dot(Sd.Liks, Sd.Q, 1);
-                llik = sum(llik);
-            end      
-            llik = double(llik);
-            
-            % labeling entropy
-            
-            if Sc.do_samp
-                ent_z = 0;
-            else
-                ent_z = sum(ddentropy(Sd.Q));
-                ent_z = double(ent_z);
-            end
-            
-            % combine
-            
-            objv = lpri_u + lpri_z + lpri_pi + llik + ent_z;
+            R.K = obj.K;
+            R.Pi = obj.Pi;
+            R.params = obj.params;
+            R.Z = obj.Z;
             
         end
+        
+        
+        function b = is_ready(obj)
+            % Tests whether the object is ready for running
+            %
+            %   b = obj.is_ready();
+            %
             
+            b = ~isempty(obj.obs);            
+        end
+        
     end
+    
+    
+    %% Objective evaluation
+    
+    methods
+        
+        function objv = evaluate_objv(obj)
+            % Evaluate the objective function of the current state
+            %
+            %   objv = obj.evaluate_objv();
+            %
+            
+            % log-pri: Pi
+            
+            c0 = obj.pricount;
+            
+            log_pi = log(obj.Pi);
+            
+            if isequal(c0, 0)
+                lpri_pi = 0;
+            else
+                lpri_pi = c0 * sum(log_pi);
+            end
+            
+            % log-pri: params
+            
+            thetas = obj.params;            
+            pri = obj.prior;
+            
+            if isempty(pri)
+                lpri_t = 0;
+            else
+                lpri_t = pri.logpdf(thetas);
+                lpri_t = sum(lpri_t);
+            end
+            
+            % log-lik: labels (Z)
+            
+            zmd = obj.Zmethod;
+            Z_ = obj.Z;
+            
+            if zmd == 0
+                llik_z = sum(log_pi' * Z_);
+            else
+                llik_z = sum(log_pi(Z_));
+            end
+            
+            % log-lik: observations
+            
+            L = obj.Llik;
+            
+            if zmd == 0
+                llik_x = sum(Z_ .* L, 1);
+            else                
+                n = size(L, 2);
+                llik_x = L(sub2ind(size(L), 1:n, Z_));
+            end
+            llik_x = sum(llik_x);
+            
+            % entropy
+            
+            if zmd == 0
+                ent = ddentropy(Z_);
+            else
+                ent = 0;
+            end
+                
+            % overall sum
+            
+            objv = lpri_pi + lpri_t + llik_z + llik_x + ent;
+            
+        end        
+    
+    end
+    
+    
     
 end
 
