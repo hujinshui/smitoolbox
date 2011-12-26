@@ -1,5 +1,5 @@
 classdef tsuite_dirichletd
-    % Test suite for gammd class
+    % Test suite for dirichlet distribution functions
     %
     
     %   History
@@ -12,21 +12,13 @@ classdef tsuite_dirichletd
     %% Properties
     
     properties        
-        Ks = [1 2 5];
+        dims = [2 5];
         nums = [1 3];        
     end
 
     %% Test cases
     
-    methods
-    
-        function test_basics(obj)
-            run_multi(obj, @tsuite_dirichletd.do_test_basics);
-        end
-        
-        function test_statistics(obj)
-            run_multi(obj, @tsuite_dirichletd.do_test_statistics);
-        end
+    methods   
         
         function test_evaluation(obj)
             run_multi(obj, @tsuite_dirichletd.do_test_evaluation);
@@ -41,161 +33,79 @@ classdef tsuite_dirichletd
     
     %% Test implementation
     
-    methods(Static, Access='private')
-    
-        function do_test_basics(K, m, is_sym)
-            
-            [D, Alpha, Dp] = tsuite_dirichletd.make_obj(K, m, is_sym);  %#ok<ASGLU>
-
-            logB0 = tsuite_dirichletd.my_calc_logB(Alpha);
-            assert(max(abs(logB0 - Dp.logB)) < 1e-14);
-        end
+    methods(Static, Access='private')           
         
-        
-        function do_test_statistics(K, m, is_sym)
-            
-            [D, A, Dp] = tsuite_dirichletd.make_obj(K, m, is_sym);
-            
-            % compute ground truths
-            
-            sumA = sum(A, 1);
-            
-            mean0 = bsxfun(@times, A, 1 ./ sumA);
-            
-            var0 = zeros(K, m);
-            for i = 1 : m
-                for k = 1 : K
-                    a = A(k, i);
-                    a0 = sumA(i);
-                    var0(k, i) = a * (a0 - a) / (a0^2 * (a0 + 1));
-                end
-            end
-            
-            if m == 1
-                cov0 = zeros(K, K);
-                a0 = sumA;
-                for k = 1 : K
-                    for l = 1 : K
-                        if k == l
-                            cv = A(k) * (a0 - A(k)) / (a0^2 * (a0 + 1));
-                        else
-                            cv = - A(k) * A(l) / (a0^2 * (a0 + 1));
-                        end
-                        cov0(k, l) = cv;
-                    end                    
-                end
-            end
-                                                
-            mode0 = bsxfun(@times, A-1, 1 ./ (sumA - K));
-            
-            logB = Dp.logB;            
-            ent0 = bsxfun(@minus, logB + (sumA - K) .* psi(sumA), dot(A-1, psi(A), 1));
-            
-            % compare with the results
+        function do_test_evaluation(d, m, alpha)
                         
-            mean1 = mean(D);
-            var1 = var(D);
-            if m == 1
-                cov1 = cov(D);
-            end            
-            mode1 = mode(D);
-            ent1 = entropy(D);
-                                    
-            mean2 = mean(Dp);
-            var2 = var(Dp);
-            if m == 1
-                cov2 = cov(Dp);
-            end            
-            mode2 = mode(Dp);
-            ent2 = entropy(Dp);
-            
-            assert(isequal(size(mean1), [K, m]));
-            assert(isequal(size(var1), [K, m]));
-            if m == 1
-                assert(isequal(size(cov1), [K, K]));
-            end
-            assert(isequal(size(mode1), [K, m]));
-            assert(isequal(size(ent1), [1, m]));
-            
-            assert(isequal(size(mean2), [K, m]));
-            assert(isequal(size(var2), [K, m]));
-            if m == 1
-                assert(isequal(size(cov2), [K, K]));
-            end
-            assert(isequal(size(mode2), [K, m]));
-            assert(isequal(size(ent2), [1, m]));
-                        
-            devcheck('mean1 calc', mean0, mean1, 1e-14);
-            devcheck('var1 calc',  var0, var1, 1e-14);
-            if m == 1
-                devcheck('cov1 calc', cov0, cov1, 1e-14);
-            end
-            devcheck('mode1 calc',  mode0, mode1, 1e-14);
-            devcheck('entropy1 calc', ent0, ent1, 1e-12);
-            
-            devcheck('mean2 calc', mean0, mean2, 1e-14);
-            devcheck('var2 calc',  var0, var2, 1e-14);
-            if m == 1
-                devcheck('cov2 calc', cov0, cov2, 1e-14);
-            end
-            devcheck('mode2 calc',  mode0, mode2, 1e-14);
-            devcheck('entropy2 calc', ent0, ent2, 1e-12);
-        end
-        
-        
-        function do_test_evaluation(K, m, is_sym)
-            
-            [D, A, Dp] = tsuite_dirichletd.make_obj(K, m, is_sym);
-            
             N = 100;
-            X = rand(K, N);
+            X = rand(d, N);
             X = bsxfun(@times, X, 1 ./ sum(X, 1));
             
-            L0 = tsuite_dirichletd.my_calc_logpdf(A, X);
-            L1 = D.logpdf(X);
-            L1p = Dp.logpdf(X);
-            assert(isequal(size(L1), [m, N]));
-            assert(isequal(L1, L1p));
-            
-            L2 = zeros(m, N);
-            for k = 1 : m
-                L2(k, :) = Dp.logpdf(X, k);
+            if d > size(alpha, 1)
+                A = repmat(alpha, d, 1);
+            else
+                A = alpha;
             end
             
-            devcheck('logpdf eval', L1, L0, 1e-12);
-            devcheck('logpdf eval (per-row)', L2, L1, 1e-13);
+            % covariance
             
-            P1 = D.pdf(X);
-            P1p = Dp.pdf(X);
-            assert(isequal(P1, exp(L1)));            
-            assert(isequal(P1p, exp(L1p)));
+            if m == 1
+                C0 = tsuite_dirichletd.calc_cov(A);
+                C1 = dird_cov(alpha, d);
+                
+                assert(isequal(size(C0), [d d]));
+                assert(isequal(size(C1), [d d]));
+                
+                devcheck('cov', C1, C0, 1e-15);
+            end
+            
+            % entropy
+            
+            ent0 = tsuite_dirichletd.calc_entropy(A);
+            ent1 = dird_entropy(alpha, d);
+            
+            assert(isequal(size(ent0), [1 m]));
+            assert(isequal(size(ent1), [1 m]));
+            
+            devcheck('entropy', ent1, ent0, 1e-12);            
+            
+            % log pdf
+            
+            L0 = tsuite_dirichletd.calc_logpdf(A, X);
+            L1 = dird_logpdf(alpha, X);
+            
+            assert(isequal(size(L0), [m N]));
+            assert(isequal(size(L1), [m N]));
+            
+            devcheck('logpdf', L1, L0, 1e-12);            
         end
         
         
-        function do_test_sampling(K, m, is_sym)
+        function do_test_sampling(d, m, alpha)
+                        
+            if m > 1
+                return;
+            end                
             
-            g = tsuite_dirichletd.make_obj(K, m, is_sym);
+            if d > size(alpha, 1)
+                A = repmat(alpha, d, 1);
+            else
+                A = alpha;
+            end            
             
-            mean0 = mean(g);
-            var0 = var(g);
+            mean0 = bsxfun(@times, A, 1 ./ sum(A, 1));
+            cov0 = dird_cov(A);
             
-            ns = 5e5;
-            if m == 1
-                X1 = g.sample(ns);
-                assert(isequal(size(X1), [K, ns]));
-                
-                devcheck('sample 1 - mean', vecmean(X1), mean0, 2e-2);
-                devcheck('sample 1 - var',  vecvar(X1), var0, 5e-2);
-            end
+            ns = 1e6;
+
+            X = dird_sample(alpha, [d ns]);
+            assert(isequal(size(X), [d, ns]));
             
-            X2 = g.sample(ns(ones(1, m)), 1:m);
-            assert(isequal(size(X2), [K, ns * m]));
-            for k = 1 : m
-                cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
-                
-                devcheck('sample 2 - mean', vecmean(cX2), mean0(:,k), 2e-2);
-                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 5e-2);
-            end
+            smean = vecmean(X);
+            scov = veccov(X);
+                        
+            devcheck('sample - mean', smean, mean0, 1e-2);
+            devcheck('sample - cov', scov, cov0, 2e-2);
         end
     end
     
@@ -208,13 +118,17 @@ classdef tsuite_dirichletd
         function run_multi(obj, tfunc)
             % run multiple test under different settings
             
-            ks = obj.Ks;
+            ds = obj.dims;
             ms = obj.nums;
             
-            for k = ks
+            for d = ds
                 for m = ms
-                    tfunc(k, m, 0);
-                    tfunc(k, m, 1);
+                    
+                    a0 = 1.2 + rand(1, m);
+                    tfunc(d, m, a0);
+                    
+                    a1 = 1.2 + rand(d, m);
+                    tfunc(d, m, a1);
                 end
             end
             
@@ -224,42 +138,48 @@ classdef tsuite_dirichletd
     
     methods(Static, Access='private')
         
-        function [D, Alpha, Dp] = make_obj(K, m, is_sym)
-        
-            if is_sym
-                alpha = 1.2 + rand(K, m);
-                Alpha = alpha;
-            else
-                alpha = 1.2 + rand(1, m);
-                Alpha = repmat(alpha, K, 1);
+        function C = calc_cov(A)
+            
+            d = size(A, 1);
+            a0 = sum(A, 1);
+            
+            C = zeros(d, d);
+            
+            for i = 1 : d
+                for j = 1 : d
+                    
+                    ai = A(i);
+                    aj = A(j);
+                    
+                    if i == j
+                        cv = ai * (a0 - ai) / (a0^2 * (a0 + 1));
+                    else
+                        cv = - ai * aj / (a0^2 * (a0 + 1));
+                    end
+                    
+                    C(i, j) = cv;
+                end
             end
-            
-            D = dirichletd(K, alpha);
-            Dp = dirichletd(K, alpha, 'pre');            
-            
-            assert(D.K == K);
-            assert(D.num == m);
-            assert(isequal(D.alpha, alpha));
-            assert(isempty(D.logB));
-            
-            assert(Dp.K == K);
-            assert(Dp.num == m);
-            assert(isequal(Dp.alpha, alpha));
-            assert(isequal(size(Dp.logB), [1 m]));
         end
         
         
-        function v = my_calc_logB(Alpha)
-            v = sum(gammaln(Alpha), 1) - gammaln(sum(Alpha, 1));             
-        end
+        function v = calc_entropy(A)
+            
+            logB = sum(gammaln(A), 1) - gammaln(sum(A, 1)); 
+            
+            d = size(A, 1);
+            a0 = sum(A, 1);
+            
+            v = logB + (a0 - d) .* psi(a0) - sum((A - 1) .* psi(A), 1);
+        end        
         
-        function L = my_calc_logpdf(A, X)
+        function L = calc_logpdf(A, X)
             
             m = size(A, 2);
             n = size(X, 2);
             L = zeros(m, n);
                         
-            logB = tsuite_dirichletd.my_calc_logB(A);
+            logB = sum(gammaln(A), 1) - gammaln(sum(A, 1)); 
             for i = 1 : m
                 a = A(:, i);
                 for j = 1 : n
