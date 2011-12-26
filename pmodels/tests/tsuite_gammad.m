@@ -1,5 +1,5 @@
 classdef tsuite_gammad
-    % Test suite for gammd class
+    % Test suite for gamma distribution functions
     %
     
     %   History

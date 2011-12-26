@@ -1,31 +1,24 @@
 classdef tsuite_invgammad
-    % Test suite for invgammad
+    % Test suite for inverse gamma distribution functions
     %
     
-    % Create by Dahua Lin, on Sep 1, 2011
+    %   History
+    %   -------
+    %       - Create by Dahua Lin, on Sep 1, 2011
+    %       - Modified by Dahua Lin, on Sep 3, 2011
     %
-    
     
     
     %% Properties
     
-    properties
-        dims = [1 2 5];
-        nums = [1 3];
+    properties        
+        dims = { [1 1 1], [1 1 3], [1 3 3], [3 1 3], [3 3 3] };
+        nums = { [1 1], [1 5], [5 1], [5 5] };        
     end
-    
-    
+
     %% Test cases
     
     methods
-        
-        function test_basics(obj)
-            run_multi(obj, @tsuite_invgammad.do_test_basics);
-        end
-        
-        function test_statistics(obj)
-            run_multi(obj, @tsuite_invgammad.do_test_statistics);
-        end
         
         function test_evaluation(obj)
             run_multi(obj, @tsuite_invgammad.do_test_evaluation);
@@ -35,107 +28,63 @@ classdef tsuite_invgammad
             run_multi(obj, @tsuite_invgammad.do_test_sampling);
         end
     end
-            
     
-    %% Test Implementation
     
-    methods(Static, Access='private')
-        
-        function do_test_basics(d, m, alpha, beta)
-            
-            [g, gp, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
-            
-            assert(isempty(g.lpconst));
-            assert(isequal(size(gp.lpconst), [1, m]));
-            
-            lpc0 = A .* log(B) - gammaln(A);
-            lpc0 = sum(lpc0, 1);
-            assert(isequal(size(lpc0), [1, m]));
-            
-            devcheck('lpconst calc', gp.lpconst, lpc0, 1e-12);
-        end
     
-        
-        function do_test_statistics(d, m, alpha, beta)
-            
-            [g, ~, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
-            
-            mean0 = bsxfun(@rdivide, B, A-1);
-            var0 = bsxfun(@rdivide, B.^2, (A-1).^2 .* (A-2));
-            mode0 = bsxfun(@rdivide, B, A+1);
-            
-            E = A + gammaln(A) - (1 + A) .* psi(A) + log(B);
-            ent0 = sum(E, 1);
-            
-            mean1 = mean(g);
-            var1 = var(g);
-            mode1 = mode(g);
-            ent1 = entropy(g);
-            
-            assert(isequal(size(mean1), [d, m]));
-            assert(isequal(size(var1), [d, m]));
-            assert(isequal(size(mode1), [d, m]));
-            assert(isequal(size(ent1), [1, m]));
-            
-            devcheck('mean calc', mean0, mean1, 1e-14);
-            devcheck('var calc',  var0, var1, 1e-14);
-            devcheck('mode calc',  mode0, mode1, 1e-14);
-            devcheck('entropy calc', ent0, ent1, 1e-12);
-        end
+    %% Test implementation
     
-        
+    methods(Static, Access='private')    
+                
         function do_test_evaluation(d, m, alpha, beta)
-            
-            [g, gp, A, B] = tsuite_invgammad.make_obj(d, m, alpha, beta);
-            
+                        
             N = 100;
             X = rand(d, N) + 0.5;
             
-            L0 = tsuite_invgammad.my_calc_logpdf(A, B, X);
-            L1 = g.logpdf(X);
-            L1p = gp.logpdf(X);
-            assert(isequal(size(L1), [m, N]));
-            assert(isequal(L1, L1p));
+            % entropy
             
-            L2 = zeros(m, N);
-            for k = 1 : m
-                L2(k, :) = gp.logpdf(X, k);
-            end
+            ent0 = tsuite_invgammad.calc_entropy(alpha, beta);
+            ent = invgammad_entropy(alpha, beta);
             
-            devcheck('logpdf eval', L1, L0, 1e-10);
-            devcheck('logpdf eval (per-row)', L2, L1, 1e-13);
+            assert(isequal(size(ent0), [1 m]));
+            assert(isequal(size(ent), [1 m]));
+            devcheck('entropy eval', ent, ent0, 1e-12);
             
-            P1 = g.pdf(X);
-            assert(isequal(P1, exp(L1)));            
+            % logpdf
+            
+            L0 = tsuite_invgammad.calc_logpdf(alpha, beta, X);
+            L = invgammad_logpdf(alpha, beta, X);
+            
+            assert(isequal(size(L0), [m N]));
+            assert(isequal(size(L), [m N]));            
+                        
+            devcheck('logpdf eval', L, L0, 1e-12);          
         end
         
         
         function do_test_sampling(d, m, alpha, beta)
             
-            g = tsuite_invgammad.make_obj(d, m, alpha, beta);           
+            if m > 1
+                return;
+            end                        
             
-            mean0 = mean(g);
-            var0 = var(g);
+            mean0 = alpha .* beta;
+            var0 = alpha .* (beta.^2);
             
-            ns = 1e6;
-            if m == 1
-                X1 = g.sample(ns);
-                assert(isequal(size(X1), [d, ns]));
-                
-                devcheck('sample 1 - mean', vecmean(X1), mean0, 5e-3);
-                devcheck('sample 1 - var',  vecvar(X1), var0, 0.12);
+            if d > 1 && isscalar(alpha) && isscalar(beta)
+                mean0 = mean0(ones(d, 1), 1);
+                var0 = var0(ones(d, 1), 1);
             end
             
-            X2 = g.sample(ns(ones(1, m)), 1:m);
-            for k = 1 : m
-                cX2 = X2(:, (k-1)*ns+1 : (k-1)*ns+ns);
-                
-                devcheck('sample 2 - mean', vecmean(cX2), mean0(:,k), 5e-3);
-                devcheck('sample 2 - var',  vecvar(cX2), var0(:,k), 0.12);
-            end
+            ns = 1e5;
+            X1 = gammad_sample(alpha, beta, [d ns]);
+            assert(isequal(size(X1), [d, ns]));
+            
+            devcheck('sample 1 - mean', vecmean(X1), mean0, 2e-2);
+            devcheck('sample 1 - var',  vecvar(X1), var0, 0.15);
         end
     end
-
+    
+    
     
     %% Auxiliary functions
     
@@ -146,76 +95,47 @@ classdef tsuite_invgammad
             
             ds = obj.dims;
             ms = obj.nums;
-            
-            for d = ds
-            for m = ms
-                   
-                % config tables
-                
-                if d == 1
-                    dd = [1 1];
-                else
-                    dd = [1 1; 1 d; d 1; d d];
-                end
-                
-                if m == 1
-                    mm = [1 1];
-                else
-                    mm = [1 m; m 1; m m];
-                end
-                
-                % run
-                
-                for i = 1 : size(dd, 1)
-                for j = 1 : size(mm, 1)
+                        
+            for i = 1 : numel(ds)
+                for j = 1 : numel(ms)
                     
-                    da = dd(i, 1); 
-                    db = dd(i, 2);
-                    ma = mm(j, 1);
-                    mb = mm(j, 2);
+                    d = ds{i};
+                    m = ms{j};
                     
-                    alpha = rand(da, ma) + 3;
+                    da = d(1);
+                    db = d(2);
+                    d = d(3);
+                    
+                    ma = m(1);
+                    mb = m(2);
+                    m = max(ma, mb);
+                    
+                    alpha = rand(da, ma) + 1.5;
                     beta = rand(db, mb) + 0.5;
                     
-                    tfunc(d, m, alpha, beta);                    
-                    
+                    tfunc(d, m, alpha, beta);
                 end
-                end
-                    
-            end
             end
             
         end
-    end
+    end    
     
     
-    methods(Static, Access='private')
-                
-        function [g, gp, A, B] = make_obj(d, m, alpha, beta)
-            
-            g  = invgammad(d, alpha, beta);
-            gp = invgammad(d, alpha, beta, 'pre');
-            
-            A = bsxfun(@times, alpha, ones(d, m));
-            B = bsxfun(@times, beta, ones(d, m));
-            
-            assert(g.dim == d);
-            assert(g.num == m);
-            assert(isequal(g.alpha, alpha));
-            assert(isequal(g.beta, beta));
-            
-            assert(gp.dim == d);
-            assert(gp.num == m);
-            assert(isequal(gp.alpha, alpha));
-            assert(isequal(gp.beta, beta));
-        end
-                
+    methods(Static, Access='private')                
         
-        function L = my_calc_logpdf(A, B, X)
+        function v = calc_entropy(A, B)            
+            v = bsxfun(@plus, A + gammaln(A) - (1 + A) .* psi(A), log(B));
+            v = sum(v, 1);
+        end
+        
+        function L = calc_logpdf(A, B, X)
             
-            [d, m] = size(A);
-            n = size(X, 2);
+            m = max(size(A, 2), size(B, 2));
+            [d, n] = size(X);
             
+            A = bsxfun(@times, ones(d, m), A);
+            B = bsxfun(@times, ones(d, m), B);
+                      
             L = zeros(m, n);
             
             for k = 1 : m                
@@ -224,17 +144,14 @@ classdef tsuite_invgammad
                     a = A(i, k);
                     b = B(i, k);
                     x = X(i, :);
-                    Pk(i, :) = ((b./x).^a .* exp(-b./x)) ./ (x * gamma(a));
+                    Pk(i, :) = b^a / gamma(a) * (x.^ (-a-1)) .* exp(-b ./ x);
                 end
                 
                 L(k, :) = sum(log(Pk), 1);
-            end            
+            end
         end
-
-    end
+        
+    end    
         
 end
     
-
-
-
