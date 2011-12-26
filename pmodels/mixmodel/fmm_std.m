@@ -199,15 +199,15 @@ classdef fmm_std < smi_state
             samp = obj.sampling;
             
             if zmd == 0
-                H = Z_;
+                V = Z_;
             else
-                H = {K_, Z_};
+                V = {K_, Z_};
             end
             
             if isempty(pri)
                 thetas = gm.mle(X);
             else
-                cap = gm.capture(X, H);
+                cap = gm.capture(X, V);
                 
                 if samp
                     thetas = pri.pos_sample(cap);
@@ -221,7 +221,12 @@ classdef fmm_std < smi_state
             
             % estimate component prior
             
-            obj.Pi = ddestimate(H, obj.pricount);
+            if samp                
+                H = accum_counts(V);
+                obj.Pi = dird_pos_sample(obj.pricount + 1, H);
+            else
+                obj.Pi = ddestimate(V, [], obj.pricount);
+            end
             
         end
         
