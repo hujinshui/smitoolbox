@@ -17,8 +17,8 @@ classdef tsuite_gauss_models
     
     methods
         
-        function test_gaussgen(obj)
-            run_multi(obj, @tsuite_gauss_models.do_test_gaussgen);
+        function test_lingen(obj)
+            run_multi(obj, @tsuite_gauss_models.do_test_lingen);
         end
                 
         
@@ -51,8 +51,8 @@ classdef tsuite_gauss_models
         
         %% gaussgn_capture
         
-        function do_test_gaussgen(cf, d, K, n)
-            % Perform the test of gaussgm_capture on a specific setting
+        function do_test_lingen(cf, d, K, n)
+            % Perform the test of gauss_lingen on a specific setting
             %
             %   cf:     the form of Jx
             %   d:      the dimensions
@@ -85,11 +85,11 @@ classdef tsuite_gauss_models
             end
             
             if ~use_A
-                g0 = gaussgen(d);
-                gm = gaussgen(Jx);
+                g0 = gauss_lingen(d);
+                gm = gauss_lingen(Jx);
             else
-                g0 = gaussgen(d, q);
-                gm = gaussgen(Jx, A);
+                g0 = gauss_lingen(d, q);
+                gm = gauss_lingen(Jx, A);
             end
             
             % verify models
@@ -153,10 +153,10 @@ classdef tsuite_gauss_models
             end
             Zw = rand(K, n);                        
             
-            [dh0_i, dJ0_i] = tsuite_gauss_models.gaussgen_capture_gt(X, Zi, Jx, A);
+            [dh0_i, dJ0_i] = tsuite_gauss_models.lingen_capture_gt(X, Zi, Jx, A);
             dG_i = gm.capture(X, Zi);
             
-            [dh0_w, dJ0_w] = tsuite_gauss_models.gaussgen_capture_gt(X, Zw, Jx, A);
+            [dh0_w, dJ0_w] = tsuite_gauss_models.lingen_capture_gt(X, Zw, Jx, A);
             dG_w = gm.capture(X, Zw);
            
             assert(isequal(size(dh0_i), [q, K]));
@@ -195,7 +195,7 @@ classdef tsuite_gauss_models
         end
         
         
-        function [dh, dJ] = gaussgen_capture_gt(X, Z, Jx, A)
+        function [dh, dJ] = lingen_capture_gt(X, Z, Jx, A)
             % Calculate the ground-truth for gaussgm_capture
             
             n = size(X, 2);            
