@@ -30,6 +30,7 @@ classdef fmm_std < smi_state
     properties(GetAccess='public', SetAccess='private')
         obs;        % the observations
         nobs;       % the number of observations (n)
+        weights;    % the weights of observations (empty or 1 x n)
     end
     
     
@@ -136,17 +137,18 @@ classdef fmm_std < smi_state
     
     methods
         
-        function obj = initialize(obj, obs, params_init)
+        function obj = initialize(obj, obs, w, params_init)
             % Initialize the FMM estimator state
             %
-            %   obj = obj.initialize(obs);
-            %   obj = obj.initialize(obs, params_init);
+            %   obj = obj.initialize(obs, [], params_init);
+            %   obj = obj.initialize(obs, w, params_init);
             %
             %       initializes the state of finite mixture model
-            %       estimator.
+            %       estimator with a (weighted) sample set.
             %
             %       Input arguments:
             %       - obs:          the observations
+            %       - w:            the sample weights
             %       - params_init:  the initial set of component parameters
             %
             %       If params_init is not provided, then random 
@@ -156,10 +158,18 @@ classdef fmm_std < smi_state
             gm = obj.gmodel;
             
             n = gm.query_obs(obs);
-            K_ = gm.query_params(params_init);
+            K_ = gm.query_params(params_init);           
             
             obj.obs = obs;
             obj.nobs = n;           
+            
+            if ~isempty(w)
+                if ~(isfloat(w) && isreal(w) && isequal(size(w), [1 n]))
+                    error('fmm_std:invalidarg', ...
+                        'w should be a 1 x n real vector.');
+                end
+                obj.weights = w;
+            end
             
             obj.K = K_;
             obj.Pi = (1/K_) * ones(K_,1);
@@ -168,10 +178,10 @@ classdef fmm_std < smi_state
         end        
         
         
-        function obj = initialize_by_group(obj, obs, K, Z)
+        function obj = initialize_by_group(obj, obs, w, K, Z)
             % Initialize the FMM estimator state via initial grouping
             %
-            %   obj = obj.initialize(obs, K, Z);            
+            %   obj = obj.initialize(obs, w, K, Z);            
             %       Here, K is the number of classes, and 
             %       Z is a class indicator vector of size 1 x n.
             %
@@ -185,20 +195,15 @@ classdef fmm_std < smi_state
                     'Z should be a numeric vector of size 1 x n.');
             end
             
-            V = intgroup(K, Z);
-            pri = obj.prior;
-            
-            if isempty(pri)
-                thetas = gm.mle(obs, V);
-            else
-                cap = gm.capture(obs, V);                
-                if samp
-                    thetas = pri.pos_sample(cap);
-                else
-                    thetas = pri.mapest(cap);
+            if ~isempty(w)
+                if ~(isfloat(w) && isreal(w) && isequal(size(w), [1 n]))
+                    error('fmm_std:invalidarg', ...
+                        'w should be a 1 x n real vector.');
                 end
-            end            
-            obj = obj.initialize(obs, thetas);
+            end
+            
+            thetas = mm_estimate(gm, obj.prior, obs, w, {K, Z}, obj.sampling);            
+            obj = obj.initialize(obs, w, thetas);
         end
         
         
@@ -238,36 +243,23 @@ classdef fmm_std < smi_state
             
             pri = obj.prior;
             X = obj.obs;
+            w = obj.weights;
             samp = obj.sampling;
             
             if zmd == 0
-                V = Z_;
+                V = Z_;                
             else
-                V = intgroup(K_, Z_);
+                V = {K_, Z_};
             end
             
-            if isempty(pri)
-                thetas = gm.mle(X, V);
-            else
-                cap = gm.capture(X, V);
-                
-                if samp
-                    thetas = pri.pos_sample(cap);
-                else
-                    thetas = pri.mapest(cap);
-                end
-            end
+            thetas = mm_estimate(gm, pri, X, w, V, samp);
             
             obj.params = thetas;
             obj.Llik = gm.loglik(thetas, X);
             
             % estimate component prior
             
-            if zmd == 0
-                H = sum(V, 2);
-            else
-                H = cellfun(@numel, V).';
-            end            
+            H = accum_counts(V, w);           
             
             if samp                                
                 alpha = obj.pricount + 1;
@@ -315,6 +307,8 @@ classdef fmm_std < smi_state
             %   objv = obj.evaluate_objv();
             %
             
+            w = obj.weights.';
+            
             % log-pri: Pi
             
             c0 = obj.pricount;
@@ -345,9 +339,15 @@ classdef fmm_std < smi_state
             Z_ = obj.Z;
             
             if zmd == 0
-                llik_z = sum(log_pi' * Z_);
+                llik_z = log_pi' * Z_;
             else
-                llik_z = sum(log_pi(Z_));
+                llik_z = log_pi(Z_);
+            end
+            
+            if isempty(w)
+                llik_z = sum(llik_z);                
+            else
+                llik_z = llik_z * w;
             end
             
             % log-lik: observations
@@ -358,15 +358,25 @@ classdef fmm_std < smi_state
                 llik_x = sum(Z_ .* L, 1);
             else                
                 n = size(L, 2);
-                llik_x = L(sub2ind(size(L), 1:n, Z_));
+                llik_x = L(sub2ind(size(L), Z_, 1:n));
             end
-            llik_x = sum(llik_x);
+            
+            if isempty(w)
+                llik_x = sum(llik_x);
+            else
+                llik_x = llik_x * w;
+            end
             
             % entropy
             
             if zmd == 0 && size(Z_, 1) > 1
                 ent = ddentropy(Z_);
-                ent = sum(ent);
+                
+                if isempty(w)
+                    ent = sum(ent);
+                else
+                    ent = ent * w;
+                end
             else
                 ent = 0;
             end
@@ -377,7 +387,7 @@ classdef fmm_std < smi_state
             
         end        
     
-    end
+    end          
     
     
 end

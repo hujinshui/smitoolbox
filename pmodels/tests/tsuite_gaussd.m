@@ -264,6 +264,7 @@ classdef tsuite_gaussd
             n = 1000;
             X = bsxfun(@plus, mu0, L0 * randn(d, n));
             w = rand(m, n);
+            wsp = l2mat(m, randi(m, 1, n), 'sparse');
             
             % perform estimation
             
@@ -274,22 +275,34 @@ classdef tsuite_gaussd
                 Ge = gaussd_mle(X, w, ty, is_shared);
                 tsuite_gaussd.verify_mp(Ge, d, m, ty, [], []);
                 
+                Ge2 = gaussd_mle(X, wsp, ty, is_shared);
+                tsuite_gaussd.verify_mp(Ge2, d, m, ty, [], []);
+                                
                 Gr0 = tsuite_gaussd.gmle(X, ones(1, n), ty, is_shared);
                 Gr = tsuite_gaussd.gmle(X, w, ty, is_shared);  
+                Gr2 = tsuite_gaussd.gmle(X, full(wsp), ty, is_shared);
                 
                 devcheck('mle (mean)', Ge0.mu, Gr0.mu, 1e-12);
                 devcheck('mle (cov)', Ge0.C.v, Gr0.C.v, 1e-12);
                 devcheck('w-mle (mean)', Ge.mu, Gr.mu, 1e-12);
                 devcheck('w-mle (cov)', Ge.C.v, Gr.C.v, 1e-12);
+                devcheck('wsp-mle (mean)', Ge2.mu, Gr2.mu, 1e-12);
+                devcheck('wsp-mle (cov)', Ge2.C.v, Gr2.C.v, 1e-12);
 
             else
                 Ge = gaussd_mle(X, w, ty, is_shared);
                 tsuite_gaussd.verify_mp(Ge, d, m, ty, [], []);
                 
+                Ge2 = gaussd_mle(X, wsp, ty, is_shared);
+                tsuite_gaussd.verify_mp(Ge2, d, m, ty, [], []);
+                
                 Gr = tsuite_gaussd.gmle(X, w, ty, is_shared); 
+                Gr2 = tsuite_gaussd.gmle(X, full(wsp), ty, is_shared);
                 
                 devcheck('w-mle (mean)', Ge.mu, Gr.mu, 1e-12);
                 devcheck('w-mle (cov)', Ge.C.v, Gr.C.v, 1e-12);
+                devcheck('wsp-mle (mean)', Ge2.mu, Gr2.mu, 1e-12);
+                devcheck('wsp-mle (cov)', Ge2.C.v, Gr2.C.v, 1e-12);
             end            
             
         end

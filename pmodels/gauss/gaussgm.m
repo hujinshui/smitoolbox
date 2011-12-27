@@ -121,31 +121,19 @@ classdef gaussgm < genmodel_base
     
     methods
         
-        function G = mle(model, X, Z)
+        function G = mle(model, X, W)
             % Performs maximum likelihood estimation of the parameters
             %
-            %   G = model.mle(X, Z);
+            %   G = model.mle(X, W);
             %
             %       performs maximum likelihood estimation based on
             %       given (weighted) set of data
             %
             
-            n = model.query_obs(X);
-            [zty, K] = verify_Zarg(Z, n);
-            
-            if zty <= 1
-                w = Z;
-            else
-                w = zeros(K, n);
-                for k = 1 : K
-                    w(k, Z{k}) = 1;
-                end
-            end
-            
             cf = model.cov_form;
             tie_c = model.tied_cov;
             
-            G = gaussd_mle(X, w, cf, tie_c);            
+            G = gaussd_mle(X, W, cf, tie_c);            
         end
         
         
