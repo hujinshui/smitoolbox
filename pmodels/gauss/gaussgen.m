@@ -1,4 +1,4 @@
-classdef gaussgen
+classdef gaussgen < genmodel_base
     % The class that implements a simple Gaussian generative model
     %
     %   The simple Gaussian generative model, with parameter u, is 
@@ -189,16 +189,12 @@ classdef gaussgen
         
         %% observation query
         
-        function [n, nc] = query_obs(model, X)
+        function n = query_obs(model, X)
             % Get the number of observation samples
             %
             %   n = model.query_obs(X);
             %       verifies the validity of X as an observation set,
             %       and returns the number of samples in X.
-            %
-            %   [n, nc] = model.query_obs(X);
-            %       additionally returns the number of output arguments
-            %       by the 'capture' method.
             %
             
             d = model.xdim;
@@ -207,7 +203,23 @@ classdef gaussgen
                     'The observations should be a real matrix with d rows.');
             end
             n = size(X, 2);
-            nc = 2;
+        end
+        
+        
+        function n = query_params(model, U)
+            % Get the number of parameters
+            %
+            %   n = model.query_params(U);
+            %       verifies the validity of X as an observation set,
+            %       and returns the number of samples in X.
+            %
+            
+            q = model.pdim;
+            if ~(isfloat(U) && isreal(U) && ndims(U) == 2 && size(U,1) == q)
+                error('gaussgen:invalidarg', ...
+                    'The observations should be a real matrix with q rows.');
+            end
+            n = size(U, 2);
         end
         
         
@@ -247,10 +259,10 @@ classdef gaussgen
         
         %% maximum likelihood estimation
         
-        function U = mle(model, X, w)
+        function U = mle(model, X, Z)
             % Performs maximum likelihood estimation of the parameters
             %
-            %   U = model.mle(X, w);
+            %   U = model.mle(X, Z);
             %
             %       performs maximum likelihood estimation based on
             %       given (weighted) set of data
@@ -259,25 +271,22 @@ classdef gaussgen
             % verify inputs
             
             n = model.query_obs(X);
-            
-            if isempty(w)
-                w = 1;
-            else                
-                if ~(isfloat(w) && isreal(w) && ...
-                        (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
-                    error('gaussgen:invalidarg', ...
-                        'w should be a real scalar or a matrix with n columns.');
-                end 
-            end
+            [zty, K] = verify_Zarg(Z, n);
             
             % compute
             
-            if isscalar(w)
+            if zty == 0
                 U = sum(X, 2) * (1 / n);
-            else
-                wt = w.';
+            elseif zty == 1
+                wt = Z.';
                 sw = sum(wt, 1);
                 U = bsxfun(@times, X * wt, 1 ./ sw);
+            else
+                U = zeros(model.xdim, K);
+                for k = 1 : K
+                    Xk = X(:, Z{k});
+                    U(:,k) = sum(Xk, 2) * (1 / size(Xk,2));
+                end
             end
             
             if model.use_A
@@ -291,24 +300,20 @@ classdef gaussgen
         
         %% conjugate update
         
-        function [dh, dJ] = capture(model, X, w)
+        function S = capture(model, X, Z)
             % Capture observations into conjugate updates 
             %
-            %   [dh, dJ] = model.capture(X, w);
+            %   S = model.capture(X, Z);
             %       computes the conjuate updates to the canonical params
             %       of the prior based on given (weighted) set of samples.
             %
             %       Inputs:
             %       - X:        the sample matrix, size: d x n
-            %       - w:        the weights of the samples, size: m x n, 
-            %                   or a scalar. If m > 1, then multiple 
-            %                   updates are to be evaluated, each 
-            %                   corresponding to a group in w.
+            %       - Z:        the sample weighting/grouping
             %
             %       Outputs:
-            %       - dh:       the updates to the potential vector [q x m]
-            %       - dJ:       a pdmat struct with dJ.n == m and 
-            %                   dJ.d == q.
+            %       - S:        the gaussd struct that captures the 
+            %                   update to prior
             %
             
             % verify inputs
@@ -319,17 +324,7 @@ classdef gaussgen
             Jx_ = model.Jx;
             
             n = model.query_obs(X);
-            
-            if isempty(w)
-                w = 1;
-            else
-                if ~(isfloat(w) && isreal(w) && ...
-                        (isscalar(w) || (ndims(w) == 2 && size(w, 2) == n)))
-                    error('gaussgen:invalidarg', ...
-                        'w should be a real scalar or a matrix with n columns.');
-                end
-                m = size(w, 1);
-            end
+            [zty, K] = verify_Zarg(Z, n);
             
             if Jx_.ty == 's'
                 Jsca = 1;
@@ -341,17 +336,29 @@ classdef gaussgen
             % compute dh
             
             if Jsca
-                if isscalar(w)
-                    dh = sum(X, 2) * (jv * w);
+                if zty == 0
+                    dh = sum(X, 2) * jv;
+                elseif zty == 1
+                    dh = X * (jv * Z)';
                 else
-                    dh = X * (jv * w)';
+                    dh = zeros(model.xdim, K);
+                    for k = 1 : K
+                        Xk = X(:, Z{k});
+                        dh(:,k) = sum(Xk, 2) * jv;
+                    end
                 end
             else
                 JX = pdmat_mvmul(Jx_, X);
-                if isscalar(w)
-                    dh = sum(JX, 2) * w;
+                if zty == 0
+                    dh = sum(JX, 2);
+                elseif zty == 1
+                    dh = JX * Z';
                 else
-                    dh = JX * w';
+                    dh = zeros(model.xdim, K);
+                    for k = 1 : K
+                        JXk = JX(:, Z{k});
+                        dh(:,k) = sum(JXk, 2);
+                    end
                 end
             end
             
@@ -363,10 +370,13 @@ classdef gaussgen
             
             % compute dJ
             
-            if isscalar(w)
-                tw = w * n;
+            if zty == 0
+                tw = n;
+            elseif zty == 1
+                tw = sum(Z, 2).';
             else
-                tw = sum(w, 2).';
+                tw = cellfun(@numel, Z);
+                tw = tw(:).';
             end
             
             
@@ -383,13 +393,22 @@ classdef gaussgen
                 if isscalar(tw)
                     dJ = pdmat('f', q, dJ0 * tw);
                 else
-                    dJ = zeros([size(dJ0), m]);
-                    for k = 1 : m
+                    dJ = zeros([size(dJ0), K]);
+                    for k = 1 : K
                         dJ(:,:,k) = dJ0 * tw(k);
                     end
                     dJ = pdmat('f', q, dJ);
                 end
             end
+            
+            % make S
+            
+            S.tag = 'gaussd';
+            S.ty = 'c';
+            S.n = K;
+            S.d = q;
+            S.h = dh;
+            S.J = dJ;            
         end
         
         

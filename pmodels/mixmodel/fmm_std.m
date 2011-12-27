@@ -201,7 +201,7 @@ classdef fmm_std < smi_state
             if zmd == 0
                 V = Z_;
             else
-                V = {K_, Z_};
+                V = intgroup(K_, Z_);
             end
             
             if isempty(pri)
@@ -221,11 +221,17 @@ classdef fmm_std < smi_state
             
             % estimate component prior
             
-            if samp                
-                H = accum_counts(V);
-                obj.Pi = dird_pos_sample(obj.pricount + 1, H);
+            if zmd == 0
+                H = sum(V, 2);
             else
-                obj.Pi = ddestimate(V, [], obj.pricount);
+                H = cellfun(@numel, V).';
+            end            
+            
+            if samp                                
+                alpha = obj.pricount + 1;
+                obj.Pi = dird_sample(alpha + H, 1);
+            else
+                obj.Pi = ddestimate(H, [], obj.pricount);
             end
             
         end

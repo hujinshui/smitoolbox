@@ -1,21 +1,17 @@
-function varargout = gaussd_conjupdate(Gpri, dh, dJ)
+function Gpos = gaussd_conjupdate(Gpri, S)
 % Computes the posterior Gaussian distribution via conjuate update
 %
-%   Gpos         = gaussd_conjupdate(Gpri, dh, dJ);
-%   [hpos, Jpos] = gaussd_conjupdate(Gpri, dh, dJ);
+%   Gpos = gaussd_conjupdate(Gpri, S);
 %
 %       Estimates the posterior distribution via conjugate updates on
 %       a given priro.
 %       
 %       Input arguments:
 %       - G:    the Gaussian prior (G.ty == 'c' && G.n == 1)
-%       - dh:   the update to the potential vector
-%       - dJ:   the update to the precision matrix.
+%       - S:    the gaussd object that captures the updates
 %
 %       Output arguments:
 %       - Gpos:     the posterior Gaussian distribution
-%       - hpos:     the potential vector of the posterior Gaussian(s)
-%       - Jpos:     the precision matrix of the posterior Gaussian(s)
 %       
 
 % Created by Dahua Lin, on Dec 14, 2011
@@ -29,21 +25,12 @@ if ~(is_gaussd(Gpri) && Gpri.ty == 'c' && Gpri.n == 1)
 end
 
 d = Gpri.d;
-if ~(isfloat(dh) && isreal(dh) && ndims(dh) == 2 && size(dh, 1) == d)
+
+if ~(is_pdmat(S) && S.d == d && S.ty == 'c')
     error('gaussd_conjupdate:invalidarg', ...
-        'dh should be a real matrix with G.d rows.');
+        'S should be a gaussd struct with G.ty == ''c'' and G.n == 1.');
 end
 
-if ~(is_pdmat(dJ) && dJ.d == d)
-    error('gaussd_conjupdate:invalidarg', ...
-        'dJ should be a pdmat struct with J.d == d.');
-end
-
-n = size(dh, 2);
-if ~(dJ.n == 1 || dJ.n == n)
-    error('gaussd_conjupdate:invalidarg', ...
-        'dJ.n and the number of columns in dh are not consistent.');
-end
 
 %% main
 
@@ -65,10 +52,11 @@ J = pdmat_plus(Gpri.J, dJ);
 
 % output
 
-if nargout <= 1
-    Gpos = gaussd('c', h, J);
-    varargout = {Gpos};
-else
-    varargout = {h, J};
-end
+Gpos.tag = 'gaussd';
+Gpos.ty = 'c';
+Gpos.n = n;
+Gpos.d = d;
+Gpos.h = h;
+Gpos.J = J;
+
 

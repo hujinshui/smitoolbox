@@ -1,15 +1,15 @@
-function R = gaussd_mapest(G, dh, dJ)
+function R = gaussd_mapest(G, S)
 % Performs MAP estimation w.r.t. Gaussian prior
 %
-%   R = gaussd_mapest(G, dh, dJ);
+%   R = gaussd_mapest(G, S);
 %
 %       Performs MAP estimation with the Gaussian prior G, and the 
 %       updates to the canonical param of the prior.
 %       
 %       Input arguments:
 %       - G:    the Gaussian prior (G.ty == 'c' && G.n == 1)
-%       - dh:   the update to the potential vector
-%       - dJ:   the update to the precision matrix.
+%       - S:    the gaussd struct that captures the updates derived
+%               from the observations.
 %
 %       Output arguments:
 %       - R:    the MAP estimation.
@@ -22,6 +22,6 @@ function R = gaussd_mapest(G, dh, dJ)
 
 %% main
 
-[h, J] = gaussd_conjupdate(G, dh, dJ);
-R = pdmat_lsolve(J, h);      
+Gp = gaussd_conjupdate(G, S);
+R = pdmat_lsolve(Gp.J, Gp.h);      
 
