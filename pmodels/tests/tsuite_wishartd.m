@@ -17,14 +17,6 @@ classdef tsuite_wishartd
     %% Test cases
     
     methods
-    
-        function test_basics(obj)
-            run_multi(obj, @tsuite_wishartd.do_test_basics);
-        end
-        
-        function test_statistics(obj)
-            run_multi(obj, @tsuite_wishartd.do_test_statistics);
-        end
         
         function test_evaluation(obj)
             run_multi(obj, @tsuite_wishartd.do_test_evaluation);
@@ -39,87 +31,45 @@ classdef tsuite_wishartd
     %% Test implementation
     
     methods(Static, Access='private')
-        
-        function do_test_basics(d, ty, deg)
-            
-            S = rand_pdmat(ty, d, 1, [0.5, 1.5]);
-            
-            D0 = wishartd(S, deg);
-            D1 = wishartd(S, deg, 'pre');
-            
-            assert(D0.num == 1);
-            assert(D0.dim == d);
-            assert(D0.deg == deg);
-            assert(isequal(D0.S, S));
-            assert(isempty(D0.invS));
-            assert(isempty(D0.lpconst));
-            
-            assert(D1.num == 1);
-            assert(D1.dim == d);
-            assert(D1.deg == deg);
-            assert(isequal(D1.S, S));
-            assert(~isempty(D1.invS));
-            assert(~isempty(D1.lpconst));
-                        
-            q = deg / 2;
-            lpc = q*d*log(2) + q * pdmat_lndet(S) + mvgammaln(d, q);
-            
-            devcheck('lpconst', D1.lpconst, lpc, 1e-13);
-            assert(isequal(pdmat_inv(S), D1.invS));            
-        end
-        
-        
-        function do_test_statistics(d, ty, deg)
-            
-            S = rand_pdmat(ty, d, 1, [0.5, 1.5]);  
-            Sm = pdmat_fullform(S);
-            D0 = wishartd(S, deg);
-            
-            Mean0 = deg * Sm;
-            Mode0 = (deg - d - 1) * Sm;
-            
-            devcheck('mean', pdmat_fullform(mean(D0)), Mean0, 1e-13);
-            devcheck('mode', pdmat_fullform(mode(D0)), Mode0, 1e-13);
-        end
-    
-        
+                
         function do_test_evaluation(d, ty, deg)
             
             S = rand_pdmat(ty, d, 1, [0.5, 1.5]);
             Sm = pdmat_fullform(S);
-            D0 = wishartd(S, deg);
-            D1 = wishartd(S, deg, 'pre');
-                        
+            J = pdmat_inv(S);            
+            
             n = 100;
             W_s = rand_pdmat('s', d, n, [0.5 1.5]);
             W_d = rand_pdmat('d', d, n, [0.5 1.5]);
             W_f = rand_pdmat('f', d, n, [0.5 1.5]);
             
-            L1_s0 = D0.logpdf(W_s);
-            L1_d0 = D0.logpdf(W_d);
-            L1_f0 = D0.logpdf(W_f);
+            Ls0 = tsuite_wishartd.calc_logpdf(Sm, deg, W_s);
+            Ld0 = tsuite_wishartd.calc_logpdf(Sm, deg, W_d);
+            Lf0 = tsuite_wishartd.calc_logpdf(Sm, deg, W_f);
             
-            L1_s1 = D1.logpdf(W_s);
-            L1_d1 = D1.logpdf(W_d);
-            L1_f1 = D1.logpdf(W_f);
+            Ls1 = wishartd_logpdf(S, deg, W_s);
+            Ld1 = wishartd_logpdf(S, deg, W_d);
+            Lf1 = wishartd_logpdf(S, deg, W_f);
             
-            assert(isequal(size(L1_s0), [1, n]));
-            assert(isequal(size(L1_d0), [1, n]));
-            assert(isequal(size(L1_f0), [1, n]));
+            Ls2 = wishartd_logpdf(J, deg, W_s, [], 'inv');
+            Ld2 = wishartd_logpdf(J, deg, W_d, [], 'inv');
+            Lf2 = wishartd_logpdf(J, deg, W_f, [], 'inv');
             
-            assert(isequal(L1_s0, L1_s1));
-            assert(isequal(L1_d0, L1_d1));
-            assert(isequal(L1_f0, L1_f1));
+            assert(isequal(size(Ls0), [1, n]));
+            assert(isequal(size(Ld0), [1, n]));
+            assert(isequal(size(Lf0), [1, n]));
+                                    
+            assert(isequal(size(Ls1), [1, n]));
+            assert(isequal(size(Ld1), [1, n]));
+            assert(isequal(size(Lf1), [1, n]));           
             
-            q = deg / 2;
-            lpc = q*d*log(2) + q * pdmat_lndet(S) + mvgammaln(d, q);            
-            L0_s = tsuite_wishartd.my_logpdf(Sm, deg, W_s, lpc);
-            L0_d = tsuite_wishartd.my_logpdf(Sm, deg, W_d, lpc);
-            L0_f = tsuite_wishartd.my_logpdf(Sm, deg, W_f, lpc);
+            assert(isequal(Ls1, Ls2));
+            assert(isequal(Ld1, Ld2));
+            assert(isequal(Lf1, Lf2));            
             
-            devcheck('loglik (s)', L1_s0, L0_s, 1e-12);
-            devcheck('loglik (d)', L1_d0, L0_d, 1e-12);
-            devcheck('loglik (f)', L1_f0, L0_f, 1e-12);
+            devcheck('loglik (s)', Ls0, Ls1, 1e-12);
+            devcheck('loglik (d)', Ld0, Ld1, 1e-12);
+            devcheck('loglik (f)', Lf0, Lf1, 1e-12);
         end
         
         
@@ -127,23 +77,11 @@ classdef tsuite_wishartd
             
             S = rand_pdmat(ty, d, 1, [0.5, 1.5]);      
             Sm = pdmat_fullform(S);
-            D0 = wishartd(S, deg);
             
             N0 = 50;
-            N = 2e5;
+            N = 2e5;           
             
-            Y = wishart_sample(d, deg);
-            assert(isequal(size(Y), [d d]));
-            assert(isequal(Y, Y'));
-            assert(all(eig(Y)) > 0);
-            
-            W = D0.sample();
-            assert(is_pdmat(W) && W.d == d && W.n == 1);
-            assert(W.ty == 'f');
-            assert(isequal(W.v, W.v'));
-            assert(all(eig(W.v)) > 0);
-            
-            Ys = wishart_sample(d, deg, N);
+            Ys = wishartd_sample(d, deg, N);
             assert(isequal(size(Ys), [d d N]));
             for i = 1 : N0
                 Yi = Ys(:,:,i);
@@ -151,10 +89,10 @@ classdef tsuite_wishartd
                 assert(all(eig(Yi)) > 0);
             end
             
-            Ws = D0.sample(N);
-            assert(is_pdmat(Ws) && Ws.d == d && Ws.n == N);
+            Ws = wishartd_sample(S, deg, N);
+            assert(isequal(size(Ws), [d d N]));
             for i = 1 : N0
-                Wi = pdmat_fullform(Ws, i);
+                Wi = Ws(:,:,i);
                 assert(isequal(Wi, Wi'));
                 assert(all(eig(Wi)) > 0);
             end
@@ -174,8 +112,8 @@ classdef tsuite_wishartd
             
             Ymean = mean(Ys, 3);
             Yvar = reshape(vecvar(reshape(Ys, d*d, N)), d, d);
-            Wmean = mean(Ws.v, 3);
-            Wvar = reshape(vecvar(reshape(Ws.v, d*d, N)), d, d);
+            Wmean = mean(Ws, 3);
+            Wvar = reshape(vecvar(reshape(Ws, d*d, N)), d, d);
             
             devcheck('sample mean (std)', Ymean, Ymean0, 5e-2);
             devcheck('sample var (std)', Yvar, Yvar0, 0.3);
@@ -207,16 +145,17 @@ classdef tsuite_wishartd
     
     methods(Static, Access='private')
                                 
-        function L = my_logpdf(Sm, m, W, lpc)
+        function L = calc_logpdf(Sm, df, W)
             
             d = W.d;
+            lpc = df*d*log(2)/2 + df * lndet(Sm)/2 + mvgammaln(d, df/2);             
             n = W.n;
             L = zeros(1, n);
             
             for i = 1 : n
                 Wi = pdmat_fullform(W, i);
                 
-                u1 = (m - d - 1) / 2 * lndet(Wi);
+                u1 = (df - d - 1) / 2 * lndet(Wi);
                 u2 = (-1/2) * trace(Sm \ Wi);
                 L(i) = u1 + u2 - lpc;
             end
