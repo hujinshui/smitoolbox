@@ -17,6 +17,28 @@ classdef gausspri < prior_base
     
     methods
         
+        function obj = gausspri(G)
+            % Captures a Gaussian model as prior
+            %
+            %   obj = gausspri(G);
+            %
+            %       Here, G should be a gaussd struct with G.n == 1.
+            %
+            
+            if ~(is_gaussd(G) && G.n == 1)
+                error('gausspri:invalidarg', ...
+                    'G should be a gaussd object with G.n == 1.');
+            end            
+            G = gaussd('c', G);
+            
+            obj.dim = G.d;
+            obj.gdistr = G;
+            [ca, cb] = gaussd_const(G);
+            
+            obj.const_a = ca;
+            obj.const_b = cb;            
+        end        
+        
         function n = query_samples(obj, X)
             % Verify the validity of input samples and return the number
             %
