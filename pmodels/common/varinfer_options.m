@@ -24,10 +24,6 @@ function opt = varinfer_options(opt, varargin)
 %                           current and last objective values on
 %                           convergence.
 %
-%       - 'nrepeats':       the number of repeating runs. If using
-%                           random initialization, different runs
-%                           may yield different results.
-%
 %       - 'display:         the level of information displaying
 %                           (can be either a string or a level number)
 %                           0 | 'off':      no display
@@ -76,7 +72,7 @@ for i = 1 : numel(names)
     cv = vals{i};
     
     switch lcn
-        case {'maxiters', 'ipe', 'nrepeats'}
+        case {'maxiters', 'ipe'}
             if ~(is_int(cv) && cv >= 1)
                 error('varinfer_options:invalidarg', ...
                     'The value of option %s must be a positive integer scalar.', lcn);
@@ -136,7 +132,6 @@ opt.tag = 'varinfer_options';
 opt.maxiters = 200;
 opt.ipe = 1;
 opt.tol = 1e-6;
-opt.nrepeats = 1;
 opt.display = 0;
 
 

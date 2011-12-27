@@ -21,6 +21,8 @@ classdef fmm_std < smi_state
                     % 0 - let Z = Q, the posterior probabilities
                     % 1 - set Z to the best label
                     % 2 - sample Z
+                    
+        sampling;   % whether it uses sampling
     end
     
     % observations
@@ -137,13 +139,18 @@ classdef fmm_std < smi_state
         function obj = initialize(obj, obs, params_init)
             % Initialize the FMM estimator state
             %
+            %   obj = obj.initialize(obs);
             %   obj = obj.initialize(obs, params_init);
+            %
             %       initializes the state of finite mixture model
             %       estimator.
             %
             %       Input arguments:
             %       - obs:          the observations
             %       - params_init:  the initial set of component parameters
+            %
+            %       If params_init is not provided, then random 
+            %       initialization is performed 
             %
             
             gm = obj.gmodel;
@@ -152,13 +159,48 @@ classdef fmm_std < smi_state
             K_ = gm.query_params(params_init);
             
             obj.obs = obs;
-            obj.nobs = n;
+            obj.nobs = n;           
             
             obj.K = K_;
             obj.Pi = (1/K_) * ones(K_,1);
             obj.params = params_init;            
             obj.Llik = gm.loglik(params_init, obs);
+        end        
+        
+        
+        function obj = initialize_by_group(obj, obs, K, Z)
+            % Initialize the FMM estimator state via initial grouping
+            %
+            %   obj = obj.initialize(obs, K, Z);            
+            %       Here, K is the number of classes, and 
+            %       Z is a class indicator vector of size 1 x n.
+            %
+            
+            gm = obj.gmodel;
+            
+            n = gm.query_obs(obs);
+            
+            if ~(isnumeric(Z) && isequal(size(Z), [1 n]))
+                error('fmm_std:invalidarg', ...
+                    'Z should be a numeric vector of size 1 x n.');
+            end
+            
+            V = intgroup(K, Z);
+            pri = obj.prior;
+            
+            if isempty(pri)
+                thetas = gm.mle(obs, V);
+            else
+                cap = gm.capture(obs, V);                
+                if samp
+                    thetas = pri.pos_sample(cap);
+                else
+                    thetas = pri.mapest(cap);
+                end
+            end            
+            obj = obj.initialize(obs, thetas);
         end
+        
         
         
         function obj = update(obj)
@@ -205,7 +247,7 @@ classdef fmm_std < smi_state
             end
             
             if isempty(pri)
-                thetas = gm.mle(X);
+                thetas = gm.mle(X, V);
             else
                 cap = gm.capture(X, V);
                 
@@ -322,8 +364,9 @@ classdef fmm_std < smi_state
             
             % entropy
             
-            if zmd == 0
+            if zmd == 0 && size(Z_, 1) > 1
                 ent = ddentropy(Z_);
+                ent = sum(ent);
             else
                 ent = 0;
             end
@@ -335,7 +378,6 @@ classdef fmm_std < smi_state
         end        
     
     end
-    
     
     
 end
