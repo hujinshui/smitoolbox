@@ -10,7 +10,7 @@ classdef tsuite_gauss_models
     properties
         Jx_forms = {'s', 'd', 'f'};
         dims = {1, 2, 5, [3, 2]};
-        Ks = [0, 1, 3];
+        Ks = [1, 3];
     end
     
     %% main test cases
@@ -74,15 +74,9 @@ classdef tsuite_gauss_models
             % prepare model
             
             Jx = rand_pdmat(cf, d, 1, [1 2]);
-            
-            if K == 0
-                w = [];
-                K = 1;
-            else
-                w = rand(K, n);
-            end
-            
+                        
             X = randn(d, n);
+            U = randn(q, K);
             
             if use_A
                 A = randn(d, q);
@@ -125,9 +119,10 @@ classdef tsuite_gauss_models
             assert(g0.query_obs(X) == n);
             assert(gm.query_obs(X) == n);
             
-            % verify loglik evaluation
+            assert(g0.query_params(U) == K);
+            assert(gm.query_params(U) == K);
             
-            U = randn(q, K);
+            % verify loglik evaluation
             
             LL = gm.loglik(U, X);
             
@@ -147,37 +142,75 @@ classdef tsuite_gauss_models
             
             % verify capturing (conjugate updates)
             
-            [dh0, dJ0] = tsuite_gauss_models.simplegen_capture_gt(X, w, Jx, A);
-            [dh, dJ] = gm.capture(X, w);            
-           
-            assert(isequal(size(dh0), [q, K]));
-            assert(isequal(size(dh), [q, K]));
-            assert(is_pdmat(dJ0) && dJ0.d == q && dJ0.n == K);            
-            assert(is_pdmat(dJ) && dJ.d == q && dJ.n == K);
-            assert(isequal(dJ0.ty, dJ.ty));
+            if K == 1
+                Zi = [];
+            else
+                ssiz = floor(n / K);
+                Zi = cell(1, K);
+                for k = 1 : K
+                    Zi{k} = (k-1)*ssiz + 1 : k * ssiz;
+                end
+            end
+            Zw = rand(K, n);                        
             
-            devcheck('simplegen (dh)', dh, dh0, 1e-12);
-            devcheck('simplegen (dJ)', dJ.v, dJ0.v, 1e-12);
+            [dh0_i, dJ0_i] = tsuite_gauss_models.gaussgen_capture_gt(X, Zi, Jx, A);
+            dG_i = gm.capture(X, Zi);
+            
+            [dh0_w, dJ0_w] = tsuite_gauss_models.gaussgen_capture_gt(X, Zw, Jx, A);
+            dG_w = gm.capture(X, Zw);
+           
+            assert(isequal(size(dh0_i), [q, K]));
+            assert(is_pdmat(dJ0_i) && dJ0_i.d == q && dJ0_i.n == K);            
+            
+            assert(is_gaussd(dG_i) && dG_i.ty == 'c' && dG_i.d == q && dG_i.n == K);
+            assert(isequal(size(dG_i.h), [q, K]));
+            assert(dG_i.J.d == q && dG_i.J.n == K);
+            
+            assert(is_gaussd(dG_w) && dG_w.ty == 'c' && dG_w.d == q && dG_w.n == K);
+            assert(isequal(size(dG_w.h), [q, K]));
+            assert(dG_w.J.d == q && dG_w.J.n == K);
+                        
+            devcheck('gaussgen w/ Zi (dh)', dG_i.h, dh0_i, 1e-12);
+            devcheck('gaussgen w/ Zi (dJ)', dG_i.J.v, dJ0_i.v, 1e-12);
+            
+            devcheck('gaussgen w/ Zw (dh)', dG_w.h, dh0_w, 1e-12);
+            devcheck('gaussgen w/ Zw (dJ)', dG_w.J.v, dJ0_w.v, 1e-12);
+            
             
             % verify MLE
             
-            U = gm.mle(X, w);
-            U0 = pdmat_lsolve(dJ0, dh0);
+            Ui = gm.mle(X, Zi);
+            Ui0 = pdmat_lsolve(dJ0_i, dh0_i);
             
-            assert(isequal(size(U0), [q, K]));
-            assert(isequal(size(U), [q, K]));
-            devcheck('simplegen (U)', U, U0, 1e-10);            
+            Uw = gm.mle(X, Zw);
+            Uw0 = pdmat_lsolve(dJ0_w, dh0_w);
+            
+            assert(isequal(size(Ui0), [q, K]));
+            assert(isequal(size(Ui), [q, K]));
+            devcheck('gaussgen (Ui)', Ui, Ui0, 1e-10);  
+                                    
+            assert(isequal(size(Uw0), [q, K]));
+            assert(isequal(size(Uw), [q, K]));
+            devcheck('gaussgen (Uw)', Uw, Uw0, 1e-10);  
         end
         
         
-        function [dh, dJ] = simplegen_capture_gt(X, w, Jx, A)
+        function [dh, dJ] = gaussgen_capture_gt(X, Z, Jx, A)
             % Calculate the ground-truth for gaussgm_capture
             
-            n = size(X, 2);
-            if isempty(w)
+            n = size(X, 2);            
+            [zty, K] = verify_Zarg(Z, n);
+            
+            if zty == 0
                 w = ones(1, n);
+            elseif zty == 1
+                w = Z;
+            elseif zty == 2
+                w = zeros(K, n);
+                for k = 1 : K
+                    w(k, Z{k}) = 1;
+                end
             end
-            K = size(w, 1);
             
             if isempty(A)
                 q = size(X, 1);
