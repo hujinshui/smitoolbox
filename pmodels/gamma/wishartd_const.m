@@ -3,11 +3,15 @@ function c = wishartd_const(J, df)
 %
 %   c = wishartd_const(J, df);
 %
-%       Evaluates the constant term for Wishart distribution log-pdf.
+%       Evaluates the constant term for Wishart distribution log-pdf
+%       or inverse Wishart distribution log-pdf.
 %
 %       Inputs:
 %       - J:        inverse scale matrix in form of pdmat struct.
 %       - df:       the degree of freedom.
+%
+%       Note that the constants for Wishart and inverse Wishart
+%       distributions with the same inverse scale matrix are the same.
 %
 
 % Created by Dahua Lin, on Dec 26, 2011
