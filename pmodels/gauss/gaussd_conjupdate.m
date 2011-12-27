@@ -26,7 +26,7 @@ end
 
 d = Gpri.d;
 
-if ~(is_pdmat(S) && S.d == d && S.ty == 'c')
+if ~(is_gaussd(S) && S.d == d && S.ty == 'c')
     error('gaussd_conjupdate:invalidarg', ...
         'S should be a gaussd struct with G.ty == ''c'' and G.n == 1.');
 end
@@ -36,6 +36,7 @@ end
 
 % posterior h
 
+dh = S.h;
 if isequal(Gpri.h, 0)
     h = dh;
 else
@@ -48,13 +49,13 @@ end
 
 % posterior J
 
-J = pdmat_plus(Gpri.J, dJ);
+J = pdmat_plus(Gpri.J, S.J);
 
 % output
 
 Gpos.tag = 'gaussd';
 Gpos.ty = 'c';
-Gpos.n = n;
+Gpos.n = size(h, 2);
 Gpos.d = d;
 Gpos.h = h;
 Gpos.J = J;

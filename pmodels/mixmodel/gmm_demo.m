@@ -22,6 +22,7 @@ function R = gmm_demo(cf, op)
 %       - Created by Dahua Lin, on Nov 14, 2010
 %       - Modified by Dahua Lin, on Aug 31, 2011
 %       - Modified by Dahua Lin, on Sep 28, 2011
+%       - Modified by Dahua Lin, on Dec 27, 2011
 %
 
 %% verify input
@@ -81,8 +82,9 @@ R = gmm_fit(X, [], K, ...
 [~, Zm] = max(R.Q, [], 1);
 visualize_results(K, X, R.G, Zm);
 
-%% Sub functions
 
+
+%% Sub functions
 
 function visualize_results(K, X, Gs, Zm)
 
