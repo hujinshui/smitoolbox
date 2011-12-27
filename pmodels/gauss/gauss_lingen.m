@@ -1,7 +1,7 @@
-classdef gaussgen < genmodel_base
-    % The class that implements a simple Gaussian generative model
+classdef gauss_lingen < genmodel_base
+    % The class that implements a linear Gaussian generative model
     %
-    %   The simple Gaussian generative model, with parameter u, is 
+    %   The linear Gaussian generative model, with parameter u, is 
     %   formulated as
     %   
     %       x ~ N(A * u, Cx),   or x ~ N(u, Cx) if A is identity.
@@ -58,17 +58,17 @@ classdef gaussgen < genmodel_base
                 if v > 0
                     model.Jx = pdmat_mat('s', d, v);
                 else
-                    error('gaussgen:invalidarg', ...
+                    error('gauss_lingen:invalidarg', ...
                         'The precision (Jx) should be a positive value.');
                 end
             elseif is_pdmat(v)
                 if ~(v.n == 1 && v.d == d)
-                    error('gaussgen:invalidarg', ...
+                    error('gauss_lingen:invalidarg', ...
                         'Jx should have Jx.n == 1 and Jx.d == d.');
                 end
                 model.Jx = v;
             else
-                error('gaussgen:invalidarg', ...
+                error('gauss_lingen:invalidarg', ...
                     'Attempt to set Jx to an invalid value.');
             end
                         
@@ -77,7 +77,7 @@ classdef gaussgen < genmodel_base
             model.Gx_cb = d / 2 - gaussd_entropy(Jx_, 'c');     
             
             if model.use_A
-                model.AtJA = gaussgen.calc_AtJA(Jx_, model.A);
+                model.AtJA = gauss_lingen.calc_AtJA(Jx_, model.A);
             end
         end
         
@@ -91,14 +91,14 @@ classdef gaussgen < genmodel_base
             q = model.pdim;
             
             if ~(isfloat(v) && isreal(v) && isequal(size(v), [d q]))
-                error('gaussgen:invalidarg', ...
+                error('gauss_lingen:invalidarg', ...
                     'A should be a real matrix of size d x q.');
             end
             
             model.A = v;
             model.use_A = true;
             if ~isempty(model.Jx)
-                model.AtJA = gaussgen.calc_AtJA(Jx_, v);
+                model.AtJA = gauss_lingen.calc_AtJA(Jx_, v);
             end
         end
         
@@ -112,11 +112,11 @@ classdef gaussgen < genmodel_base
         
         %% constructor
         
-        function model = gaussgen(Jx, A)
+        function model = gauss_lingen(Jx, A)
             % Construct a Gaussian generative model as formulated above
             %
-            %   model = gaussgm(d);                       
-            %   model = gaussgm(d, q);
+            %   model = gauss_lingen(d);                       
+            %   model = gauss_lingen(d, q);
             %
             %       Creates an empty model with xdim == d and pdim == q.
             %       If q is omitted, then it assumes q == d.
@@ -125,8 +125,8 @@ classdef gaussgen < genmodel_base
             %       One has to set Jx (and optionally A) before using
             %       the model.
             %
-            %   model = gaussgen(Jx);
-            %   model = gaussgen(Jx, A);
+            %   model = gauss_lingen(Jx);
+            %   model = gauss_lingen(Jx, A);
             %       
             %       Creates a model with given precision matrix Jx, 
             %       and (optionally) the transform matrix A.
@@ -135,7 +135,7 @@ classdef gaussgen < genmodel_base
             if isnumeric(Jx) && isscalar(Jx)
                 d = Jx;                                
                 if ~(isreal(d) && d == fix(d) && d > 0)
-                    error('gaussgen:invalidarg', 'd should be a positive integer.');
+                    error('gauss_lingen:invalidarg', 'd should be a positive integer.');
                 end
                 
                 if nargin < 2
@@ -143,10 +143,10 @@ classdef gaussgen < genmodel_base
                 elseif isnumeric(A) && isscalar(A)
                     q = A;                                    
                     if ~(isreal(q) && q == fix(q) && q > 0)
-                        error('gaussgen:invalidarg', 'q should be a positive integer.');
+                        error('gauss_lingen:invalidarg', 'q should be a positive integer.');
                     end
                 else
-                    error('gaussgen:invalidarg', 'The 2nd argument is invalid.');
+                    error('gauss_lingen:invalidarg', 'The 2nd argument is invalid.');
                 end
 
                 model.xdim = double(d);
@@ -155,7 +155,7 @@ classdef gaussgen < genmodel_base
             else
                 
                 if ~is_pdmat(Jx)
-                    error('gaussgen:invalidarg', 'Jx should be a pdmat struct.');
+                    error('gauss_lingen:invalidarg', 'Jx should be a pdmat struct.');
                 end
                 
                 d = Jx.d;
@@ -164,7 +164,7 @@ classdef gaussgen < genmodel_base
                     uA = false;
                 else
                     if ~(isfloat(A) && isreal(A) && ndims(A) == 2 && size(A,1) == d)
-                        error('gaussgen:invalidarg', ...
+                        error('gauss_lingen:invalidarg', ...
                             'A should be a real matrix with d rows.');
                     end
                     q = size(A, 2);
@@ -178,7 +178,7 @@ classdef gaussgen < genmodel_base
                 
                 if uA
                     model.A = A;
-                    model.AtJA = gaussgen.calc_AtJA(Jx, A);
+                    model.AtJA = gauss_lingen.calc_AtJA(Jx, A);
                 end
                                 
                 model.Gx = gaussd('c', 0, Jx);
@@ -199,7 +199,7 @@ classdef gaussgen < genmodel_base
             
             d = model.xdim;
             if ~(isfloat(X) && isreal(X) && ndims(X) == 2 && size(X,1) == d)
-                error('gaussgen:invalidarg', ...
+                error('gauss_lingen:invalidarg', ...
                     'The observations should be a real matrix with d rows.');
             end
             n = size(X, 2);
@@ -216,7 +216,7 @@ classdef gaussgen < genmodel_base
             
             q = model.pdim;
             if ~(isfloat(U) && isreal(U) && ndims(U) == 2 && size(U,1) == q)
-                error('gaussgen:invalidarg', ...
+                error('gauss_lingen:invalidarg', ...
                     'The observations should be a real matrix with q rows.');
             end
             n = size(U, 2);
@@ -237,7 +237,7 @@ classdef gaussgen < genmodel_base
             
             q = model.pdim;
             if ~(isfloat(U) && isreal(U) && ndims(U) == 2 && size(U, 1) == q)
-                error('gaussgen:invalidarg', ...
+                error('gauss_lingen:invalidarg', ...
                     'The params U should be a real matrix with q rows.');
             end
             
