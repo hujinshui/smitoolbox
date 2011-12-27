@@ -32,11 +32,13 @@ end
 
 if nargin < 2
     c_tied = false;
+    mitrs = 200;
 else
     if ~(ischar(op) && strcmpi(op, 'tied-cov'))
         error('gmm_demo:invalidarg', 'The second argument is invalid.');
     end
     c_tied = true;
+    mitrs = 1600;
 end
 
 
@@ -67,35 +69,17 @@ else
     end
 end
 X = [Xs{:}];
-N = size(X, 2);
-
 
 %% Run estimation
 
-if ~c_tied
-    gm = gaussgm(d, cf);
-else
-    gm = gaussgm(d, cf, 'tied_cov');
-end
-
-c0 = 1;  % prior count
-gmm_state = fmm_std('em', gm, [], c0);
-
-% inititalize
-
-Z0 = randi(K, 1, N);
-gmm_state = gmm_state.initialize_by_group(X, K, Z0);
-
-% estimate
-
-opts = varinfer_options([], 'maxiters', 200, 'tol', 1e-6, 'display', 'eval');
-R = varinfer_drive(gmm_state, opts);
-
+R = gmm_fit(X, [], K, ...
+    'cov_form', cf, 'pricount', 0, 'tied_cov', c_tied, ...
+    'maxiters', mitrs, 'tol', 1e-6, 'display', 'eval');
 
 %% Visualize
 
-[~, Zm] = max(R.sol.Z, [], 1);
-visualize_results(K, X, R.sol.params, Zm);
+[~, Zm] = max(R.Q, [], 1);
+visualize_results(K, X, R.G, Zm);
 
 %% Sub functions
 

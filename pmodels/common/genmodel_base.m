@@ -16,10 +16,10 @@ classdef genmodel_base
         L = loglik(obj, A, X);
         % Evaluate the log-likelihood of all samples w.r.t all params
         
-        A = mle(obj, X, w);
+        A = mle(obj, X, W);
         % Performs maximum likelihood estimation of parameters
         
-        S = capture(obj, X, w);
+        S = capture(obj, X, W);
         % Captures the sufficient stats of observations as updates to prior
         
     end

@@ -87,6 +87,9 @@ else
     Wt = W.';    
     
     sw = sum(Wt, 1);
+    if issparse(sw)
+        sw = full(sw);
+    end
     Wt = bsxfun(@times, Wt, 1 ./ sw);
     sw = sw.' / sum(sw);
 end
@@ -162,7 +165,13 @@ function C = calc_cov(X, mu, Wt)
 if isempty(Wt)
     Exx = (X * X') * (1 / size(X,2));
 else
-    Exx = X * bsxfun(@times, X', Wt);
+    if ~issparse(Wt)
+        Exx = X * bsxfun(@times, X', Wt);
+    else
+        [I, ~, w] = find(Wt);
+        X = X(:, I);
+        Exx = X * bsxfun(@times, X', w);
+    end
 end
 
 C = Exx - mu * mu';

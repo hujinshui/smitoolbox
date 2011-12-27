@@ -68,8 +68,13 @@ end
 if size(L, 1) > 1  
     L = L.';
 end
-inds = find(L >= 1 & L <= K);
-L = L(inds);
+
+if any(L < 1 | L > K)
+    inds = find(L >= 1 & L <= K);
+    L = L(inds);
+else
+    inds = 1 : n;
+end
 
 if m_sparse    
     if m_logical
