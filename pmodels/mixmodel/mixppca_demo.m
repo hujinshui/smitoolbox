@@ -24,16 +24,18 @@ X = [r .* cos(theta); r .* sin(theta)];
 %% Do estimation
 
 gm = ppca_gm(2, 1);
-prg = fmm_std(gm, [], K);
+c0 = 1;
+state = fmm_std('em', gm, [], c0);
+Z0 = ceil(theta / (2 * pi) * K);
+state = state.initialize_by_group(X, [], K, Z0);
 
 opts = varinfer_options([], ...
-    'maxiters', 500, ...
+    'maxiters', 50, ...
     'display', 'eval', ...
-    'tol', 1e-9);
+    'tol', 1e-6);
 
-R = smi_varinfer(prg, X, [], opts);
+R = varinfer_drive(state, opts);
 models = R.sol.params;
-
 
 %% visualize
 
@@ -46,28 +48,8 @@ axis(rgn);
 axis equal;
 
 for k = 1 : K
-    G = models{k}.to_gauss('mp');
+    gk = gaussd('m', models(k));
     hold on;
-    G.plot_ellipse(2, 'r');
+    gaussd_ellipse(gk, 2, 500, 'r', 'LineWidth', 2);
 end
-
-% likelihood map
-
-tx = linspace(rgn(1), rgn(2), 512);
-ty = linspace(rgn(3), rgn(4), 512);
-[xx, yy] = meshgrid(tx, ty);
-
-Xg = [xx(:)'; yy(:)'];
-
-P = zeros(K, size(Xg, 2));
-for k = 1 : K
-    P(k, :) = models{k}.pdf(Xg);
-end
-P = R.sol.Pi(:)' * P;
-
-P = reshape(P, size(xx));
-figure;
-imagesc(tx, ty, P);
-axis equal;
-
 

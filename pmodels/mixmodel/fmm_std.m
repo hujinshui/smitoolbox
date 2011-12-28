@@ -181,7 +181,7 @@ classdef fmm_std < smi_state
         function obj = initialize_by_group(obj, obs, w, K, Z)
             % Initialize the FMM estimator state via initial grouping
             %
-            %   obj = obj.initialize(obs, w, K, Z);            
+            %   obj = obj.initialize_by_group(obs, w, K, Z);            
             %       Here, K is the number of classes, and 
             %       Z is a class indicator vector of size 1 x n.
             %
@@ -255,7 +255,7 @@ classdef fmm_std < smi_state
             thetas = mm_estimate(gm, pri, X, w, V, samp);
             
             obj.params = thetas;
-            obj.Llik = gm.loglik(thetas, X);
+            obj.Llik = gm.loglik(thetas, X);            
             
             % estimate component prior
             
