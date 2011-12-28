@@ -49,7 +49,8 @@ function G = gaussd(op, param1, param2)
 %   G = gaussd('m', G0);
 %   G = gaussd('c', G0);
 %
-%       converts the gaussd struct G0 to a specific type.
+%       converts the model G0 to a specific gaussd struct type.
+%       Here, G0 can be a gaussd struct or a ppca struct.
 %   
 
 % Re-created by Dahua Lin, on Dec 5, 2011
@@ -62,14 +63,14 @@ if ischar(op) && isscalar(op)
     if op == 'm'
         
         if isnumeric(param1)
-            [d, n, mu, C] = verify_args(param1, param2, 'mu', 'C');        
+            [d, n, mu, C] = verify_args(param1, param2, 'mu', 'C');
             G.tag = 'gaussd';
             G.ty = 'm';
             G.d = d;
             G.n = n;
             G.mu = mu;
             G.C = C;
-        
+            
         elseif is_gaussd(param1)
             ty = param1.ty;
             if ty == 'm'
@@ -77,6 +78,16 @@ if ischar(op) && isscalar(op)
             elseif ty == 'c'
                 G = cvt_c2m(param1);
             end
+            
+        elseif is_ppca(param1)
+            M = param1;            
+            G.tag = 'gaussd';
+            G.ty = 'm';
+            G.d = M.d;
+            G.n = 1;
+            G.mu = M.mu;
+            C = ppca_cov(M);
+            G.C = pdmat(C);
             
         else
             error('gaussd:invalidarg', 'The inputs are invalid.');
@@ -101,6 +112,22 @@ if ischar(op) && isscalar(op)
             elseif ty == 'm'
                 G = cvt_m2c(param1);
             end
+            
+        elseif is_ppca(param1)
+            M = param1;
+            G.tag = 'gaussd';
+            G.ty = 'c';
+            G.d = M.d;
+            G.n = 1;
+            
+            J = ppca_icov(M);
+            if isequal(M.mu, 0)
+                h = 0;
+            else
+                h = J * M.mu;
+            end            
+            G.h = h;
+            G.J = pdmat(J);
                         
         else
             error('gaussd:invalidarg', 'The inputs are invalid.');
