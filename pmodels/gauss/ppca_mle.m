@@ -122,7 +122,7 @@ B = U(:, si(1:q));
 se2 = sum(evs(q+1:end)) / (d-q);
 se2 = max(se2, 1e-12);
 
-M = ppca_model(B, sqrt(qevs), se2, mu);
+M = ppca_model(B, sqrt(qevs - se2), sqrt(se2), mu);
             
             
 %% sub functions

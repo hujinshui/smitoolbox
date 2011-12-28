@@ -1,5 +1,5 @@
 classdef ppca_gm < genmodel_base
-    % The class implementing PPCA in terms of genmodel_base
+    % The class implementing PPCA as a genmodel_base subclass
     %
     
     % Created by Dahua Lin, on Nov 6, 2011
@@ -25,31 +25,22 @@ classdef ppca_gm < genmodel_base
             
             model.dim = d;
             model.ldim = q;            
-        end
+        end        
         
         
-        function tf = is_supported_optype(model, optype) %#ok<MANU>
-            % Tests whether a particular operation type is supported
+        function n = query_obs(model, obs) 
+            % Gets the number of samples 
             %
-            %   returns true only when optype is 'varinfer'
-            
-            tf = ischar(optype) && strcmpi(optype, 'varinfer');
-        end
-        
-        
-        function n = get_num_observations(model, obs) 
-            % Gets the number of samples in the observation set
-            %
-            %   n = model.get_num_observations(obs);
+            %   n = model.query_obs(obs);
             %       
             
-            if ~(isfloat(obs) && ndims(obs) == 2 && isreal(obs) && ~issparse(obs))
-                error('genmodel_base:invalidarg', ...
+            if ~(isfloat(obs) && ndims(obs) == 2 && isreal(obs))
+                error('ppca_gm:invalidarg', ...
                     'obs should be a non-sparse real matrix.');
             end            
             
             if size(obs,1) ~= model.dim
-                error('genmodel_base:invalidarg', ...
+                error('ppca_gm:invalidarg', ...
                     'The dimension of obs is invalid.');
             end
             
@@ -57,109 +48,81 @@ classdef ppca_gm < genmodel_base
         end
         
         
-        function tf = is_valid_prior(model, pri) %#ok<MANU>
-            % Tests whether a given prior is a valid prior model
+        function n = query_params(model, Ms)
+            % Gets the number of models
             %
-            %   tf = model.is_valid_prior(pri)
+            %   n = model.query_params(Ms);
+            %       
+            
+            d = model.dim;
+            q = model.ldim;
+            
+            if ~(isstruct(Ms) && is_ppca(Ms(1)) && Ms(1).d == d && Ms(1).q == q)
+                error('ppca_gm:invalidarg', ...
+                    'The model (params) are invalid.');
+            end
+            
+            n = numel(Ms);
+        end
+                        
+        
+        function L = loglik(model, Ms, X) %#ok<MANU>
+            % Evaluate the log-likelihood of all samples w.r.t all models
             %
-            %   Currently, it only accepts empty prior.
+            %   L = model.loglik(Ms, X);
             %
             
-            tf = isempty(pri);
+            K = numel(Ms);
+            if K == 1
+                L = ppca_logpdf(Ms, X);
+            else
+                L = zeros(K, size(X,2));
+                for k = 1 : K
+                    L(k,:) = ppca_logpdf(Ms(k), X);
+                end
+            end
         end
         
         
-        function [params, aux] = posterior_params(model, ~, X, aux, Z, optype)
-            % Estimates/samples the parameters conditoned on given observations        
+        function Ms = mle(model, X, W)
+            % Performs maximum likelihood estimation of models
             %
-            %   [params, aux] = model.posterior_params([], X, aux, Z, 'varinfer');
-            %       estimates/infer K parameters given grouped/weighted data
-            %       set.
-            %
-            %       Input Arguments:
-            %       - obs:      the observation data set
-            %       - Z:        A K x n matrix of weights.
-            %
-            %       Output Arguments:
-            %       - params:   a cell array, each cell is a probpca 
-            %                   object.                                          
-            %
-            %       - aux:      an updated auxiliary structure, 
-            %                   which is [].        
+            %   Ms = model.mle(X, W);
             %
             
-            if ~strcmpi(optype, 'varinfer')
-                error('ppca_gm:invalidarg', 'Unsupported optype');
+            n = model.query_obs(X);
+            
+            if ~isempty(W)
+                if ~(isfloat(W) && isreal(W) && ndims(W) == 2 && size(W,2) == n)
+                    error('ppca_gm:invalidarg', ...
+                        'W should be a real matrix with n columns.');
+                end
+                K = size(W, 1);
+            else
+                W = [];
+                K = 1;
             end
             
             q = model.ldim;
-            K = size(Z, 1);
-            n = size(Z, 2);
-            
-            params = cell(1, K);
-                        
-            for k = 1 : K
-                z = Z(k, :);
-                if sum(z) < max(q, 1e-4 * (n / K))
-                    ts = randpick(n, 3 * q);
-                    z = zeros(1, n);
-                    z(ts) = 1;
-                end
-                params{k} = probpca.mle(X, z, q);
-            end
-        
-        end
-                
-        
-        function Lliks = evaluate_logliks(model, params, obs, ~, I) %#ok<MANU>
-            % Evaluates the logarithm of likelihood of samples
-            %
-            %   Lliks = model.evaluate_logliks(params, obs, []);
-            %   Lliks = model.evaluate_logliks(params, obs, [], I);
-            %
-            %       evaluates the log-likelihood values of the observations
-            %       in obs with respect to the given set of parameters or
-            %       the given atom.
-            %
-            %       If params has K parameters, Lliks is a K x n matrix.
-            %
-            
-            if nargin < 5
-                X = obs;
+            if K == 1
+                Ms = ppca_mle(X, W, q);
             else
-                X = obs(:, I);
-            end
-            
-            K = numel(params);
-            n = size(X, 2);
-            
-            if ~(isa(X, 'gdouble') || isa(X, 'gsingle'))            
-                Lliks = zeros(K, n);            
+                Ms = cell(1, K);
                 for k = 1 : K
-                    pm = params{k};
-                    Lliks(k,:) = logpdf(pm, X);
-                end            
-            else
-                Lliks = cell(K, 1);
-                for k = 1 : K
-                    pm = params{k};
-                    Lliks{k} = logpdf(pm, X);
+                    Ms{k} = ppca_mle(X, W(k,:), q);
                 end
-                Lliks = vertcat(Lliks{:});
+                Ms = vertcat(Ms{:});
             end
         end
         
         
-        
-        function lpri = evaluate_logpri(model, ~, ~, ~) %#ok<MANU>
-            % Evaluate the total log-prior of a given set of parameters
-            %
-            %   returns 0
-        
-            lpri = 0;
+        function capture(model, X, W) %#ok<INUSD,MANU>
+            error('ppca_gm:notsupported', ...
+                'The capture method is not supported by PPCA.');            
         end
         
-    end
-    
+    end    
     
 end
+
+

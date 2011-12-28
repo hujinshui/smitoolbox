@@ -115,6 +115,15 @@ while ~converged && it < maxiters
             
 end
 
+if displevel >= 1
+    if converged
+        fprintf('Variational inference converged (#iters = %d)\n', it);
+    else
+        fprintf('Variational inference did NOT converge (#iters = %d)\n', it);
+    end
+end
+
+
 % make output struct
 
 R.sol = S.output();
