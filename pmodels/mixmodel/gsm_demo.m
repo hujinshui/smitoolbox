@@ -19,7 +19,7 @@ ext = 100;
 
 %% generate data
 
-n = 1e6;
+n = 1e5;
 z = ddsample(p, n);
 
 grps = intgroup(K, z);
