@@ -6,9 +6,22 @@ function mixppca_demo(n, K)
 %       Here, n is the number of sample points, K is the number of 
 %       mixture components to be used
 %
+%       By default n = 50000, and K = 8;
+%
 
 % Created by Dahua Lin, on Nov 6, 2011
 %
+
+%% get input
+
+if nargin < 1
+    n = 50000;
+end
+
+if nargin < 2
+    K = 8;
+end
+
 
 %% generate data
 
