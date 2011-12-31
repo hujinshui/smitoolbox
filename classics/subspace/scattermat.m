@@ -26,8 +26,8 @@ function [mu, Sw, Sb] = scattermat(X, K, L, w)
 
 %% verify input arguments
 
-if ~(isfloat(X) && ndims(X) == 2)
-    error('scattermat:invalidarg', 'X should be a numeric matrix.');
+if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
+    error('scattermat:invalidarg', 'X should be a real matrix.');
 end
 
 [d, n] = size(X);

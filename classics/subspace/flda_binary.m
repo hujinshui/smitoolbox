@@ -1,7 +1,7 @@
-function c = lda_binary(X, L, varargin)
-% Linear Discriminant Analysis on two-classes
+function c = flda_binary(X, L, varargin)
+%FLDA_BINARY Fisher's Linear Discriminant Analysis on two-classes
 %
-%   c = lda_binary(X, L ...);
+%   c = FLDA_BINARY(X, L ...);
 %       performs two-class linear discrminant analysis (LDA).
 %
 %       In the input, X is the data matrix, with each column being a
@@ -31,13 +31,13 @@ function c = lda_binary(X, L, varargin)
 
 %% verify input arguments
 
-if ~(isfloat(X) && ndims(X) == 2)
-    error('lda_binary:invalidarg', 'X should be a numeric matrix.');
+if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
+    error('flda_binary:invalidarg', 'X should be a real matrix.');
 end
 n = size(X, 2);
 
 if ~((islogical(L) || isnumeric(L)) && isequal(size(L), [1 n]))
-    error('lda_binary:invalidarg', ...
+    error('flda_binary:invalidarg', ...
         'L should be a logical/numeric vector of size 1 x n.');
 end
 if ~islogical(L); L = logical(L); end
@@ -50,7 +50,7 @@ if ~isempty(varargin)
     ovals = varargin(2:2:end);
     
     if ~(numel(onames) == numel(ovals) && iscellstr(onames))
-        error('lda_binary:invalidarg', ...
+        error('flda_binary:invalidarg', ...
             'The option list is invalid.');
     end
     
@@ -62,13 +62,13 @@ if ~isempty(varargin)
         switch name
             case 'reg'
                 if ~(isfloat(v) && isscalar(v) && v > 0)
-                    error('lda_binary:invalidarg', ...
+                    error('flda_binary:invalidarg', ...
                         'reg should be a real positive scalar.');
                 end
                 r = v;
             case 'weights'
                 if ~(isfloat(v) && isequal(size(v), [1 n]))
-                    error('lda_binary:invalidarg', ...
+                    error('flda_binary:invalidarg', ...
                         'weights should be a 1 x n numeric vector.');
                 end
                 ws = v;
@@ -85,11 +85,11 @@ X0 = X(:, ~L);
 X1 = X(:, L);
 
 if isempty(X0)
-    error('lda_binary:invalidarg', 'No samples are with label 0.');
+    error('flda_binary:invalidarg', 'No samples are with label 0.');
 end
 
 if isempty(X1)
-    error('lda_binary:invalidarg', 'No samples are with label 1.');
+    error('flda_binary:invalidarg', 'No samples are with label 1.');
 end
 
 if isempty(ws)

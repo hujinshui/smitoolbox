@@ -1,24 +1,27 @@
-function [T, Tmu] = lda_ex(X, K, L, varargin)
-% Extended Multi-class Linear Discriminant Analysis
+function [T, Tmu] = flda_mc(X, K, L, varargin)
+%FLDA_MC (Generalized) Multi-class Fisher's Linear Discriminant Analysis
 %
-%   T = lda_ex(X, K, L, ...);
-%   [T, Tmu] = lda_ex(X, K, L, ...);
-%       performs multi-class linear discriminant analysis. 
+%   T = FLDA_MC(X, K, L, ...);
+%   [T, Tmu] = FLDA_MC(X, K, L, ...);
 %
-%       Suppose the training set comprises n samples on a d-dimensional
-%       vector space. Then X should be a matrix of size d x n. Each
-%       column of X is a sample.
+%       Performs multi-class Fisher's linear discriminant analysis on 
+%       given Data to derive a discriminant subspace.
 %
-%       K is the number of classes. L is a 1 x n row vector of the class 
-%       labels. In particular, L(i) is the label for X(:,i), whose value 
-%       should be in {1, 2, ..., K}, where K is the number of classes.
+%       Suppose there are totally n samples on a d-dimensional space.
 %
-%       In the output, T is a transform matrix of size p x d (p < d), 
-%       which can transform d-dimensional input vectors into 
-%       p-dimensional discriminant features.
+%       Input arguments:
+%       - X:        The sample matrix of size d x n. Each column of X
+%                   is a sample.
+%       - K:        The number of classes.
+%       - L:        The label vector of length n. In particular, L(i)
+%                   is the class label for X(:,i).
 %
-%       The 2nd output Tmu is a matrix of size p x K, where Tmu(:,k)
-%       is the transformed center of the k-th class.
+%       Output arguments:
+%       - T:        A transform matrix of size p x d (p < d), which 
+%                   transforms a d-dimensional input vector x into 
+%                   a p-dimensional discriminant feature y, as y = T * x.
+%
+%       - Tmu:      The transformed mean vectors, of size p x K.
 %
 %       One can further specify some of the following options to 
 %       control the algorithm in form of name/value pairs. 
@@ -81,84 +84,30 @@ function [T, Tmu] = lda_ex(X, K, L, varargin)
 %       final transform that this function will return is P * W.
 %
 
+% History
+% -------
+%   - Created by Dahua Lin, on Nov 31, 2010.
+%   - Modified by Dahua Lin, on Dec 31, 2011.
+%
+
 %% verify input arguments
 
-if ~(isfloat(X) && ndims(X) == 2)
-    error('lda_ex:invalidarg', 'X should be a numeric matrix.');
+if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
+    error('flda_mc:invalidarg', 'X should be a real matrix.');
 end
 [d, n] = size(X);
 
 if ~(isnumeric(K) && isscalar(K) && K == fix(K) && K >= 1)
-    error('lda_ex:invalidarg', 'K should be a positive integer scalar.');
+    error('flda_mc:invalidarg', 'K should be a positive integer scalar.');
 end
 
 if ~(isnumeric(L) && isequal(size(L), [1 n]))
-    error('lda_ex:invalidarg', 'L should be a 1 x n numeric vector.');
+    error('flda_mc:invalidarg', 'L should be a 1 x n numeric vector.');
 end
 
-% default options
+% options
 
-maxdim = [];
-w = [];
-wdim = d;
-reg = 1e-3;
-bound = [];
-rktol = 1e-8;
-
-% parse options
-
-if ~isempty(varargin)
-    onames = varargin(1:2:end);
-    ovals = varargin(2:2:end);
-    if ~(numel(onames) == numel(ovals) && iscellstr(onames))
-        error('lda_ex:invalidarg', 'The option list is invalid.');
-    end
-    
-    for i = 1 : numel(onames)
-        name = onames{i};
-        v = ovals{i};
-        switch lower(name)
-            case 'maxdim'
-                if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1)
-                    error('lda_ex:invalidopt', ...
-                        'maxdim should be a positive integer scalar.');
-                end
-                maxdim = v;
-            case 'weights'
-                if ~(isempty(v) || (isfloat(v) && isequal(size(v), [1 n])))
-                    error('lda_ex:invalidopt', ...
-                        'weights should be either empty or an 1 x n numeric vector.');
-                end
-                w = v;
-            case 'wdim'
-                if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1 && v <= d)
-                    error('lda_ex:invalidopt', ...
-                        'wdim should be an integer scalar in [1, d].');
-                end
-                wdim = v;
-            case 'reg'
-                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('lda_ex:invalidopt', ...
-                        'reg should be either empty or a positive scalar.');
-                end
-                reg = v;
-            case 'bound'
-                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('lda_ex:invalidopt', ...
-                        'bound should be either empty or a positive scalar.');
-                end
-                bound = v;
-            case 'rktol'
-                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('lda_ex:invalidopt', ...
-                        'ranktol should be either empty or a positive scalar.');
-                end
-                rktol = v;
-            otherwise
-                error('lda_ex:invalidarg', 'Unknown option name %s', name);
-        end                
-    end
-end
+[maxdim, w, wdim, reg, bound, rktol] = getopts(d, varargin);
 
 
 %% main
@@ -204,5 +153,75 @@ T = P * W;
 if nargout >= 2
     Tmu = T * mu;
 end
+
+
+%% sub functions
+
+function [maxdim, w, wdim, reg, bound, rktol] = getopts(d, params)
+
+maxdim = [];
+w = [];
+wdim = d;
+reg = 1e-3;
+bound = [];
+rktol = 1e-8;
+
+% parse options
+
+if ~isempty(params)
+    onames = params(1:2:end);
+    ovals = params(2:2:end);
+    if ~(numel(onames) == numel(ovals) && iscellstr(onames))
+        error('flda_mc:invalidarg', 'The option list is invalid.');
+    end
+    
+    for i = 1 : numel(onames)
+        name = onames{i};
+        v = ovals{i};
+        switch lower(name)
+            case 'maxdim'
+                if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1)
+                    error('flda_mc:invalidopt', ...
+                        'maxdim should be a positive integer scalar.');
+                end
+                maxdim = v;
+            case 'weights'
+                if ~(isempty(v) || (isfloat(v) && isequal(size(v), [1 n])))
+                    error('flda_mc:invalidopt', ...
+                        'weights should be either empty or an 1 x n numeric vector.');
+                end
+                w = v;
+            case 'wdim'
+                if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1 && v <= d)
+                    error('flda_mc:invalidopt', ...
+                        'wdim should be an integer scalar in [1, d].');
+                end
+                wdim = v;
+            case 'reg'
+                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
+                    error('flda_mc:invalidopt', ...
+                        'reg should be either empty or a positive scalar.');
+                end
+                reg = v;
+            case 'bound'
+                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
+                    error('flda_mc:invalidopt', ...
+                        'bound should be either empty or a positive scalar.');
+                end
+                bound = v;
+            case 'rktol'
+                if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
+                    error('flda_mc:invalidopt', ...
+                        'ranktol should be either empty or a positive scalar.');
+                end
+                rktol = v;
+            otherwise
+                error('flda_mc:invalidarg', 'Unknown option name %s', name);
+        end                
+    end
+end
+
+
+
 
 
