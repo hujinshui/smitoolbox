@@ -1,8 +1,8 @@
-function [T, Tmu] = flda_mc(X, K, L, varargin)
-%FLDA_MC (Generalized) Multi-class Fisher's Linear Discriminant Analysis
+function [T, Tmu] = fisherldax(X, K, L, varargin)
+%FISHERLDAX (Generalized) Multi-class Fisher's Linear Discriminant Analysis
 %
-%   T = FLDA_MC(X, K, L, ...);
-%   [T, Tmu] = FLDA_MC(X, K, L, ...);
+%   T = FISHERLDAX(X, K, L, ...);
+%   [T, Tmu] = FISHERLDAX(X, K, L, ...);
 %
 %       Performs multi-class Fisher's linear discriminant analysis on 
 %       given Data to derive a discriminant subspace.
@@ -93,16 +93,16 @@ function [T, Tmu] = flda_mc(X, K, L, varargin)
 %% verify input arguments
 
 if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
-    error('flda_mc:invalidarg', 'X should be a real matrix.');
+    error('fisherldax:invalidarg', 'X should be a real matrix.');
 end
 [d, n] = size(X);
 
 if ~(isnumeric(K) && isscalar(K) && K == fix(K) && K >= 1)
-    error('flda_mc:invalidarg', 'K should be a positive integer scalar.');
+    error('fisherldax:invalidarg', 'K should be a positive integer scalar.');
 end
 
 if ~(isnumeric(L) && isequal(size(L), [1 n]))
-    error('flda_mc:invalidarg', 'L should be a 1 x n numeric vector.');
+    error('fisherldax:invalidarg', 'L should be a 1 x n numeric vector.');
 end
 
 % options
@@ -172,7 +172,7 @@ if ~isempty(params)
     onames = params(1:2:end);
     ovals = params(2:2:end);
     if ~(numel(onames) == numel(ovals) && iscellstr(onames))
-        error('flda_mc:invalidarg', 'The option list is invalid.');
+        error('fisherldax:invalidarg', 'The option list is invalid.');
     end
     
     for i = 1 : numel(onames)
@@ -181,42 +181,42 @@ if ~isempty(params)
         switch lower(name)
             case 'maxdim'
                 if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1)
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'maxdim should be a positive integer scalar.');
                 end
                 maxdim = v;
             case 'weights'
                 if ~(isempty(v) || (isfloat(v) && isequal(size(v), [1 n])))
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'weights should be either empty or an 1 x n numeric vector.');
                 end
                 w = v;
             case 'wdim'
                 if ~(isnumeric(v) && isscalar(v) && v == fix(v) && v >= 1 && v <= d)
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'wdim should be an integer scalar in [1, d].');
                 end
                 wdim = v;
             case 'reg'
                 if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'reg should be either empty or a positive scalar.');
                 end
                 reg = v;
             case 'bound'
                 if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'bound should be either empty or a positive scalar.');
                 end
                 bound = v;
             case 'rktol'
                 if ~(isempty(v) || (isfloat(v) && isscalar(v) && isreal(v) && v > 0))
-                    error('flda_mc:invalidopt', ...
+                    error('fisherldax:invalidopt', ...
                         'ranktol should be either empty or a positive scalar.');
                 end
                 rktol = v;
             otherwise
-                error('flda_mc:invalidarg', 'Unknown option name %s', name);
+                error('fisherldax:invalidarg', 'Unknown option name %s', name);
         end                
     end
 end
