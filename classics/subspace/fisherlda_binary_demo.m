@@ -1,7 +1,7 @@
-function flda_binary_demo()
-% A simple program to demonstrate the use of flda_binary
+function fisherlda_binary_demo()
+% A simple program to demonstrate the use of fisherlda_binary
 %
-%   flda_binary_demo;
+%   fisherlda_binary_demo;
 %
 
 % Created by Dahua Lin, on Nov 22, 2010
@@ -29,7 +29,7 @@ L = [zeros(1, n), ones(1, n)];
 c0 = sigma \ (mu(:,2) - mu(:,1));
 c0 = c0 / norm(c0);  % the truly optimal direction.
 
-c = flda_binary(X, L, 'reg', 1e-8);
+c = fisherlda_binary(X, L, 'reg', 1e-8);
 
 fprintf('true optima    = %s\n', num2str(c0.', '%.4f '));
 fprintf('solved result  = %s\n', num2str(c.', '%.4f '));
