@@ -30,9 +30,8 @@ function r = sum_xlogy(X, Y, dim)
 
 %% verify input arguments
 
-if ~(isfloat(X) && ndims(X) == 2 && isfloat(Y) && isequal(size(X), size(Y)))
-    error('sum_xlogy:invalidarg', ...
-        'X and Y should be numeric matrices of the same size.');
+if ~(isfloat(X) && ndims(X) == 2 && isfloat(Y) && ndims(Y) == 2)
+    error('sum_xlogy:invalidarg', 'X and Y should be numeric matrices.');
 end
 
 %% main
