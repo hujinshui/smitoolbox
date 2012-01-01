@@ -1,5 +1,5 @@
 function [o1, o2] = llsq(X, y, w, r)
-% Linear leasr square problem
+%LLSQ Linear least square problem
 %
 %   The function solves the (weighted) linear least square problem, as
 %
