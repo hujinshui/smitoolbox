@@ -145,7 +145,7 @@ function [v, g] = reg_L2(x, c)
 
 v = calc_v((c/2), x.^2);
 if nargout >= 2
-    g = calc_g((c/2), x);
+    g = calc_g(c, x);
 end
 
 % Q
