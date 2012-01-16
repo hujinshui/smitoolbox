@@ -21,7 +21,7 @@ function f = logiregf(X, y, w, rc)
 %
 %       - y:        The indicator vector of length n.
 %                   y(i) = 1 indicates that the i-th sample in X is a 
-%                   postive sample, and y(i) = 0 indicates that it is
+%                   postive sample, and y(i) = -1 indicates that it is
 %                   a negative sample.
 %
 %                   Actually, y(i) can be any real value in [0, 1], in 
@@ -90,7 +90,7 @@ end
 %% main
 
 Xa = [X; ones(1, n)];
-f_loss = comb_lossfun(Xa, y, 1, w, @logireg_loss);
+f_loss = comb_lossfun(Xa, y, 1, w, @logistic_loss);
 f_reg = tikregf([ones(d, 1); 0]);
 f = comb_objfun(1, f_loss, rc, f_reg);
 

@@ -25,7 +25,7 @@ X1 = gen_data(n, xc - dir(1), yc - dir(2), 3, 1, t);
 %% model and solve
 
 X = [X0, X1];
-y = [zeros(1, n), ones(1, n)];
+y = [-ones(1, n), ones(1, n)];
 
 f = logiregf(X, y, [], 1e-3);
 

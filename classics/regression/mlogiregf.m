@@ -12,7 +12,7 @@ function f = mlogiregf(X, y, w, rc)
 %   where z_{ki} = theta_k' * x_i + theta_{k0}
 %
 %
-%   f = MLOGIREGF(X, y, w);
+%   f = MLOGIREGF(X, y, w, rc);
 %       constructs the objective for multi-class logistic regression.
 %
 %       This function returns a function handle f which represent the
@@ -26,7 +26,8 @@ function f = mlogiregf(X, y, w, rc)
 %                     value in {1, ..., m}. The function would set m
 %                     to be max(y).
 %                   - an assignment matrix of size K x n. Here, y(:,i)
-%                     corresponds to X(:,i).
+%                     corresponds to X(:,i). Note that each column of y
+%                     must sums to one.
 %
 %       - w:        The weights of the samples. If all samples have the
 %                   same weight, then w can be empty or omitted. 
@@ -56,7 +57,7 @@ function f = mlogiregf(X, y, w, rc)
 if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
     error('mlogiregf:invalidarg', 'X should be a real matrix.');
 end
-n = size(X, 2);
+[d, n] = size(X);
 
 if ~(isfloat(y) && isreal(y) && ndims(y) == 2 && size(y, 2) == n)
     error('mlogiregf:invalidarg', 'y should be a real matrix with n columns.');
@@ -86,20 +87,14 @@ end
 %% main
 
 Xa = [X; ones(1, n)];
-f = reglossmin_objfun(Xa, y, K, w, @mlogireg_loss, rc, @parreg);
+f_loss = comb_lossfun(Xa, y, K, w, @mlogistic_loss);
 
-
-function [v, g] = parreg(a)
-
-theta = a(1:end-1, :);
-theta = theta(:);
-
-v = norm(theta)^2 / 2;
-if nargout >= 2
-    g = a;
-    g(end, :) = 0;
+if rc == 0
+    f = f_loss;
+else
+    c = [ones(d, K); zeros(1, K)];
+    f_reg = tikregf(c(:));
+    f = comb_objfun(1, f_loss, rc, f_reg);
 end
-
-
 
     

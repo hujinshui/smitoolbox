@@ -1,10 +1,16 @@
 function mlogireg_demo()
-% A simple script to demonstrate the use of mlogireg
+%MLOGIREG_DEMO Demo of Multi-class logistic regression
 %
 %   mlogireg_demo;
+%   
+%       This is a simple program that demonstrates the use of 
+%       multi-class logistic regression (mlogiregf)
 %
 
-% Created by Dahua Lin, on Jan 25, 2011
+%   History
+%   -------
+%       - Created by Dahua Lin, on Jan 25, 2011
+%       - Modified by Dahua Lin, on Jan 15, 2012
 %
 
 %% prepare data
@@ -71,7 +77,7 @@ P = nrmexp(a' * Xm, 1);
 mp = max(P, [], 1);
 
 hold on;
-contour(xx, yy, reshape(mp, size(xx)), 0.3:0.1:1.0);
+contour(xx, yy, reshape(mp, size(xx)), 0.3:0.1:0.9);
 
 
 % set range
