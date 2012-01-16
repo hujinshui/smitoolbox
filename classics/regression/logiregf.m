@@ -57,7 +57,7 @@ function f = logiregf(X, y, w, rc)
 if ~(isfloat(X) && ndims(X) == 2)
     error('logiregf:invalidarg', 'X should be a numeric matrix.');
 end
-n = size(X, 2);
+[d, n] = size(X);
 
 if ~((islogical(y) || isnumeric(y)) && isvector(y) && numel(y) == n)
     error('logiregf:invalidarg', ...
@@ -90,15 +90,9 @@ end
 %% main
 
 Xa = [X; ones(1, n)];
-f = reglossmin_objfun(Xa, y, 1, w, @logireg_loss, rc, @parreg);
+f_loss = comb_lossfun(Xa, y, 1, w, @logireg_loss);
+f_reg = tikregf([ones(d, 1); 0]);
+f = comb_objfun(1, f_loss, rc, f_reg);
 
 
-function [v, g] = parreg(a)
-
-theta = a(1:end-1);
-v = norm(theta)^2 / 2;
-if nargout >= 2
-    g = a;
-    g(end) = 0;
-end
 
