@@ -1,5 +1,5 @@
-function f = logiregf(X, y, w, rc)
-%LOGIREGF Logistic regression objective function
+function f = logireg_objfun(X, y, w, rc)
+%LOGIREG_OBJFUN Logistic regression objective function
 %
 %   The objective function of logistic regression is given by
 %
@@ -8,10 +8,10 @@ function f = logiregf(X, y, w, rc)
 %
 %   Here, p_i = 1 / (1 + exp(-z_i)) and z_i = theta' * x_i + theta0
 %
-%   f = LOGIREGF(X, y);
-%   f = LOGIREGF(X, y, w);
-%   f = LOGIREGF(X, y, [], rc);
-%   f = LOGIREGF(X, y, w, rc);
+%   f = LOGIREG_OBJFUN(X, y);
+%   f = LOGIREG_OBJFUN(X, y, w);
+%   f = LOGIREG_OBJFUN(X, y, [], rc);
+%   f = LOGIREG_OBJFUN(X, y, w, rc);
 %       
 %       The function returns a function handle f that represents the
 %       objective function as formalized above.
@@ -55,12 +55,12 @@ function f = logiregf(X, y, w, rc)
 %% verify input arguments
 
 if ~(isfloat(X) && ndims(X) == 2)
-    error('logiregf:invalidarg', 'X should be a numeric matrix.');
+    error('logireg_objfun:invalidarg', 'X should be a numeric matrix.');
 end
 [d, n] = size(X);
 
 if ~((islogical(y) || isnumeric(y)) && isvector(y) && numel(y) == n)
-    error('logiregf:invalidarg', ...
+    error('logireg_objfun:invalidarg', ...
         'y should be a logical or numeric vector of length n');
 end
 if size(y, 1) > 1
@@ -74,7 +74,7 @@ if nargin < 3 || isempty(w)
     w = [];
 else
     if ~(isfloat(w) && isvector(w) && numel(w) == n)
-        error('logiregf:invalidarg', 'w should be a vector of length n.');
+        error('logireg_objfun:invalidarg', 'w should be a vector of length n.');
     end
 end
 
@@ -82,7 +82,7 @@ if nargin < 4
     rc = 0;
 else
     if ~(isfloat(rc) && isscalar(rc) && rc >= 0)
-        error('logiregf:invalidarg', 'rc should be a non-negative scalar.');
+        error('logireg_objfun:invalidarg', 'rc should be a non-negative scalar.');
     end
 end
 

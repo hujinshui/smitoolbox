@@ -1,5 +1,5 @@
-function f = mlogiregf(X, y, w, rc)
-%MLOGIREGF Multi-class logistic regression objective function
+function f = mlogireg_objfun(X, y, w, rc)
+%MLOGIREG_OBJFUN Multi-class logistic regression objective function
 %
 %   The objective function for an K-class logistic regression problem is
 %
@@ -12,7 +12,7 @@ function f = mlogiregf(X, y, w, rc)
 %   where z_{ki} = theta_k' * x_i + theta_{k0}
 %
 %
-%   f = MLOGIREGF(X, y, w, rc);
+%   f = MLOGIREG_OBJFUN(X, y, w, rc);
 %       constructs the objective for multi-class logistic regression.
 %
 %       This function returns a function handle f which represent the
@@ -23,7 +23,7 @@ function f = mlogiregf(X, y, w, rc)
 %
 %       - y:        y can be in either of the following forms.
 %                   - a label vector of size 1 x n. Here, y(i) can take
-%                     value in {1, ..., m}. The function would set m
+%                     value in {1, ..., K}. The function would set K
 %                     to be max(y).
 %                   - an assignment matrix of size K x n. Here, y(:,i)
 %                     corresponds to X(:,i). Note that each column of y
@@ -55,12 +55,12 @@ function f = mlogiregf(X, y, w, rc)
 %% verify input arguments
 
 if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
-    error('mlogiregf:invalidarg', 'X should be a real matrix.');
+    error('mlogireg_objfun:invalidarg', 'X should be a real matrix.');
 end
 [d, n] = size(X);
 
 if ~(isfloat(y) && isreal(y) && ndims(y) == 2 && size(y, 2) == n)
-    error('mlogiregf:invalidarg', 'y should be a real matrix with n columns.');
+    error('mlogireg_objfun:invalidarg', 'y should be a real matrix with n columns.');
 end
 K = size(y, 1);
 if K == 1  % label vector
@@ -71,7 +71,7 @@ if nargin < 3 || isempty(w)
     w = [];
 else
     if ~(isfloat(w) && isvector(w) && numel(w) == n)
-        error('mlogiregf:invalidarg', 'w should be a vector of length n.');
+        error('mlogireg_objfun:invalidarg', 'w should be a vector of length n.');
     end
 end
 
@@ -79,7 +79,7 @@ if nargin < 4
     rc = 0;
 else
     if ~(isfloat(rc) && isscalar(rc) && rc >= 0)
-        error('mlogiregf:invalidarg', 'rc should be a non-negative scalar.');
+        error('mlogireg_objfun:invalidarg', 'rc should be a non-negative scalar.');
     end
 end
 

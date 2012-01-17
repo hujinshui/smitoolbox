@@ -27,13 +27,11 @@ X1 = gen_data(n, xc - dir(1), yc - dir(2), 3, 1, t);
 X = [X0, X1];
 y = [-ones(1, n), ones(1, n)];
 
-f = logiregf(X, y, [], 1e-3);
-
-a0 = zeros(2+1, 1);
-a = bfgsfmin(f, a0, ...
+[theta, theta0] = logireg(X, y, [], 1e-3, [], ...
     'MaxIter', 300, 'TolFun', 1e-8, 'TolX', 1e-8, 'Display', 'iter');
 
-fprintf('Boundary: %.4f x + %.4f y + %0.4f = 0\n', a(1), a(2), a(3));
+fprintf('Boundary: %.4f x + %.4f y + %0.4f = 0\n', ...
+    theta(1), theta(2), theta0);
 
 
 %% visualize
@@ -56,7 +54,7 @@ xx = linspace(xmin, xmax, 300);
 yy = linspace(ymin, ymax, 300);
 [xx, yy] = meshgrid(xx, yy);
 zz = [xx(:), yy(:)];
-pv = 1 ./ (1 + exp(-(zz * a(1:2) + a(3))));
+pv = 1 ./ (1 + exp(-(zz * theta + theta0)));
 
 hold on;
 contour(xx, yy, reshape(pv, size(xx)), 0.1:0.1:0.9);

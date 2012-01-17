@@ -32,16 +32,10 @@ y = exelem((1:K), 1, n);
 
 %% regression
 
-f = mlogiregf(X, y, [], 1e-3);
-
-a0 = zeros(3, K);
-a = bfgsfmin(f, a0(:), ...
+[theta, theta0] = mlogireg(X, y, [], 1e-3, [], ...
     'MaxIter', 300, 'TolFun', 1e-8, 'TolX', 1e-8, 'Display', 'iter');
-a = reshape(a, 3, K);
-
 
 %% Visualize data
-
 
 figure;
 
@@ -70,10 +64,10 @@ y1 = ymax + 0.1 * (ymax - ymin);
 xx = linspace(x0, x1, 500);
 yy = linspace(y0, y1, 500);
 [xx, yy] = meshgrid(xx, yy);
-nn = numel(xx);
 
-Xm = [xx(:), yy(:), ones(nn, 1)]';
-P = nrmexp(a' * Xm, 1);
+Xm = [xx(:), yy(:)]';
+U = bsxfun(@plus, theta' * Xm, theta0);
+P = nrmexp(U, 1);
 mp = max(P, [], 1);
 
 hold on;
