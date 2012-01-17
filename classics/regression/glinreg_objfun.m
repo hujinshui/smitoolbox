@@ -1,5 +1,5 @@
-function f = genlinregf(X, Y, w, rho, rc)
-%GENLINREGF Generalized linear regression objective function
+function f = glinreg_objfun(X, Y, w, rho, rc)
+%GLINREG_OBJFUN Generalized linear regression objective function
 %
 %   A generalized linear regression problem is an optimization problem
 %   formulated as minimizing the following objective
@@ -29,7 +29,7 @@ function f = genlinregf(X, Y, w, rho, rc)
 %   end
 %
 %
-%   f = GENLINREGF(X, Y, w, rc);
+%   f = GLINREG_OBJFUN(X, Y, w, rho, rc);
 %   
 %       Returns the objective function f for the generalized linear
 %       regression problem formulated above.
@@ -41,6 +41,9 @@ function f = genlinregf(X, Y, w, rho, rc)
 %       - Y:        The matrix of expected output, size: q x n
 %
 %       - w:        The sample weights, empty or a 1 x n vector.
+%
+%       - rho:      The loss function handle, which takes difference
+%                   vectors as input, and outputs the loss values.
 %
 %       - rc:       The regularization coefficient: a scalar or a d x 1
 %                   vector.
@@ -61,31 +64,30 @@ function f = genlinregf(X, Y, w, rho, rc)
 %% verify input
 
 if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
-    error('genlinregf:invalidarg', 'X should be a real matrix.');
+    error('glinreg_objfun:invalidarg', 'X should be a real matrix.');
 end
 
 if ~(isfloat(Y) && isreal(Y) && ndims(Y) == 2)
-    error('genlinregf:invalidarg', 'X should be a real matrix.');
+    error('glinreg_objfun:invalidarg', 'X should be a real matrix.');
 end
 
 n = size(X, 2);
 if size(Y, 2) ~= n
-    error('genlinregf:invalidarg', 'X and Y have different number of columns.');
+    error('glinreg_objfun:invalidarg', 'X and Y have different number of columns.');
 end
 
 if ~isempty(w)
     if ~(isfloat(w) && isreal(w) && isvector(w) && numel(w) == n)
-        error('genlinregf:invalidarg', 'w should be a real vector of length n.');
+        error('glinreg_objfun:invalidarg', 'w should be a real vector of length n.');
     end
 end
 
 if ~isa(rho, 'function_handle')
-    error('genlinregf:invalidarg', 'rho should be a function handle.');
+    error('glinreg_objfun:invalidarg', 'rho should be a function handle.');
 end
 
 if ~(isfloat(rc) && isscalar(rc) && isreal(rc))
-    error('genlinregf:invalidarg', ...
-        'rc should be a real scalar.');
+    error('glinreg_objfun:invalidarg', 'rc should be a real scalar.');
 end
 
 
