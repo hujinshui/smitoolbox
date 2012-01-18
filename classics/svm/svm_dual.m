@@ -56,7 +56,20 @@ switch S.type
         f = -ones(n, 1);
         Aeq = y;
         beq = 0;
-        c = S.C.';        
+        c = S.C.';    
+        
+    case 'regress'
+        sdim = 2 * n;
+        e = S.tol;
+        y = S.y.';
+        H = [K -K; -K K];
+        f = [e - y; e + y];
+        Aeq = [ones(1, n), -ones(1, n)];
+        beq = 0;
+        c = S.C.';
+        if ~isscalar(c)
+            c = [c; c];
+        end
         
     otherwise
         error('svm_dual:invalidarg', ...

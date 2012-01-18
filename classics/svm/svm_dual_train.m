@@ -1,23 +1,46 @@
-function [alpha, b] = svm_dual_train(S, K, solver)
+function [R, alpha] = svm_dual_train(S, K, solver)
 %SVM_DUAL_TRAIN SVM training based on dual QP formulation
 %
-%   [alpha, b] = SVM_DUAL_TRAIN(S);
-%   [alpha, b] = SVM_DUAL_TRAIN(S, K);
-%   [alpha, b] = SVM_DUAL_TRAIN(S, [], solver);
-%   [alpha, b] = SVM_DUAL_TRAIN(S, K, solver);
+%   R = SVM_DUAL_TRAIN(S);
+%   R = SVM_DUAL_TRAIN(S, K);
+%   R = SVM_DUAL_TRAIN(S, [], solver);
+%   R = SVM_DUAL_TRAIN(S, K, solver);
 %
 %       Trains a support vector machine (SVM) based on the dual QP
 %       formulation of the problem given in S.
 %
-%       The solution comprises the alpha coefficients and the offset
-%       scalar b.
+%       Input arguments:
+%       - S:        The struct representing the SVM problem
 %
-%       The caller can supply a pre-computed kernel matrix K to 
-%       facilitate the computation if available. 
+%       - K:        The pre-computed kernel matrix. If not available,
+%                   one can input K as an empty array.
 %
-%       The caller can also use a customized solver by providing it in 
-%       form of a function handle. Otherwise, the default solver will
-%       be used.
+%       - solver:   User-supplied solver (in form of a function handle).
+%                   If omitted, the default solver that invokes MATLAB
+%                   quadprog will be used.
+%
+%       In output, R is a struct that represents the solution, which 
+%       has the following fields:
+%       
+%       - tag:      a fixed string: 'svm-dual-sol';
+%       - type:     The problem type;
+%       - n:        The number of support vectors
+%       - X:        The matrix comprised of support vectors [d x n]
+%       - a:        The coefficient on the support vectors. [1 x n]   
+%       - b:        The offset scalar
+%       - kernel_type
+%       - kernel_params
+%
+%   [R, alpha] = SVM_DUAL_TRAIN( ... );
+%
+%       additionally returns the original QP solution alpha.
+%
+%   With the solution R, the prediction on a given set of samples X can 
+%   be made by
+%
+%       v = R.a * svm_kernel(R, X) + R.b;
+%
+%   This can also be accomplished by invoking svm_dual_predict.
 %
 
 % Created by Dahua Lin, on Jan 18, 2012
@@ -40,7 +63,44 @@ end
 
 %% main
 
+% construct and solve QP
+
 [P, K] = svm_dual(S, K);
 alpha = solver(P);
-b = svm_dual_offset(S, K, alpha);
+
+% select support vectors
+
+atol = 1e-8 * max(alpha);
+
+switch S.type
+    case 'class'
+        si = find(alpha > atol);
+        a = S.y(si) .* alpha(si).';
+        
+    case 'regress'
+        n = S.n;
+        a1 = alpha(1:n);
+        a2 = alpha(n+1:2*n);
+        a = a1 - a2;
+        si = find(abs(a) > atol);
+        a = a(si).';
+end
+
+% solve offset (b)
+
+b = svm_dual_offset(S, K, alpha, si);
+
+% make solution
+
+R.tag = 'svm-dual-sol';
+R.type = S.type;
+R.n = numel(si);
+R.X = S.X(:, si);
+R.a = a;
+R.b = b;
+R.kernel_type = S.kernel_type;
+R.kernel_params = S.kernel_params;
+
+
+
 
