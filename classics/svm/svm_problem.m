@@ -1,4 +1,4 @@
-function S = svm_problem(type, X, Y, C, kernel)
+function S = svm_problem(type, X, Y, C, kernel, tol)
 %SVM_PROBLEM Support Vector Machine (SVM) Learning Problem
 %
 %   S = SVM_PROBLEM('class', X, y, C);
@@ -16,22 +16,8 @@ function S = svm_problem(type, X, Y, C, kernel)
 %       otherwise, it is to learn a kernel SVM.
 %
 %
-%   S = SVM_PROBLEM('multi-class', X, y, C);
-%   S = SVM_PROBLEM('multi-class', X, y, C, kernel);
-%
-%       Constructs the problem struct for learning a multi-class SVM
-%       classifier.
-%
-%       The primal formulation is given by
-%
-%           minimize (1/2) * sum_{k=1}^m ||w_k||^2 +
-%                    sum_i sum_{k != y_i} C_i * xi_{i,k}
-%
-%           with xi_{i,k} = max(0, 1 - (w_{y_i}' * x_i - w_k * x_i))
-%
-%
-%   S = SVM_PROBLEM('regress', X, y, C);
-%   S = SVM_PROBLEM('multi-class', X, y, C, kernel);
+%   S = SVM_PROBLEM('regress', X, y, C, [], tol);
+%   S = SVM_PROBLEM('regress', X, y, C, kernel, tol);
 %
 %       Constructs the problem struct for SVM regression.
 %
@@ -40,6 +26,7 @@ function S = svm_problem(type, X, Y, C, kernel)
 %           minimize (1/2) * ||w||^2 + sum_i C_i * xi_i
 %
 %               with xi_i = max(0, abs(w' * x_i + b - y_i) - tol).
+%
 %
 %   S = SVM_PROBLEM('rank', X, G);
 %   S = SVM_PROBLEM('rank', X, G, [], kernel);
@@ -50,7 +37,7 @@ function S = svm_problem(type, X, Y, C, kernel)
 %
 %           minimize (1/2) * ||w||^2 + sum_{ij} G_{ij} xi_{ij}
 %
-%               with xi_{ij} = max(0, 1 - w' * (y_i - y_j))
+%               with xi_{ij} = max(0, 1 - w' * (x_i - x_j))
 %
 %   
 %   Input arguments:
@@ -75,8 +62,12 @@ function S = svm_problem(type, X, Y, C, kernel)
 %                           k(x,y) = (a * (x'*y) + b)^d
 %                   - {'invmq', [a, b]}:  Inverse multiquadratic kernel:
 %                           k(x,y) = 1 / (a*||x-y||^2 + b)
+%                   - {'sigmoid', [a, b]}: Sigmoid kernel:
+%                           k(x,y) = tanh(a * (x'*y) + b)
 %
-%                   Or it can be an n x n pre-computed kernel matrix.
+%                   Or it can be a function handle, such that
+%                   kernel(X, Y) returns an m x n matrix K with
+%                   K(i, j) being the kernel value of X(:,i) and Y(:,j).
 %
 %                   If kernel is omitted, then the linear kernel is
 %                   assumed.
@@ -104,19 +95,19 @@ function S = svm_problem(type, X, Y, C, kernel)
 %
 %       - C:        The slack weight (a scalar or a 1 x n vector).
 %
+%       - tol:      The tolerance for regression
+%
 %       - kernel_type:  The type of kernel, which can be either of:
-%                       'linear', 'gauss', 'poly', 'invmq', or 'pre'.
-%                       ('pre' means pre-computed).
+%                       'linear', 'gauss', 'poly', 'invmq', or 'custom'.
+%                       ('custom' means using user-supplied function).
 %
-%       - kermat:   The pre-computed kernel matrix (it is empty if not
-%                   available).
-%
-%       - kernel_params:  Empty when the kernel is linear or pre-computed.
-%                         It is a struct with fields sigma for gauss
-%                         kernel. It is a struct with fields a, b, and d
-%                         for poly kernel, and with fields a and b for 
-%                         invmq kernel.
-%
+%       - kernel_params:  depends on the kernel type:
+%                         - for linear kernel, it is empty.
+%                         - for gauss kernel, it has a field sigma
+%                         - for poly kernel, it has fields: a, b, d
+%                         - for invmq kernel, it has fields: a, b
+%                         - for sigmoid kernel, it has fields: a, b
+%                         - for custom kernel, it is the function handle.                           
 %
 
 % Created by Dahua Lin, on Jan 17, 2012
@@ -128,44 +119,11 @@ if ~ischar(type)
     error('svm_problem:invalidarg', 'The SVM type should be a string.');
 end
 
-if ~isempty(X)
-    if ~(isnumeric(X) && ndims(X) == 2)
-        error('svm_problem:invalidarg', 'X should be a numeric matrix.');
-    end
+if ~(isnumeric(X) && ndims(X) == 2)
+    error('svm_problem:invalidarg', 'X should be a numeric matrix.');
 end
+n = size(X, 2);
 
-if nargin < 5
-    kertype = 'linear';
-    kerparam = [];
-else
-    if ~isnumeric(kernel)
-        [kertype, kerparam] = check_kernel(kernel);        
-    else
-        n = size(kernel, 1);
-        if ~(isfloat(kernel) && ndims(kernel) == 2 && size(kernel,2) == n)
-            error('svm_problem:invalidarg', ...
-                'Pre-computed kernel must be a real square matrix.');
-        end
-        if ~isempty(X)
-            if size(X, 2) ~= n
-                error('svm_problem:invalidarg', ...
-                    'The size of X is inconsistent with the pre-computed kernel.');                
-            end
-        end
-        
-        kertype = 'pre';
-        kerparam = [];
-    end
-end
-
-if ~strcmp(kertype, 'pre')
-    if isempty(X)
-        error('svm_problem:invalidarg', ...
-            'X must be non-empty, when pre-computed kernel is not provided.');
-    end
-    n = size(X, 2);
-end
-    
 switch type
     case 'class'
         if isfloat(Y) && isreal(Y) && isequal(size(Y), [1 n])
@@ -173,16 +131,7 @@ switch type
             y = Y;
             G = [];
         else
-            error('svm_problem:invalidarg', 'y is invalid.');
-        end
-        
-    case 'multi-class'
-        if isnumeric(Y) && isreal(Y) && isequal(size(Y), [1 n])
-            m = double(max(Y));
-            y = Y;
-            G = [];
-        else
-            error('svm_problem:invalidarg', 'y is invalid.');
+            error('svm_problem:invalidarg', 'y should be an 1 x n real vector.');
         end
         
     case 'regress'                
@@ -191,16 +140,16 @@ switch type
             y = Y;
             G = [];
         else
-            error('svm_problem:invalidarg', 'y is invalid.');
+            error('svm_problem:invalidarg', 'y should be an 1 x n real vector.');
         end
-        
+                
     case 'rank'
         if isfloat(Y) && isreal(Y) && isequal(size(Y), [n n])
             m = 1;
             y = [];
             G = Y;
         else
-            error('svm_problem:invalidarg', 'G is invalid.');
+            error('svm_problem:invalidarg', 'G should be an n x n real matrix.');
         end
         
     otherwise
@@ -212,6 +161,22 @@ if ~(isfloat(C) && ((isscalar(C) && C >= 0) || ...
     error('svm_problem:invalidarg', ...
         'C should be either a positive scalar or a real vector of length n.');
 end
+
+if nargin < 5 || isempty(kernel)
+    kertype = 'linear';
+    kerparam = [];
+else
+    [kertype, kerparam] = check_kernel(kernel);  
+end
+
+if strcmp(type, 'regress')
+    if ~(isfloat(tol) && isreal(tol) && isscalar(tol) && tol > 0)
+        error('svm_problem:invalidarg', 'tol is invalid.');        
+    end
+else
+    tol = [];
+end
+
  
 %% make output
 
@@ -223,6 +188,7 @@ S.X = X;
 S.y = y;
 S.G = G;
 S.C = C;
+S.tol = tol;
 
 S.kernel_type = kertype;
 S.kernel_params = kerparam;
@@ -269,9 +235,22 @@ elseif iscell(kernel)
                 kp.b = r(2);
             else
                 error('svm_problem:invalidarg', ...
-                    'The parameter for the poly kernel is invalid.');
+                    'The parameter for the invmq kernel is invalid.');
             end
+            
+        case 'sigmoid'                        
+            if isfloat(r) && numel(r) == 2 && all(r >= 0)
+                kp.a = r(1);
+                kp.b = r(2);
+            else
+                error('svm_problem:invalidarg', ...
+                    'The parameter for the sigmoid kernel is invalid.');
+            end
+            
     end
+elseif isa(kernel, 'function_handle')
+    kt = 'custom';
+    kp = kernel;
 else
     error('svm_problem:invalidarg', ...
         'The input kernel is invalid.');

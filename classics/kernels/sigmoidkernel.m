@@ -1,8 +1,8 @@
 function K = sigmoidkernel(X, Y, a, b)
 %SIGMOIDKERNEL Sigmoid kernel
 %
-%   K = SIGMOIDKERNEL(X, [], a, d);
-%   K = SIGMOIDKERNEL(X, Y, a, d);
+%   K = SIGMOIDKERNEL(X, [], a, b);
+%   K = SIGMOIDKERNEL(X, Y, a, b);
 %
 %       Evaluates the sigmoid kernel in a pairwise manner. 
 %       
