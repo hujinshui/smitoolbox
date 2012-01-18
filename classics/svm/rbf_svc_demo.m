@@ -1,4 +1,4 @@
-function [alpha, b] = rbf_svc_demo(n, solver)
+function rbf_svc_demo(n, solver)
 %RBF_SVC_DEMO The Demo of RBF kernel SVM for classification
 %
 %   RBF_SVC_DEMO;
@@ -47,7 +47,7 @@ sigma = 6;
 S = svm_problem('class', X, y, C, {'gauss', sigma});
 
 tic;
-[alpha, b] = svm_dual_train(S, [], solver);
+R = svm_dual_train(S, [], solver);
 elapsed_t = toc;
 fprintf('Training time on %d samples = %f sec.\n', size(X,2), elapsed_t);
 
@@ -75,15 +75,14 @@ ym1 = ymax + (ymax - ymin) * 0.05;
 
 [xx, yy] = meshgrid(linspace(xm0, xm1, 300), linspace(ym0, ym1, 300));
 gpts = [xx(:)'; yy(:)'];
-p = svm_dual_predict(S, svm_kernel(S, gpts), alpha, b);
+p = svm_dual_predict(R, gpts);
 p = reshape(p, size(xx));
 contour(xx, yy, p, [-1, 0, 1]);
 
 % support vectors
 
 hold on;
-si = find(alpha > 1e-4 * C);
-plot(S.X(1,si), S.X(2,si), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
+plot(R.X(1,:), R.X(2,:), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
 
 axis([xm0, xm1, ym0, ym1]);
 axis equal;
