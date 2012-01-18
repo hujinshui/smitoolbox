@@ -71,6 +71,14 @@ switch S.type
             c = [c; c];
         end
         
+    case 'rank'
+        [I, J, c] = find(S.G);
+        sdim = numel(I);
+        H = K(I, I) + K(J, J) - (K(I, J) + K(J, I));
+        f = -ones(sdim, 1);
+        Aeq = [];
+        beq = [];        
+        
     otherwise
         error('svm_dual:invalidarg', ...
             'Unsupported SVM problem type %s', S.type);

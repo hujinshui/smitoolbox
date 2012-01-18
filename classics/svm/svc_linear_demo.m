@@ -1,9 +1,9 @@
-function linear_svc_demo(n, solver)
-%LINEAR_SVC_DEMO Demo of linear SVM classification
+function svc_linear_demo(n, solver)
+%SVC_LINEAR_DEMO Demo of linear SVM classification
 %
-%   LINEAR_SVC_DEMO;
-%   LINEAR_SVC_DEMO(n);
-%   LINEAR_SVC_DEMO(n, solver);
+%   SVC_LINEAR_DEMO;
+%   SVC_LINEAR_DEMO(n);
+%   SVC_LINEAR_DEMO(n, solver);
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 100.
@@ -11,7 +11,7 @@ function linear_svc_demo(n, solver)
 %       User can also specifies a customized solver function handle.
 %
 
-%   Created by Dahua Lin, on April 7, 2011
+%   Created by Dahua Lin, on Jan 18, 2012
 %
 
 %% process inputs

@@ -61,6 +61,7 @@ switch S.type
         [I, J, c] = find(S.G);        
         X = S.X;
         A = (X(:, I) - X(:, J)).';
+        b = ones(size(A,1), 1);        
         
     otherwise
         error('svm_primal:invalidarg', ...

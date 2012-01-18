@@ -1,9 +1,9 @@
-function linear_svr_demo(n, solver)
-%LINEAR_SVR_DEMO Demo of SVM for linear regression
+function svr_linear_demo(n, solver)
+%SVR_LINEAR_DEMO Demo of SVM for linear regression
 %
-%   LINEAR_SVR_DEMO;
-%   LINEAR_SVR_DEMO(n);
-%   LINEAR_SVR_DEMO(n, solver);
+%   SVR_LINEAR_DEMO;
+%   SVR_LINEAR_DEMO(n);
+%   SVR_LINEAR_DEMO(n, solver);
 %
 %       Conducts the demo of SVM for linear regression.
 %
