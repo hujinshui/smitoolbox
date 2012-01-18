@@ -1,18 +1,18 @@
-function rbf_svr_demo(n, solver)
-%RBF_SVR_DEMO The Demo of RBF kernel SVM for regression
+function svr_rbf_demo(n, solver)
+%SVR_RBF_DEMO The Demo of RBF kernel SVM for regression
 %
-%   RBF_SVR_DEMO;
-%   RBF_SVR_demo(n);
+%   SVR_RBF_DEMO;
+%   SVR_RBF_demo(n);
 %
 %       Here, n is the number of samples. By default it is set to 200.
 %
-%   RBF_SVR_DEMO(n, solver);
+%   SVR_RBF_DEMO(n, solver);
 %
 %       User can also specifies a customized solver function handle.
 %       (default is @mstd_solve using interior-point-convex)
 %
 
-%   Created by Dahua Lin, on April 7, 2011
+%   Created by Dahua Lin, on Jan 18, 2012
 %
 
 

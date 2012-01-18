@@ -39,6 +39,9 @@ function S = svm_problem(type, X, Y, C, kernel, tol)
 %
 %               with xi_{ij} = max(0, 1 - w' * (x_i - x_j))
 %
+%       The greater the value of G_{ij} is, the more efforts the 
+%       optimization process devotes to enforcing that 
+%       w' * x_i > w' * x_j.
 %   
 %   Input arguments:
 %       - X:        The feature matrix, of size d x n.

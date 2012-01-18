@@ -70,11 +70,11 @@ alpha = solver(P);
 
 % select support vectors
 
-atol = 1e-8 * max(alpha);
+rtol = 1e-8;
 
 switch S.type
-    case 'class'
-        si = find(alpha > atol);
+    case 'class'        
+        si = find(alpha > rtol * max(alpha));
         a = S.y(si) .* alpha(si).';
         
     case 'regress'
@@ -82,8 +82,21 @@ switch S.type
         a1 = alpha(1:n);
         a2 = alpha(n+1:2*n);
         a = a1 - a2;
-        si = find(abs(a) > atol);
+        
+        aa = abs(a);        
+        si = find(aa > rtol * max(aa));
         a = a(si).';
+        
+    case 'rank'
+        n = S.n;
+        [I, J] = find(S.G);
+        a1 = aggreg(alpha, n, I, 'sum');
+        a2 = aggreg(alpha, n, J, 'sum');
+        a = a1 - a2;
+        
+        aa = abs(a);
+        si = find(aa > rtol * max(aa));
+        a = a(si).';        
 end
 
 % solve offset (b)

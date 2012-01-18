@@ -1,19 +1,19 @@
-function rbf_svc_demo(n, solver)
-%RBF_SVC_DEMO The Demo of RBF kernel SVM for classification
+function svc_rbf_demo(n, solver)
+%SVC_RBF_DEMO The Demo of RBF kernel SVM for classification
 %
-%   RBF_SVC_DEMO;
-%   RBF_SVC_demo(n);
+%   SVC_RBF_DEMO;
+%   SVC_RBF_DEMO(n);
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 100.
 %
-%   RBF_SVC_DEMO(n, solver);
+%   SVC_RBF_DEMO(n, solver);
 %
 %       User can also specifies a customized solver function handle.
 %       (default is @mstd_solve using interior-point-convex)
 %
 
-%   Created by Dahua Lin, on April 7, 2011
+%   Created by Dahua Lin, on Jan 18, 2012
 %
 
 %% prepare data
