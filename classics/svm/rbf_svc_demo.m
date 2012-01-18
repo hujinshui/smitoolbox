@@ -1,13 +1,13 @@
-function svm = circle_svm_demo(n, solver)
-% This function demos to use of kernel SVM on circular data
+function [alpha, b] = rbf_svc_demo(n, solver)
+%RBF_SVC_DEMO The Demo of RBF kernel SVM for classification
 %
-%   circle_svm_demo;
-%   circle_svm_demo(n);
+%   RBF_SVC_DEMO;
+%   RBF_SVC_demo(n);
 %
 %       Here, n is the number of samples per class. By default it is
 %       set to 100.
 %
-%   circle_svm_demo(n, solver);
+%   RBF_SVC_DEMO(n, solver);
 %
 %       User can also specifies a customized solver function handle.
 %       (default is @mstd_solve using interior-point-convex)
@@ -23,9 +23,7 @@ if nargin < 1
 end
 
 if nargin < 2
-    solver = @(P) mstd_solve(P, ...
-        optimset('Algorithm', 'interior-point-convex', ...
-            'MaxIter', 2000, 'Display', 'off'));
+    solver = svm_default_solver();
 end
 
 r0 = 2;
@@ -44,14 +42,12 @@ X = [X0 X1];
 y = [-1 * ones(1, n), ones(1, n)];
 
 C = 10;
+sigma = 6;
 
-kf = @(x1, x2) exp(- pwsqL2dist(x1, x2) / 56 );
-K = kf(X, X);
-K = (K + K') / 2;
-K = adddiag(K, 1e-2);
+S = svm_problem('class', X, y, C, {'gauss', sigma});
 
 tic;
-svm = kernel_svm.train(X, y, kf, C, 'kermat', K, 'solver', solver);
+[alpha, b] = svm_dual_train(S, [], solver);
 elapsed_t = toc;
 fprintf('Training time on %d samples = %f sec.\n', size(X,2), elapsed_t);
 
@@ -79,15 +75,15 @@ ym1 = ymax + (ymax - ymin) * 0.05;
 
 [xx, yy] = meshgrid(linspace(xm0, xm1, 300), linspace(ym0, ym1, 300));
 gpts = [xx(:)'; yy(:)'];
-p = svm.predict(gpts);
+p = svm_dual_predict(S, svm_kernel(S, gpts), alpha, b);
 p = reshape(p, size(xx));
 contour(xx, yy, p, [-1, 0, 1]);
 
 % support vectors
 
 hold on;
-si = find(svm.alpha > 1e-4 * max(svm.alpha));
-plot(svm.Xs(1,si), svm.Xs(2,si), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
+si = find(alpha > 1e-4 * C);
+plot(S.X(1,si), S.X(2,si), 'mo', 'LineWidth', 1, 'MarkerSize', 10);
 
 axis([xm0, xm1, ym0, ym1]);
 axis equal;

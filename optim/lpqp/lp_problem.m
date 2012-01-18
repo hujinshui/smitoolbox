@@ -1,5 +1,5 @@
 function S = lp_problem(f, A, b, Aeq, beq, l, u)
-% Constructs a struct to represent a generic Linear programming problem
+%LP_PROBLEM Linear programming problem
 %
 %   A Linear programming problem is formulated as:
 %
@@ -9,9 +9,9 @@ function S = lp_problem(f, A, b, Aeq, beq, l, u)
 %               Aeq * x = beq
 %               l <= x <= u
 %
-%   S = lp_problem(f, A, b);
-%   S = lp_problem(f, A, b, Aeq, beq); 
-%   S = lp_problem(f, A, b, Aeq, beq, l, u);
+%   S = LP_PROBLEM(f, A, b);
+%   S = LP_PROBLEM(f, A, b, Aeq, beq); 
+%   S = LP_PROBLEM(f, A, b, Aeq, beq, l, u);
 %       constructs the problem.
 %
 %       Input arguments:

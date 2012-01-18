@@ -1,5 +1,5 @@
 function S = qp_problem(H, f, A, b, Aeq, beq, l, u)
-% Constructs a struct to represent a generic Quadratic programming problem
+%QP_PROBLEM Quadratic programming problem
 %
 %   A Linear programming problem is formulated as:
 %
@@ -9,9 +9,9 @@ function S = qp_problem(H, f, A, b, Aeq, beq, l, u)
 %               Aeq * x = beq
 %               l <= x <= u
 %
-%   S = qp_problem(H, f, A, b);
-%   S = qp_problem(H, f, A, b, Aeq, beq); 
-%   S = qp_problem(H, f, A, b, Aeq, beq, l, u);
+%   S = QP_PROBLEM(H, f, A, b);
+%   S = QP_PROBLEM(H, f, A, b, Aeq, beq); 
+%   S = QP_PROBLEM(H, f, A, b, Aeq, beq, l, u);
 %       constructs the problem.
 %
 %       Input arguments:
