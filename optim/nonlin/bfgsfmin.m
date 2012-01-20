@@ -97,13 +97,14 @@ while ~converged && it < options.MaxIter
     
     if it == 1
         [v, g] = f(x);
+        total_fcnt = 1;
     end
     
     v0 = v;
     g0 = g;
     
     step = - (B * g);    
-    [x, v, dx] = linesearch(f, x, v0, step, beta, minstep);
+    [x, v, dx, fcnt] = linesearch(f, x, v0, step, beta, minstep);    
         
     ch = v - v0;
     nrm_dx = norm(dx);
@@ -111,17 +112,20 @@ while ~converged && it < options.MaxIter
     
     if ~converged  % update B (inverse Hessian)
         [v, g] = f(x);
+        fcnt = fcnt + 1;
         y = g - g0;
         sv = y' * dx;
         By = B * y;
         B = B + ((sv + y' * By) / (sv^2)) * (dx * dx') - (1/sv) * (By * dx' + dx * By');
         B = (B + B') / 2;
-    end    
+    end        
+    total_fcnt = total_fcnt + fcnt;
     
     if omon_level >= optim_mon.IterLevel        
         itstat = struct( ...
             'FunValue', v, ...
             'FunChange', ch, ...
+            'FunEvals', total_fcnt, ...
             'Move', dx, ...
             'MoveNorm', nrm_dx, ...
             'IsConverged', converged);                    

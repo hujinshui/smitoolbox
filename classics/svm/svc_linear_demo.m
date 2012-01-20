@@ -10,6 +10,10 @@ function svc_linear_demo(n, solver)
 %
 %       User can also specifies a customized solver function handle.
 %
+%   SVC_LINEAR_DEMO(n, 'dlm');
+%
+%       Uses lsvm_dlm_train to perform the training. 
+%
 
 %   Created by Dahua Lin, on Jan 18, 2012
 %
@@ -23,6 +27,9 @@ end
 if nargin < 2
     solver = svm_default_solver();
 end
+
+use_dlm = ischar(solver) && strcmpi(solver, 'dlm');
+
 
 %% prepare data
 
@@ -46,7 +53,12 @@ C = 5;
 
 S = svm_problem('class', X, y, C);
 tic;
-[w, b] = svm_primal_train(S, solver);
+if ~use_dlm
+    [w, b] = svm_primal_train(S, solver);
+else
+    hw = 0.1;
+    [w, b] = lsvm_dlm_train(S, hw, [], 'Display', 'iter');
+end
 elapsed_t = toc;
 fprintf('Training time on %d points = %f sec\n', size(X, 2), elapsed_t);
 

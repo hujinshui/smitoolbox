@@ -1,7 +1,7 @@
-function [x, v, dx] = linesearch(f, x0, v0, step, beta, minstep)
+function [x, v, dx, fcnt] = linesearch(f, x0, v0, step, beta, minstep)
 % Performs line search as a step in numerical optimization
 %
-%   [x, v, dx] = linesearch(f, x, step, beta, minstep);
+%   [x, v, dx, fcnt] = linesearch(f, x, step, beta, minstep);
 %       performs line search along the direction of step to locate the
 %       minima.
 %
@@ -17,6 +17,7 @@ function [x, v, dx] = linesearch(f, x0, v0, step, beta, minstep)
 %       - x:        the located point (x0 + dx)
 %       - v:        the objective value at located point (x)
 %       - dx:       the actual step 
+%       - fcnt:     the number of times that f is invoked
 %
 %       The search procedure runs as follows. It first take dx = step,
 %       if f(x + dx) < f(x) then it is done, otherwise, it decreases dx
@@ -42,11 +43,13 @@ function [x, v, dx] = linesearch(f, x0, v0, step, beta, minstep)
 dx = step;
 x = x0 + dx;
 v = f(x);
+fcnt = 1;
 
 while v >= v0 && norm(dx) > minstep    
     dx = dx * beta;    
     x = x0 + dx;
     v = f(x);
+    fcnt = fcnt + 1;
 end
 
 if v >= v0

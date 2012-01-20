@@ -55,8 +55,8 @@ classdef optim_mon
         function on_proc_start(mon)
             if mon.level >= optim_mon.ProcLevel
                 if mon.level >= optim_mon.IterLevel
-                    print_log(mon, '%10s%15s%17s%15s\n', ...
-                        'Iters', 'Move', 'Obj-value', 'Obj-change');
+                    print_log(mon, '%10s%12s%15s%17s%15s\n', ...
+                        'Iters', 'Fun.Evals', 'Move', 'Obj-value', 'Obj-change');
                 end
             end
         end        
@@ -79,8 +79,9 @@ classdef optim_mon
         
         function on_iter_end(mon, it, itstat)            
             if mon.level >= optim_mon.IterLevel
-                print_log(mon, '%10d  %13.4g  %15.6g  %13.4g\n', ...
-                    it, itstat.MoveNorm, itstat.FunValue, itstat.FunChange);
+                print_log(mon, '%10d  %10d  %13.4g  %15.6g  %13.4g\n', ...
+                    it, itstat.FunEvals, ...
+                    itstat.MoveNorm, itstat.FunValue, itstat.FunChange);
             end
         end
                         
