@@ -74,6 +74,8 @@ if omon_level >= optim_mon.ProcLevel
     omon.on_proc_start();
 end
 
+total_fcnt = 0;
+
 while ~converged && it < options.MaxIter
     
     it = it + 1;
@@ -84,16 +86,19 @@ while ~converged && it < options.MaxIter
     [v0, g] = f(x);
     step = -g;
     
-    [x, v, dx] = linesearch(f, x, v0, step, beta, minstep);
+    [x, v, dx, fcnt] = linesearch(f, x, v0, step, beta, minstep);
     
     ch = v - v0;
     nrm_dx = norm(dx);
     converged = abs(ch) < options.TolFun && nrm_dx < options.TolX;  
         
+    total_fcnt = total_fcnt + (fcnt + 1);
+    
     if omon_level >= optim_mon.IterLevel        
         itstat = struct( ...
             'FunValue', v, ...
             'FunChange', ch, ...
+            'FunEvals', total_fcnt, ...
             'Move', dx, ...
             'MoveNorm', nrm_dx, ...
             'IsConverged', converged);                    
