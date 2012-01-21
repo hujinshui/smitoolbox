@@ -1,45 +1,52 @@
-function L = sclassify(V, op)
-% Do standard classification (assign the label with min or max value)
+function [L, v] = sclassify(D, op)
+%SCLASSIFY Standard Nearest Neighbor Classification
 %
-%   L = sclassify(V, 'max');
-%       Assigns each column a label whose value is the maximum.
+%   L = SCLASSIFY(D, 'dis');
+%   L = SCLASSIFY(D, 'sim');
 %
-%       Let V be an m x n matrix, then L is a vector of size 1 x n.
-%       Such that V(L(i), i) is the maximum of the values in column
-%       V(:, i).
+%       Classifies each sample to a particular class that is closest to it.
 %
-%   L = sclassify(V, 'min');
-%       Assigns each column a label whose values is the minimum.
+%       Suppose there are K class and n testing samples. Then D should be
+%       matrix of size K x n, and D(k, i) is the distance (2nd arg being
+%       'dis') or similarity (2nd arg being 'sim') between the i-th sample
+%       and the k-th class.
+%
+%       L is a vector of size 1 x n, whose values are integers in 
+%       {1, ..., K}.
+%
+%
+%   [L, v] = SCLASSIFY( ... );
+%     
+%       Additionally returns the distance/similarity value between each
+%       sample to the selected class.
+%
 %
 
 % Created by Dahua Lin, on Jun 6, 2010
+% Modifued by Dahua Lin, on Jan 21, 2012
 %
 
 %% verify input
 
-if ~(isnumeric(V) && ndims(V) == 2)
-    error('sclassify:invalidarg', ...
-        'V should be a numeric matrix.');
+if ~(isnumeric(D) && ndims(D) == 2)
+    error('sclassify:invalidarg', 'D should be a numeric matrix.');
 end
 
-if ~ischar(op)
-    error('sclassify:invalidarg', 'The second arg should be a char string.');
-end
-
-if strcmp(op, 'max')
-    is_max = true;
-elseif strcmp(op, 'min')
-    is_max = false;
+if strcmp(op, 'dis')
+    is_dis = true;
+elseif strcmp(op, 'sim')
+    is_dis = false;
 else
-    error('sclassify:invalidarg', 'The second arg should be either ''max'' or ''min''.');
+    error('sclassify:invalidarg', ...
+        'The second arg should be either ''dis'' or ''sim''.');
 end
    
 %% main
 
-if is_max    
-    [dummy, L] = max(V, [], 1); %#ok<ASGLU>
+if is_dis    
+    [v, L] = min(D, [], 1);
 else
-    [dummy, L] = min(V, [], 1); %#ok<ASGLU>
+    [v, L] = max(D, [], 1);
 end
 
     
