@@ -14,13 +14,13 @@ using namespace bcs;
 using namespace bcs::matlab;
 
 void perclass_accum_num(int M, int K, int n, const int32_t *L, double *A)
-{
+{    
     for (int i = 0; i < n; ++i, L += K, A += M)
     {
         for (int k = 0; k < K; ++k)
         {
             int c = L[k];
-            if (c >= 0 && c < K) A[c] += 1;
+            if (c >= 0 && c < M) A[c] += 1;
         }
     }
 }
@@ -34,7 +34,7 @@ void perclass_accum_weight(int M, int K, int n,
         for (int k = 0; k < K; ++k)
         {
             int c = L[k];
-            if (c >= 0 && c < K) A[c] += W[k];
+            if (c >= 0 && c < M) A[c] += W[k];
         }
     }
 }
@@ -68,7 +68,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     marray mA = create_marray<double>(M, n);
         
-    if (mW.isempty())
+    if (mW.is_empty())
     {
         perclass_accum_num(M, K, n, mL.data<int32_t>(), 
                 mA.data<double>());
@@ -76,9 +76,13 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     else
     {
         perclass_accum_weight(M, K, n, 
-                mL.data<int32_t>(), mW.data<int32_t>(), 
+                mL.data<int32_t>(), mW.data<double>(), 
                 mA.data<double>());
     }    
+    
+    // output
+    
+    plhs[0] = mA.mx_ptr();
     
 }
 

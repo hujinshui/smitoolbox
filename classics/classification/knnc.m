@@ -108,11 +108,11 @@ end
 
 %% main
 
-[Dr, I] = top_k(X, dir, K);
+[Dr, I] = top_k(D, dir, K);
 Lr = L(I);
 
-if use_wfun
-    A = knnc_cimp(Lr, []);
+if ~use_wfun
+    A = knnc_cimp(double(M), int32(Lr)-1, []);
 else
     W = wfun(Dr);
     assert(isequal(size(W), [K n]));
