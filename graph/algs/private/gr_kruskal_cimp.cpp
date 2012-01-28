@@ -46,7 +46,8 @@ private:
 class krus_monitor2
 {
 public:
-    krus_monitor2(std::vector<int32_t>& eds, disjoint_set_forest& ds, int K_) 
+    krus_monitor2(std::vector<int32_t>& eds, 
+            disjoint_set_forest<vertex_t>& ds, int K_) 
     : edges(eds), dsets(ds), K(K_)
     {
     }
@@ -64,28 +65,31 @@ public:
     
 private:
     std::vector<int32_t>& edges;
-    disjoint_set_forest& dsets;
+    disjoint_set_forest<vertex_t>& dsets;
     size_t K;
 };
 
 
-marray get_ccs(disjoint_set_forest& dsets)
+marray get_ccs(disjoint_set_forest<vertex_t>& dsets)
 {
     typedef std::vector<int32_t> compvec_t;    
     std::vector<bcs::shared_ptr<compvec_t> > comps;
     
-    size_t n = dsets.size();
+    index_t n = (index_t)dsets.size();
     
     // scan clusters
     
-    array1d<int32_t> L((index_t)n); 
-    set_zeros_to_elements(L.pbase(), n);
+    array1d<int32_t> L(n); 
+    set_zeros_to_elements(L.pbase(), (size_t)n);
     
     int32_t m = 0;
     
-    for (size_t i = 0; i < n; ++i)
+    for (index_t i = 0; i < n; ++i)
     {
-        index_t r = (index_t)dsets.find_root(i);
+        vertex_t v;
+        v.id = i + 1;
+        
+        index_t r = dsets.find_root(v);
         int32_t k = L(r);
         
         if (k == 0)
@@ -123,7 +127,7 @@ void do_kruskal(const gedgelist_t& G, const T* w, int K, int nlhs, mxArray *plhs
     
     // prepare outputs
     
-    disjoint_set_forest dsets((size_t)G.nvertices());    
+    disjoint_set_forest<vertex_t> dsets(G.nvertices());    
     std::vector<int32_t> edges;
     
     // run
