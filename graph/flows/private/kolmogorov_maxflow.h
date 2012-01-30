@@ -1,8 +1,7 @@
 /*
  
     This is a re-package of the files in maxflow-v3.01 which was 
-    implemented by Vladimir Kolmogorov under the same space
-    smi::vkolmogorov.
+    implemented by Vladimir Kolmogorov.
  
 	This software library implements the maxflow algorithm
 	described in
@@ -39,10 +38,10 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+// #include <assert.h>
 
     
-namespace vkolmogorov
+namespace vkol
 {
     
 
@@ -315,8 +314,6 @@ private:
 }; // end class DBlock
 
 
-    
-
 
 /********************************************    
  *   
@@ -366,7 +363,8 @@ private:
 // flowtype: type of total flow
 //
 // Current instantiations are in instances.inc
-template <typename captype, typename tcaptype, typename flowtype> class Graph
+template <typename captype, typename tcaptype, typename flowtype> 
+class Graph
 {
 public:
 	typedef enum
@@ -427,7 +425,12 @@ public:
 	// Occasionally there may be several minimum cuts. If a node can be assigned
 	// to both the source and the sink, then default_segm is returned.
 	termtype what_segment(node_id i, termtype default_segm = SOURCE);
-
+    
+    
+    // Return 1:  assigned to source
+    // Return -1: assigned to sink
+    // Return 0:  assigned to either
+    int what_segment_ex(node_id i) const;
 
 
 	//////////////////////////////////////////////
@@ -557,7 +560,7 @@ public:
 	//    is not necessary. ("changed_list->Reset()" or "delete changed_list" should still be called, though).
 	void remove_from_changed_list(node_id i) 
 	{ 
-		assert(i>=0 && i<node_num && nodes[i].is_in_changed_list); 
+		// assert(i>=0 && i<node_num && nodes[i].is_in_changed_list); 
 		nodes[i].is_in_changed_list = 0;
 	}
 
@@ -661,7 +664,7 @@ private:
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline typename Graph<captype,tcaptype,flowtype>::node_id Graph<captype,tcaptype,flowtype>::add_node(int num)
 {
-	assert(num > 0);
+	// assert(num > 0);
 
 	if (node_last + num > node_max) reallocate_nodes(num);
 
@@ -689,7 +692,7 @@ template <typename captype, typename tcaptype, typename flowtype>
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::add_tweights(node_id i, tcaptype cap_source, tcaptype cap_sink)
 {
-	assert(i >= 0 && i < node_num);
+	// assert(i >= 0 && i < node_num);
 
 	tcaptype delta = nodes[i].tr_cap;
 	if (delta > 0) cap_source += delta;
@@ -701,11 +704,11 @@ template <typename captype, typename tcaptype, typename flowtype>
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::add_edge(node_id _i, node_id _j, captype cap, captype rev_cap)
 {
-	assert(_i >= 0 && _i < node_num);
-	assert(_j >= 0 && _j < node_num);
-	assert(_i != _j);
-	assert(cap >= 0);
-	assert(rev_cap >= 0);
+	// assert(_i >= 0 && _i < node_num);
+	// assert(_j >= 0 && _j < node_num);
+	// assert(_i != _j);
+	// assert(cap >= 0);
+	// assert(rev_cap >= 0);
 
 	if (arc_last == arc_max) reallocate_arcs();
 
@@ -742,7 +745,7 @@ template <typename captype, typename tcaptype, typename flowtype>
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::get_arc_ends(arc* a, node_id& i, node_id& j)
 {
-	assert(a >= arcs && a < arc_last);
+	// assert(a >= arcs && a < arc_last);
 	i = (node_id) (a->sister->head - nodes);
 	j = (node_id) (a->head - nodes);
 }
@@ -750,28 +753,28 @@ template <typename captype, typename tcaptype, typename flowtype>
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline tcaptype Graph<captype,tcaptype,flowtype>::get_trcap(node_id i)
 {
-	assert(i>=0 && i<node_num);
+	// assert(i>=0 && i<node_num);
 	return nodes[i].tr_cap;
 }
 
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline captype Graph<captype,tcaptype,flowtype>::get_rcap(arc* a)
 {
-	assert(a >= arcs && a < arc_last);
+	// assert(a >= arcs && a < arc_last);
 	return a->r_cap;
 }
 
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::set_trcap(node_id i, tcaptype trcap)
 {
-	assert(i>=0 && i<node_num); 
+	// assert(i>=0 && i<node_num); 
 	nodes[i].tr_cap = trcap;
 }
 
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::set_rcap(arc* a, captype rcap)
 {
-	assert(a >= arcs && a < arc_last);
+	// assert(a >= arcs && a < arc_last);
 	a->r_cap = rcap;
 }
 
@@ -787,6 +790,20 @@ template <typename captype, typename tcaptype, typename flowtype>
 	{
 		return default_segm;
 	}
+}
+
+
+template <typename captype, typename tcaptype, typename flowtype>
+int Graph<captype,tcaptype,flowtype>::what_segment_ex(node_id i) const
+{
+    if (nodes[i].parent)
+    {
+        return (nodes[i].is_sink) ? -1 : 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <typename captype, typename tcaptype, typename flowtype> 
@@ -1523,6 +1540,7 @@ template <typename captype, typename tcaptype, typename flowtype>
 
 /***********************************************************************/
 
+/*
 
 template <typename captype, typename tcaptype, typename flowtype> 
 	void Graph<captype,tcaptype,flowtype>::test_consistency(node* current_node)
@@ -1598,6 +1616,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 		}
 	}
 }
+
+*/
 
 #undef TERMINAL
 #undef ORPHAN
