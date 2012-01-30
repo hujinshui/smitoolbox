@@ -222,6 +222,15 @@ classdef gauss_lingen < genmodel_base
             n = size(U, 2);
         end
         
+        function Uc = combine_params(model, varargin) %#ok<MANU>
+            % Combine multiple parameters
+            %
+            %   Uc = model.combine_params(U1, U2, ...);
+            %
+            
+            Uc = [varargin{:}];
+        end
+        
         
         %% log-likelihood evaluation 
         

@@ -61,6 +61,14 @@ switch method
         opts = varinfer_options([], ...
             'maxiters', 200, 'tol', 1e-6, 'display', 'eval');
         R = varinfer_drive(state, opts);
+        S = R.sol;
+        ss = [];
+        
+    case 'gibbs'
+        opts = mcmc_options([], ...
+            'burnin', 10, 'nsamples', 50, 'ips', 5, 'display', 'sample');
+        ss = mcmc_drive(state, opts);
+        S = state.merge_samples(ss);
         
     otherwise
         error('The method %s is not supported', method);
@@ -68,21 +76,21 @@ end
 
 %% Visualize
 
-U = R.sol.params;
+U = S.params;
 
 switch method
     case 'em'
-        [~, Zm] = max(R.sol.Z, [], 1);
+        [~, Zm] = max(S.Z, [], 1);
     case {'hard-em', 'gibbs'}
-        Zm = R.sol.Z;
+        Zm = S.Z;
 end
-visualize_results(K, X, U, Cx, Zm);
+visualize_results(K, X, U, Cx, Zm, ss);
 
 
 %% Sub functions
 
 
-function visualize_results(K, X, U, Cx, Zm)
+function visualize_results(K, X, U, Cx, Zm, ss)
 
 Gs = gaussd('m', U, Cx);
 
@@ -99,6 +107,15 @@ plot(X(1,:), X(2,:), 'b.', 'MarkerSize', 5);
 hold on;
 gaussd_ellipse(Gs, 2, 500, 'r-', 'LineWidth', 2);
 axis equal;
+
+if ~isempty(ss)
+    for i = 1 : numel(ss)
+        s = ss{i};
+        u = s.params;
+        hold on;
+        plot(u(1, :), u(2, :), 'm+');
+    end
+end
 
 subplot('Position', [0.52, 0.1, 0.43, 0.8]);
 
