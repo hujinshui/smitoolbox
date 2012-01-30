@@ -80,7 +80,7 @@ while ~converged && it < maxiters
         if displevel >= 4
             fprintf('     iter %d\n', it);
         end
-        S = S.update();
+        S = update(S);
         
     else
         it_first = it + 1;
@@ -90,7 +90,7 @@ while ~converged && it < maxiters
             if displevel >= 4
                 fprintf('     iter %d\n', it);
             end
-            S = S.update();
+            S = update(S);
         end
     end
        

@@ -19,9 +19,7 @@ function opt = mcmc_options(opt, varargin)
 %
 %       - 'nsamples':       the number of samples to acquire 
 %
-%       - 'ips':            the number of iterations per sample
-%
-%       - 'nrepeats':       the number of repeating runs.           
+%       - 'ips':            the number of iterations per sample         
 %
 %       - 'display:         the level of information displaying
 %                           (can be either a string or a level number)
@@ -71,7 +69,7 @@ for i = 1 : numel(names)
     cv = vals{i};
     
     switch lcn
-        case {'burnin', 'nsamples', 'ips', 'nrepeats'}
+        case {'burnin', 'nsamples', 'ips'}
             if ~(is_int(cv) && cv >= 1)
                 error('mcmc_options:invalidarg', ...
                     'The value of option %s must be a positive integer scalar.', lcn);

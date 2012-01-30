@@ -294,6 +294,52 @@ classdef fmm_std < smi_state
             b = ~isempty(obj.obs);            
         end
         
+        
+        function S = merge_samples(obj, samples)
+            % Merges multiple samples into an optimal one
+            %
+            %   S = obj.merge_samples(samples);
+            %
+            
+            if ~iscell(samples)
+                error('fmm_std:invalidarg', 'samples should be a cell array.');
+            end
+            
+            K_ = obj.K;
+            n = numel(samples);
+            
+            % get Z through majority voting
+            
+            Zm = cell(n, 1);
+            for i = 1 : n
+                Zm{i} = samples{i}.Z;
+            end
+            Zm = vertcat(Zm{:});            
+            
+            Z_ = mode(Zm, 1);
+                                    
+            pri = obj.prior;
+            gm = obj.gmodel;
+            X = obj.obs;
+            w = obj.weights;
+                        
+            % re-estimate parameters
+            
+            V = {K_, Z_};
+            thetas = mm_estimate(gm, pri, X, w, V, false);                        
+            H = accum_counts(V, w); 
+            
+            Pi_ = ddestimate(H, [], obj.pricount);
+            
+            % make merged sample
+            
+            S.K = K_;
+            S.Pi = Pi_;
+            S.params = thetas;
+            S.Z = Z_;
+            
+        end        
+        
     end
     
     

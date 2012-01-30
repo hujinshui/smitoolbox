@@ -41,6 +41,7 @@ if isnumeric(Z)
     else
         W = bsxfun(@times, Z, w);
     end
+    K = size(W, 1);
 else
     K = Z{1};
     L = Z{2};
@@ -60,11 +61,16 @@ end
 
 if isempty(pri)
     params = gm.mle(X, W);
-else
-    cap = gm.capture(X, W);    
+else      
     if samp
-        params = pri.pos_sample(cap);
+        params = cell(1, K);
+        for k = 1 : K
+            cap = gm.capture(X, W(k,:));            
+            params{k} = pri.pos_sample(cap, 1);
+        end
+        params = gm.combine_params(params{:});
     else
+        cap = gm.capture(X, W);  
         params = pri.mapest(cap);
     end
 end
