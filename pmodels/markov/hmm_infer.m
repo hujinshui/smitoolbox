@@ -45,7 +45,6 @@ B = hmm_backward(T, LL, Lc);
 % extract outputs
 
 Q = A .* B;
-
 if nargout < 2; return; end
 
 % calculate H
