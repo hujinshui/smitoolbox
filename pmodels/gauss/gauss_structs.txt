@@ -1,0 +1,55 @@
+Specification of Gaussian model related structs
+=================================================
+
+1. Gaussian model with mean parameters
+
+f(x) \propto exp( -(1/2) (x - mu)' * inv(C) * (x - mu) );
+
+- tag:  a tag string: 'gaussd'
+- ty:   'm'
+- n:    the number of distributions packed in the model
+- d:    the dimension of the vector space
+- mu:   the mean vectors [d x n matrix or just a zero scalar]
+- C:    the covarianace [pdmat struct C.n == 1 or n]
+
+This can be made using gaussd function
+
+
+
+2. Gaussian model with information (canonical) parameters
+
+f(x) \propto exp( -(1/2) x' * J * x + h' * x ); 
+
+- tag:  a tag string: 'gaussd'
+- ty:   'c'
+- n:    the number of distributions packed in the model
+- d:    the dimension of the vector space
+- h:    the potential vector
+- J:    the precision matrix (information matrix)
+
+This can be made using gaussd function
+
+
+
+3. Probabilistic PCA model
+
+z ~ N(0, I)
+e ~ N(0, sigma_e^2 * I)
+x ~ W z + e 
+
+- tag:  a tag string 'ppca'
+- d:    the dimension of observed space
+- q:    the dimension of latent space
+- mu:   the mean vectors [d x 1 vector or a zero scalar]
+- B:    the basis [d x q matrix]
+- s:    the scale along the basis, i.e. sqrt of eigenvalues [1 x q]
+- se:   the noise standard deviation (sigma_e)
+- ldc:  the log-determinant of covariance
+
+Here, C is the covariance matrix.
+
+This can be made using ppca_model function
+
+
+
+
