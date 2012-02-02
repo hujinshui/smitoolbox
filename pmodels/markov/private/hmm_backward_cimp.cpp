@@ -35,7 +35,7 @@ inline double vmax(int len, const double *v)
     double m = v[0];    
     for (int i = 1; i < len; ++i) 
     {
-        if (m < v[0]) m = v[0];
+        if (m < v[i]) m = v[i];
     }
     return m;
 }
@@ -62,8 +62,7 @@ void do_backward(int K, int n, const double *T, const double *L,
         for (int k = 0; k < K; ++k)
         {
             u[k] = b[k] * std::exp(ll[k] - maxll);
-        }
-        
+        }        
         b -= K;
         
         mult_mat_vec(K, T, u, b);
