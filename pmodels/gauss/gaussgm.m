@@ -121,10 +121,11 @@ classdef gaussgm < genmodel_base
     
     methods
         
-        function G = mle(model, X, W)
+        function G = mle(model, X, W, I)
             % Performs maximum likelihood estimation of the parameters
             %
             %   G = model.mle(X, W);
+            %   G = model.mle(X, W, I);
             %
             %       performs maximum likelihood estimation based on
             %       given (weighted) set of data
@@ -133,11 +134,22 @@ classdef gaussgm < genmodel_base
             cf = model.cov_form;
             tie_c = model.tied_cov;
             
-            G = gaussd_mle(X, W, cf, tie_c);            
+            if nargin < 3
+                W = [];
+            end
+            
+            if nargin >= 4
+                X = X(:, I);
+                if ~isempty(W)
+                    W = W(I, :);
+                end
+            end
+            
+            G = gaussd_mle(X, W, cf, tie_c);
         end
         
         
-        function capture(model, X, Z) %#ok<INUSD,MANU>
+        function capture(model, X, W, I) %#ok<INUSD,MANU>
             error('gaussgm:notsupported', ...
                 'The capture method is not supported by gaussgm');
         end

@@ -1,7 +1,7 @@
 function [V, mv] = vecvar(X, w, mv)
-%Compute the variances of vector components
+%VECVAR Variances of vector components
 %
-%   V = vecvar(X);
+%   V = VECVAR(X);
 %       computes the variances of the components of vectors in X.
 %
 %       The variance of values v1, v2, ..., vn is defined as
@@ -14,7 +14,7 @@ function [V, mv] = vecvar(X, w, mv)
 %       d-dimensional vector, then V will be a d x 1 vector, in which
 %       V(i) is the variance of the values in the i-th row of X.
 %
-%   V = vecvar(X, w);
+%   V = VECVAR(X, w);
 %       computes the weighted variances of the components of vectors in X.
 %
 %       The weighted variance is computed as follows
@@ -24,30 +24,30 @@ function [V, mv] = vecvar(X, w, mv)
 %       here w(i) is the weight for the i-th value.
 %
 %       Given a matrix X of size d x n, the weights can be input by a 
-%       vector w of size 1 x n, with w(i) being the weight for the i-th
+%       vector w of size n x 1, with w(i) being the weight for the i-th
 %       sample.
 %
-%       w can also be a k x n matrix, offering multiple sets of different
+%       w can also be an n x k matrix, offering multiple sets of different
 %       weights. Then, in the output, V will be a d x k matrix, with V(:,i)
 %       giving the variances based on the weights in w(i, :).
 %
-%   V = vecvar(X, [], mv);
+%   V = VECVAR(X, [], mv);
 %       computes the weighted variance with pre-computed mean vector. 
 %
 %       The pre-computed mean vector is given by mv, which should be a
 %       d x 1 column vector.
 %
-%   V = vecvar(X, w, mv);
+%   V = VECVAR(X, w, mv);
 %       computes the weighted variances with pre-computed mean vector.
 %
-%       Then w is a 1 x n row vector, mv should be a d x 1 column vector
+%       Then w is a n x 1 column vector, mv should be a d x 1 column vector
 %       giving the weighted mean vector based on that weights.
 %
-%       If w is a k x n matrix offering multiple sets of weights, then
+%       If w is an n x k matrix offering multiple sets of weights, then
 %       mv should be a d x k column vector, with mv(:, i) being the 
-%       mean vector based on the weights given in w(i, :).
+%       mean vector based on the weights given in w(:, i).
 %
-%   [V, mv] = vecvar( ... );
+%   [V, mv] = VECVAR( ... );
 %       additionally returns the mean vector as the 2nd output argument.
 %
 %   Remarks
@@ -80,12 +80,12 @@ if nargin < 2 || isempty(w)
     weighted = false;
     k = 1;
 else    
-    if ~(isnumeric(w) && ndims(w) == 2 && size(w,2) == n)
+    if ~(isnumeric(w) && ndims(w) == 2 && size(w,1) == n)
         error('vecvar:invalidarg', ...
             'w should be a matrix with n columns.');
     end
     
-    k = size(w, 1);
+    k = size(w, 2);
     weighted = true;
 end
 
@@ -114,9 +114,9 @@ end
 
 if weighted
     if k == 1
-        w = w' / sum(w);
+        w = w / sum(w);
     else
-        w = bsxfun(@times, w, 1 ./ sum(w, 2))';
+        w = bsxfun(@times, w, 1 ./ sum(w, 1));
     end
 end
 

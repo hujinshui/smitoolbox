@@ -1,7 +1,7 @@
 function mv = vecmean(X, w)
-%VECMEAN Computes the mean of vectors
+%VECMEAN Mean(s) of vectors
 %
-%   mv = vecmean(X);
+%   mv = VECMEAN(X);
 %       Computes the mean vector of the column vectors in X.
 %
 %       The mean vector of vectors v1, v2, ..., vn is defined as
@@ -12,17 +12,17 @@ function mv = vecmean(X, w)
 %       d-dimensional sample. Then mv is a d x 1 column vector,
 %       which is their mean vector.
 %
-%   mv = vecmean(X, w);
+%   mv = VECMEAN(X, w);
 %       Computes the weighted mean vector of the columns in X.
 %
 %       The weighted mean vector is defined as
 %
 %           mv = sum_i w(i) * vi / (sum_i w(i))
 %
-%       Let X be a d x n matrix, then w can be a 1 x n row vector,
+%       Let X be a d x n matrix, then w can be a n x 1 column vector,
 %       in which, w(i) is the weight of the i-th sample in X.
 %
-%       w can also be a k x n matrix, with each row giving a set
+%       w can also be a n x k matrix, with each column giving a set
 %       of weights. In this case, the output mv will be a d x k
 %       matrix, with mv(:, i) being the weighted mean vector
 %       computed based on the weights in w(i, :).
@@ -45,9 +45,9 @@ n = size(X, 2);
 if nargin < 2 || isempty(w)    
     weighted = false;
 else    
-    if ~(isnumeric(w) && ndims(w) == 2 && size(w,2) == n)
+    if ~(isnumeric(w) && ndims(w) == 2 && size(w,1) == n)
         error('vecmean:invalidarg', ...
-            'w should be a matrix with n columns.');
+            'w should be a matrix with n rows.');
     end    
     weighted = true;
 end
@@ -58,9 +58,9 @@ if ~weighted
     mv = sum(X, 2) * (1/n);
 else
     if size(w, 1) == 1
-        mv = X * (w / sum(w))';
+        mv = X * (w / sum(w));
     else
-        mv = X * bsxfun(@times, w, 1 ./ sum(w, 2))';
+        mv = X * bsxfun(@times, w, 1 ./ sum(w, 1));
     end
 end
 

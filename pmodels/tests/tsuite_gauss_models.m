@@ -140,77 +140,67 @@ classdef tsuite_gauss_models
             
             devcheck('simplegen (LL)', LL, LL0, 1e-12);            
             
-            % verify capturing (conjugate updates)
-            
-            if K == 1
-                Zi = [];
-            else
-                ssiz = floor(n / K);
-                Zi = cell(1, K);
-                for k = 1 : K
-                    Zi{k} = (k-1)*ssiz + 1 : k * ssiz;
-                end
-            end
-            Zw = rand(K, n);                        
-            
-            [dh0_i, dJ0_i] = tsuite_gauss_models.lingen_capture_gt(X, Zi, Jx, A);
-            dG_i = gm.capture(X, Zi);
-            
-            [dh0_w, dJ0_w] = tsuite_gauss_models.lingen_capture_gt(X, Zw, Jx, A);
-            dG_w = gm.capture(X, Zw);
+            % verify capturing (conjugate updates)            
            
-            assert(isequal(size(dh0_i), [q, K]));
-            assert(is_pdmat(dJ0_i) && dJ0_i.d == q && dJ0_i.n == K);            
+            if K == 1
+                [dh0_i, dJ0_i] = tsuite_gauss_models.lingen_capture_gt(X, [], Jx, A);
+                dG_i = gm.capture(X);
+                
+                assert(isequal(size(dh0_i), [q, K]));
+                assert(is_pdmat(dJ0_i) && dJ0_i.d == q && dJ0_i.n == K);            
             
-            assert(is_gaussd(dG_i) && dG_i.ty == 'c' && dG_i.d == q && dG_i.n == K);
-            assert(isequal(size(dG_i.h), [q, K]));
-            assert(dG_i.J.d == q && dG_i.J.n == K);
+                assert(is_gaussd(dG_i) && dG_i.ty == 'c' && dG_i.d == q && dG_i.n == K);
+                assert(isequal(size(dG_i.h), [q, K]));
+                assert(dG_i.J.d == q && dG_i.J.n == K);
+                
+                devcheck('gaussgen w/ Zi (dh)', dG_i.h, dh0_i, 1e-12);
+                devcheck('gaussgen w/ Zi (dJ)', dG_i.J.v, dJ0_i.v, 1e-12);
+            end
+            
+            W = rand(n, K);            
+            [dh0_w, dJ0_w] = tsuite_gauss_models.lingen_capture_gt(X, W, Jx, A);
+            dG_w = gm.capture(X, W);
             
             assert(is_gaussd(dG_w) && dG_w.ty == 'c' && dG_w.d == q && dG_w.n == K);
             assert(isequal(size(dG_w.h), [q, K]));
             assert(dG_w.J.d == q && dG_w.J.n == K);
-                        
-            devcheck('gaussgen w/ Zi (dh)', dG_i.h, dh0_i, 1e-12);
-            devcheck('gaussgen w/ Zi (dJ)', dG_i.J.v, dJ0_i.v, 1e-12);
-            
+                                                
             devcheck('gaussgen w/ Zw (dh)', dG_w.h, dh0_w, 1e-12);
             devcheck('gaussgen w/ Zw (dJ)', dG_w.J.v, dJ0_w.v, 1e-12);
             
             
             % verify MLE
             
-            Ui = gm.mle(X, Zi);
-            Ui0 = pdmat_lsolve(dJ0_i, dh0_i);
+            if K == 1
+                Ui = gm.mle(X);
+                Ui0 = pdmat_lsolve(dJ0_i, dh0_i);
+                
+                assert(isequal(size(Ui0), [q, K]));
+                assert(isequal(size(Ui), [q, K]));
+                devcheck('gaussgen (Ui)', Ui, Ui0, 1e-10);
+            end
+                
             
-            Uw = gm.mle(X, Zw);
+            Uw = gm.mle(X, W);
             Uw0 = pdmat_lsolve(dJ0_w, dh0_w);
-            
-            assert(isequal(size(Ui0), [q, K]));
-            assert(isequal(size(Ui), [q, K]));
-            devcheck('gaussgen (Ui)', Ui, Ui0, 1e-10);  
-                                    
+                           
             assert(isequal(size(Uw0), [q, K]));
             assert(isequal(size(Uw), [q, K]));
             devcheck('gaussgen (Uw)', Uw, Uw0, 1e-10);  
         end
         
         
-        function [dh, dJ] = lingen_capture_gt(X, Z, Jx, A)
+        function [dh, dJ] = lingen_capture_gt(X, w, Jx, A)
             % Calculate the ground-truth for gaussgm_capture
             
-            n = size(X, 2);            
-            [zty, K] = verify_Zarg(Z, n);
+            n = size(X, 2);
             
-            if zty == 0
-                w = ones(1, n);
-            elseif zty == 1
-                w = Z;
-            elseif zty == 2
-                w = zeros(K, n);
-                for k = 1 : K
-                    w(k, Z{k}) = 1;
-                end
-            end
+            if isempty(w)
+                K = 1;
+                w = ones(n, 1);
+            else
+                K = size(w, 2);
+            end               
             
             if isempty(A)
                 q = size(X, 1);
@@ -220,14 +210,14 @@ classdef tsuite_gauss_models
             
             dh = zeros(q, K);
             for k = 1 : K
-                dh_k = pdmat_mvmul(Jx, (X * w(k,:)'));
+                dh_k = pdmat_mvmul(Jx, (X * w(:, k)));
                 if ~isempty(A)
                     dh_k = A' * dh_k;
                 end
                 dh(:, k) = dh_k;
             end
             
-            sw = sum(w, 2).';
+            sw = sum(w, 1);
             if isempty(A)                
                 dJ = pdmat_scale(Jx, sw);
             else

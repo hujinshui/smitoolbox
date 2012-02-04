@@ -12,14 +12,17 @@ classdef genmodel_base
         
         n = query_params(obj, A);
         % Verify the parameters and return the number of parameters
-        
+                
         L = loglik(obj, A, X);
         % Evaluate the log-likelihood of all samples w.r.t all params
         
-        A = mle(obj, X, W);
+        A = mle(obj, X, W, I);
         % Performs maximum likelihood estimation of parameters
-        
-        S = capture(obj, X, W);
+        %
+        % W: empty or a matrix of size n x K
+        %
+                
+        S = capture(obj, X, W, I);
         % Captures the sufficient stats of observations as updates to prior
         
     end

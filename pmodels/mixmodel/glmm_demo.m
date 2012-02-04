@@ -6,7 +6,6 @@ function R = glmm_demo(method, K)
 %       Input arguments:
 %       - method:       either of the following strings
 %                       - 'em': expectation-maximization
-%                       - 'hard-em': expectation-maximization (hard)
 %                       - 'gibbs': Gibbs sampling
 %
 %       - K:            the number of mixture components
@@ -53,11 +52,11 @@ gpri = gausspri(g0);
 
 pri_count = 1;
 state = fmm_std(method, glm, gpri, pri_count);
-L0 = randi(K, 1, size(X,2));
-state = state.initialize_by_group(X, [], K, L0);
+w = [];
+state = state.initialize(X, w, 'rand', K);
 
 switch method
-    case {'em', 'hard-em'}
+    case 'em'
         opts = varinfer_options([], ...
             'maxiters', 200, 'tol', 1e-6, 'display', 'eval');
         R = varinfer_drive(state, opts);
@@ -80,9 +79,9 @@ U = S.params;
 
 switch method
     case 'em'
-        [~, Zm] = max(S.Z, [], 1);
-    case {'hard-em', 'gibbs'}
-        Zm = S.Z;
+        [~, Zm] = max(S.Q, [], 1);
+    case 'gibbs'
+        Zm = S.z;
 end
 visualize_results(K, X, U, Cx, Zm, ss);
 

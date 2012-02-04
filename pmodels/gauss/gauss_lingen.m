@@ -268,10 +268,11 @@ classdef gauss_lingen < genmodel_base
         
         %% maximum likelihood estimation
         
-        function U = mle(model, X, Z)
+        function U = mle(model, X, W, I)
             % Performs maximum likelihood estimation of the parameters
             %
-            %   U = model.mle(X, Z);
+            %   U = model.mle(X, W);
+            %   U = model.mle(X, W, I);
             %
             %       performs maximum likelihood estimation based on
             %       given (weighted) set of data
@@ -279,23 +280,26 @@ classdef gauss_lingen < genmodel_base
             
             % verify inputs
             
-            n = model.query_obs(X);
-            [zty, K] = verify_Zarg(Z, n);
+            if nargin < 3
+                W = [];
+            end
+                                    
+            if nargin >= 4
+                X = X(:, I);
+                if ~isempty(W)
+                    W = W(I, :);
+                end
+            end    
             
+            n = model.query_obs(X);
+                        
             % compute
             
-            if zty == 0
+            if isempty(W)
                 U = sum(X, 2) * (1 / n);
-            elseif zty == 1
-                wt = Z.';
-                sw = sum(wt, 1);
-                U = bsxfun(@times, X * wt, 1 ./ sw);
             else
-                U = zeros(model.xdim, K);
-                for k = 1 : K
-                    Xk = X(:, Z{k});
-                    U(:,k) = sum(Xk, 2) * (1 / size(Xk,2));
-                end
+                sw = sum(W, 1);
+                U = X * bsxfun(@times, W, 1 ./ sw);
             end
             
             if model.use_A
@@ -309,20 +313,21 @@ classdef gauss_lingen < genmodel_base
         
         %% conjugate update
         
-        function S = capture(model, X, Z)
+        function S = capture(model, X, W, I)
             % Capture observations into conjugate updates 
             %
-            %   S = model.capture(X, Z);
+            %   S = model.capture(X, W);
+            %   S = model.capture(X, W, I);
             %       computes the conjuate updates to the canonical params
             %       of the prior based on given (weighted) set of samples.
             %
             %       Inputs:
             %       - X:        the sample matrix, size: d x n
-            %       - Z:        the sample weighting/grouping
+            %       - W:        the weight matrix, empty or n x K
+            %       - I:        the selected indices
             %
             %       Outputs:
-            %       - S:        the gaussd struct that captures the 
-            %                   update to prior
+            %       - I:
             %
             
             % verify inputs
@@ -332,8 +337,18 @@ classdef gauss_lingen < genmodel_base
             uA = model.use_A;    
             Jx_ = model.Jx;
             
-            n = model.query_obs(X);
-            [zty, K] = verify_Zarg(Z, n);
+            if nargin < 3
+                W = [];
+            end
+            
+            if nargin >= 4
+                X = X(:, I);
+                if ~isempty(W)
+                    W = W(I, :);
+                end
+            end
+            
+            n = model.query_obs(X);            
             
             if Jx_.ty == 's'
                 Jsca = 1;
@@ -345,29 +360,17 @@ classdef gauss_lingen < genmodel_base
             % compute dh
             
             if Jsca
-                if zty == 0
+                if isempty(W)
                     dh = sum(X, 2) * jv;
-                elseif zty == 1
-                    dh = X * (jv * Z)';
                 else
-                    dh = zeros(model.xdim, K);
-                    for k = 1 : K
-                        Xk = X(:, Z{k});
-                        dh(:,k) = sum(Xk, 2) * jv;
-                    end
+                    dh = X * (jv * W);
                 end
             else
                 JX = pdmat_mvmul(Jx_, X);
-                if zty == 0
+                if isempty(W)
                     dh = sum(JX, 2);
-                elseif zty == 1
-                    dh = JX * Z';
                 else
-                    dh = zeros(model.xdim, K);
-                    for k = 1 : K
-                        JXk = JX(:, Z{k});
-                        dh(:,k) = sum(JXk, 2);
-                    end
+                    dh = JX * W;
                 end
             end
             
@@ -379,13 +382,12 @@ classdef gauss_lingen < genmodel_base
             
             % compute dJ
             
-            if zty == 0
+            if isempty(W)
+                K = 1;
                 tw = n;
-            elseif zty == 1
-                tw = sum(Z, 2).';
             else
-                tw = cellfun(@numel, Z);
-                tw = tw(:).';
+                K = size(W, 2);
+                tw = sum(W, 1);
             end
             
             
