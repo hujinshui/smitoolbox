@@ -70,9 +70,12 @@ end
 [d, n] = size(X);
 
 if ~isempty(w)
-    if ~(isfloat(w) && isreal(w) && isequal(size(w), [1 n]))
+    if ~(isfloat(w) && isreal(w) && isvector(w) && numel(w) == n)
         error('gmm_fit:invalidarg', ...
-            'w should be either empty or a real vector of size 1 x n.');
+            'w should be either empty or a real vector of length n.');
+    end
+    if size(w, 2) > 1
+        w = w.';
     end
 else
     w = [];
@@ -95,7 +98,12 @@ else
 end
 
 gs = fmm_std('em', gm, [], opts.pricount);
-gs = gs.initialize_by_group(X, w, K, opts.initL);
+
+if isempty(opts.initL)
+    gs = gs.initialize(X, w, 'rand', K);
+else
+    gs = gs.initialize(X, w, 'labels', opts.initL);
+end
 
 vdopts = varinfer_options([], ...
     'maxiters', opts.maxiters, 'tol', opts.tol, 'display', opts.display);
@@ -108,7 +116,7 @@ sol = ret.sol;
 R.K = sol.K;
 R.Pi = sol.Pi;
 R.G = sol.params;
-R.Q = sol.Z;
+R.Q = sol.Q;
 
 state = ret.state;
 

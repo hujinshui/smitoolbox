@@ -84,23 +84,35 @@ classdef ppca_gm < genmodel_base
         end
         
         
-        function Ms = mle(model, X, W)
+        function Ms = mle(model, X, W, I)
             % Performs maximum likelihood estimation of models
             %
             %   Ms = model.mle(X, W);
+            %   Ms = model.mle(X, W, I);
             %
             
+            if nargin < 3
+                W = [];
+            end
+                        
             n = model.query_obs(X);
             
             if ~isempty(W)
-                if ~(isfloat(W) && isreal(W) && ndims(W) == 2 && size(W,2) == n)
+                if ~(isfloat(W) && isreal(W) && ndims(W) == 2 && size(W,1) == n)
                     error('ppca_gm:invalidarg', ...
                         'W should be a real matrix with n columns.');
                 end
-                K = size(W, 1);
+                K = size(W, 2);
             else
                 W = [];
                 K = 1;
+            end
+            
+            if nargin >= 4
+                X = X(:, I);
+                if ~isempty(W)
+                    W = W(I, :);
+                end
             end
             
             q = model.ldim;
@@ -109,7 +121,7 @@ classdef ppca_gm < genmodel_base
             else
                 Ms = cell(1, K);
                 for k = 1 : K
-                    Ms{k} = ppca_mle(X, W(k,:), q);
+                    Ms{k} = ppca_mle(X, W(:,k), q);
                 end
                 Ms = vertcat(Ms{:});
             end

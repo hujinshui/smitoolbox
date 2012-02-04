@@ -1,8 +1,7 @@
-function params = mm_estimate(gm, pri, X, w, Z, samp)
+function params = fmm_est_params(pri, gm, X, w, Z)
 % Estimate mixture model given sample assignment
 %
-%   params = mm_estimate(gm, pri, X, w, Z);
-%   params = mm_estimate(gm, pri, X, w, Z, samp);
+%   params = fmm_est_params(pri, gm, X, w, Z);
 %
 %       Estimates component model parameters given sample assignment.
 %
@@ -15,7 +14,6 @@ function params = mm_estimate(gm, pri, X, w, Z, samp)
 %                   the following forms:
 %                   - soft assignment matrix of size K x n
 %                   - {K, label_vector}.
-%       - samp:     whether to do sampling (default = false)
 %
 %   Remarks
 %   -------
@@ -29,50 +27,21 @@ function params = mm_estimate(gm, pri, X, w, Z, samp)
 
 %% main
 
-if nargin < 6
-    samp = false;
-end
-
-% form weight matrix
-
 if isnumeric(Z)
     if isempty(w)
-        W = Z;
+        W = Z.';
     else
-        W = bsxfun(@times, Z, w);
-    end
-    K = size(W, 1);
+        W = bsxfun(@times, Z.', w);
+    end 
 else
     K = Z{1};
-    L = Z{2};
-    
-    if K < 10
-        W = l2mat(K, L);
-    else
-        W = l2mat(K, L, 'sparse');
-    end
-    
-    if ~isempty(w)
-        W = bsxfun(@times, W, w);
-    end
+    L = Z{2};    
+    W = l2mat(K, L(:), 1, 'sparse');
 end
-    
-% estimate
 
 if isempty(pri)
     params = gm.mle(X, W);
-else      
-    if samp
-        params = cell(1, K);
-        for k = 1 : K
-            cap = gm.capture(X, W(k,:));            
-            params{k} = pri.pos_sample(cap, 1);
-        end
-        params = gm.combine_params(params{:});
-    else
-        cap = gm.capture(X, W);  
-        params = pri.mapest(cap);
-    end
+else
+    cap = gm.capture(X, W);
+    params = pri.mapest(cap);
 end
-    
-    

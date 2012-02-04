@@ -10,9 +10,8 @@ function M = ppca_mle(X, w, q, varargin)
 %       Input arguments:
 %       - X:    The data matrix of size d x n, of which each
 %               column is s sample.
-%       - w:    The sample weights, a row vector of size
-%               1 x n. If all samples have the same weight,
-%               it can be empty.
+%       - w:    The sample weights, a vector of length n.
+%               If all samples have the same weight, it can be empty.
 %       - q:    the dimension of the latent space. It should
 %               have q < min(d, n).
 %
@@ -24,7 +23,7 @@ function M = ppca_mle(X, w, q, varargin)
 %                       - 'cov':    by computing the covariance
 %                                   matrix, and compute the
 %                                   eigenvectors of it.
-%                       - 'std':    by doing SVD, this can be
+%                       - 'svd':    by doing SVD, this can be
 %                                   faster when n < d.
 %                       The default is 'cov'.
 %
@@ -53,9 +52,12 @@ end
 [d, n] = size(X);
 
 if ~isempty(w)
-    if ~(isfloat(w) && isequal(size(w), [1 n]))
+    if ~(isfloat(w) && isreal(w) && isvector(w) && numel(w) == n)
         error('probpca:mle:invalidarg', ...
-            'w should be a vector of size 1 x n.');
+            'w should be a vector of length n.');
+    end
+    if size(w, 2) > 1
+        w = w.';
     end
 end
 
@@ -76,7 +78,7 @@ if isempty(mu)
         mu = sum(X, 2) * (1 / n);
     else
         sw = sum(w);
-        mu = (X * w') * (1 / sw);
+        mu = (X * w) * (1 / sw);
     end    
 end
 
@@ -93,7 +95,7 @@ switch method
         if isempty(w)
             C = (Z * Z') * (1/n);
         else
-            C = (Z * bsxfun(@times, Z, w)') * (1/sw);
+            C = (Z * bsxfun(@times, Z', w)) * (1/sw);
             C = 0.5 * (C + C');
         end
         [U, evs] = eig(C);
@@ -105,10 +107,13 @@ switch method
             svs = diag(svs);
             evs = (svs.^2) * (1/n);
         else
-            [U, svs] = svd(bsxfun(@times, Z, w), 0);
+            [U, svs] = svd(bsxfun(@times, Z, sqrt(w)'), 0);
             svs = diag(svs);
             evs = (svs.^2) * (1/sw);
         end
+        
+    otherwise
+        error('ppca_mle:invalidarg', 'The method %s is invalid.', method);
 end
 
 % make struct
@@ -147,9 +152,9 @@ if ~isempty(params)
         switch lower(cn)
             case 'method'
                 if ~(ischar(cv) && ...
-                        (strcmp(cv, 'cov') || strcmp(cv, 'std')))
+                        (strcmp(cv, 'cov') || strcmp(cv, 'svd')))
                     error('ppca_mle:invalidarg', ...
-                        'The method should be either ''cov'' or ''std''.');
+                        'The method should be either ''cov'' or ''svd''.');
                 end
                 method = cv;
             case 'mu'

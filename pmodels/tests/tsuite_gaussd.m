@@ -263,8 +263,9 @@ classdef tsuite_gaussd
             L0 = rand(d, d);            
             n = 1000;
             X = bsxfun(@plus, mu0, L0 * randn(d, n));
-            w = rand(m, n);
-            wsp = l2mat(m, randi(m, 1, n), 'sparse');
+            w = rand(n, m);
+            wsp = l2mat(m, randi(m, n, 1), 1, 'sparse');
+            assert(isequal(size(wsp), [n m]));
             
             % perform estimation
             
@@ -278,7 +279,7 @@ classdef tsuite_gaussd
                 Ge2 = gaussd_mle(X, wsp, ty, is_shared);
                 tsuite_gaussd.verify_mp(Ge2, d, m, ty, [], []);
                                 
-                Gr0 = tsuite_gaussd.gmle(X, ones(1, n), ty, is_shared);
+                Gr0 = tsuite_gaussd.gmle(X, ones(n, 1), ty, is_shared);
                 Gr = tsuite_gaussd.gmle(X, w, ty, is_shared);  
                 Gr2 = tsuite_gaussd.gmle(X, full(wsp), ty, is_shared);
                 
@@ -456,10 +457,10 @@ classdef tsuite_gaussd
             
             mu = vecmean(X, w);
             d = size(X, 1);
-            m = size(w, 1);
+            m = size(w, 2);
             
             if cov_tied && m > 1
-                sw = sum(w, 2);
+                sw = sum(w, 1).';
                 sw = sw / sum(sw);
             end
             

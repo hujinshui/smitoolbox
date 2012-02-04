@@ -73,7 +73,8 @@ X = [Xs{:}];
 
 %% Run estimation
 
-R = gmm_fit(X, [], K, ...
+w = [];
+R = gmm_fit(X, w, K, ...
     'cov_form', cf, 'pricount', 0, 'tied_cov', c_tied, ...
     'maxiters', mitrs, 'tol', 1e-6, 'display', 'eval');
 

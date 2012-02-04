@@ -40,7 +40,9 @@ gm = ppca_gm(2, 1);
 c0 = 1;
 state = fmm_std('em', gm, [], c0);
 Z0 = ceil(theta / (2 * pi) * K);
-state = state.initialize_by_group(X, [], K, Z0);
+
+w = [];
+state = state.initialize(X, w, 'labels', Z0);
 
 opts = varinfer_options([], ...
     'maxiters', 50, ...

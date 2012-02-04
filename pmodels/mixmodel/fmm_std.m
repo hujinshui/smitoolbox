@@ -15,13 +15,7 @@ classdef fmm_std < smi_state
     properties(GetAccess='public', SetAccess='private')
         gmodel;     % The underlying generative model
         prior;      % The parameter prior
-        pricount;   % The prior count of each component
-        
-        Zmethod;    % the method code for choosing Z
-                    % 0 - let Z = Q, the posterior probabilities
-                    % 1 - set Z to the best label
-                    % 2 - sample Z
-                    
+        pricount;   % The prior count of each component                                    
         sampling;   % whether it uses sampling
     end
     
@@ -30,18 +24,15 @@ classdef fmm_std < smi_state
     properties(GetAccess='public', SetAccess='private')
         obs;        % the observations
         nobs;       % the number of observations (n)
-        weights;    % the weights of observations (empty or 1 x n)
+        weights;    % the weights of observations (empty or n x 1)
     end
     
     
     % run-time state
     
     properties
-        K;          % the number of mixture components (K)
-        Pi;         % the distribution over mixture components [K x 1]
-        params;     % the estimated component parameters
-        Z;          % the posterior probabilities or the estimated labels
-        
+        K;          % the number of mixture components
+        sol;        % the current solution (a struct with fields)                
         Llik;       % the log-likelihood w.r.t. all components [K x n]
     end
     
@@ -61,9 +52,6 @@ classdef fmm_std < smi_state
             %       Inputs:
             %       - method:   either of the following method names:
             %                   - 'em':         standard E-M method
-            %                   - 'hard-em':    hard E-M method, assigning
-            %                                   each sample completely
-            %                                   to the best class
             %                   - 'gibbs':      Gibbs sampling
             %
             %       - gm:       the generative model object
@@ -82,13 +70,8 @@ classdef fmm_std < smi_state
             
             switch lower(method)
                 case 'em'
-                    zmd = 0;
-                    samp = false;
-                case 'hard-em'
-                    zmd = 1;
                     samp = false;
                 case 'gibbs'
-                    zmd = 2;
                     samp = true;
                 otherwise
                     error('fmm_std:invalidarg', ...
@@ -127,7 +110,6 @@ classdef fmm_std < smi_state
             obj.gmodel = gm;
             obj.prior = pri;
             obj.pricount = double(c0);
-            obj.Zmethod = zmd;
             obj.sampling = samp;
         end
         
@@ -137,76 +119,51 @@ classdef fmm_std < smi_state
     
     methods
         
-        function obj = initialize(obj, obs, w, params_init)
+        function obj = initialize(obj, X, w, method, arg)
             % Initialize the FMM estimator state
             %
-            %   obj = obj.initialize(obs, [], params_init);
-            %   obj = obj.initialize(obs, w, params_init);
+            %   obj = obj.initialize(X, w, 'params', A);
             %
-            %       initializes the state of finite mixture model
-            %       estimator with a (weighted) sample set.
+            %       initialize with given initial parameters
             %
-            %       Input arguments:
-            %       - obs:          the observations
-            %       - w:            the sample weights
-            %       - params_init:  the initial set of component parameters
+            %   obj = obj.initialize(X, w, 'labels', z);
             %
-            %       If params_init is not provided, then random 
-            %       initialization is performed 
+            %       initialize with given initial labels
+            %
+            %   obj = obj.initialize(X, w, 'Q', Q);
+            %   
+            %       initialize with soft assignment matrix
+            %
+            %   obj = obj.initialize(X, w, 'rand', K);
+            %
+            %       initialize randomly with K component mixtures.
+            %
+            %   Here, X is a sample matrix of size d x n, and 
+            %   w is either empty (all samples have a unit weight), or
+            %   a vector of length n.
             %
             
             gm = obj.gmodel;
+            s = fmm_init(obj.prior, gm, X, w, method, arg);
+           
+            if obj.sampling
+                s.z = [];
+            else
+                s.Q = [];
+            end
             
-            n = gm.query_obs(obs);
-            K_ = gm.query_params(params_init);           
-            
-            obj.obs = obs;
-            obj.nobs = n;           
-            
+            obj.obs = X;
+            obj.nobs = gm.query_obs(X);
             if ~isempty(w)
-                if ~(isfloat(w) && isreal(w) && isequal(size(w), [1 n]))
-                    error('fmm_std:invalidarg', ...
-                        'w should be a 1 x n real vector.');
-                end
+                if size(w, 2) > 1; w = w.'; end
                 obj.weights = w;
             end
             
-            obj.K = K_;
-            obj.Pi = (1/K_) * ones(K_,1);
-            obj.params = params_init;            
-            obj.Llik = gm.loglik(params_init, obs);
+            obj.K = s.K;
+            obj.sol = s;       
+            obj.Llik = gm.loglik(s.params, X);
         end        
-        
-        
-        function obj = initialize_by_group(obj, obs, w, K, Z)
-            % Initialize the FMM estimator state via initial grouping
-            %
-            %   obj = obj.initialize_by_group(obs, w, K, Z);            
-            %       Here, K is the number of classes, and 
-            %       Z is a class indicator vector of size 1 x n.
-            %
-            
-            gm = obj.gmodel;
-            
-            n = gm.query_obs(obs);
-            
-            if ~(isnumeric(Z) && isequal(size(Z), [1 n]))
-                error('fmm_std:invalidarg', ...
-                    'Z should be a numeric vector of size 1 x n.');
-            end
-            
-            if ~isempty(w)
-                if ~(isfloat(w) && isreal(w) && isequal(size(w), [1 n]))
-                    error('fmm_std:invalidarg', ...
-                        'w should be a 1 x n real vector.');
-                end
-            end
-            
-            thetas = mm_estimate(gm, obj.prior, obs, w, {K, Z}, obj.sampling);            
-            obj = obj.initialize(obs, w, thetas);
-        end
-        
-        
+               
         
         function obj = update(obj)
             % Update the state
@@ -216,72 +173,30 @@ classdef fmm_std < smi_state
             %       optimization or one move of Gibbs sampling)
             %
             
-            gm = obj.gmodel;
-            K_ = obj.K;
-            
-            % E-step (labeling)
-            
-            Pi_ = obj.Pi;
-            L = obj.Llik;
-            
-            Q = ddposterior(Pi_, L, 'LL');
-            
-            zmd = obj.Zmethod;
-            if zmd == 0
-                Z_ = Q;
-            elseif zmd == 1
-                [~, Z_] = max(Q, [], 1);
-            else
-                Z_ = ddsample(Q, 1);
-            end
-            
-            obj.Z = Z_;
-            
-            % M-step (parameter estimation)
-            
-            % estimate component parameters
-            
             pri = obj.prior;
+            gm = obj.gmodel;
             X = obj.obs;
             w = obj.weights;
-            samp = obj.sampling;
+            c0 = obj.pricount;
             
-            if zmd == 0
-                V = Z_;                
+            if obj.sampling                
+                [obj.sol, obj.Llik] = fmm_gibbs_update( ...
+                    pri, gm, X, w, c0, obj.sol, obj.Llik);                
             else
-                V = {K_, Z_};
-            end
-            
-            thetas = mm_estimate(gm, pri, X, w, V, samp);
-            
-            obj.params = thetas;
-            obj.Llik = gm.loglik(thetas, X);            
-            
-            % estimate component prior
-            
-            H = accum_counts(V, w);           
-            
-            if samp                                
-                alpha = obj.pricount + 1;
-                obj.Pi = dird_sample(alpha + H, 1);
-            else
-                obj.Pi = ddestimate(H, [], obj.pricount);
+                [obj.sol, obj.Llik] = fmm_em_update(...
+                    pri, gm, X, w, c0, obj.sol, obj.Llik);
             end
             
         end
         
         
-        function R = output(obj)
+        function s = output(obj)
             % Outputs a sample
             %
-            %   R = obj.output();
+            %   s = obj.output();
             %
             
-            R.K = obj.K;
-            R.Pi = obj.Pi;
-            R.params = obj.params;
-            R.Z = obj.Z;
-            
+            s = obj.sol;            
         end
         
         
@@ -291,53 +206,18 @@ classdef fmm_std < smi_state
             %   b = obj.is_ready();
             %
             
-            b = ~isempty(obj.obs);            
+            b = ~isempty(obj.sol);            
         end
         
         
-        function S = merge_samples(obj, samples)
+        function s = merge_samples(obj, samples)
             % Merges multiple samples into an optimal one
             %
-            %   S = obj.merge_samples(samples);
+            %   s = obj.merge_samples(samples);
             %
             
-            if ~iscell(samples)
-                error('fmm_std:invalidarg', 'samples should be a cell array.');
-            end
-            
-            K_ = obj.K;
-            n = numel(samples);
-            
-            % get Z through majority voting
-            
-            Zm = cell(n, 1);
-            for i = 1 : n
-                Zm{i} = samples{i}.Z;
-            end
-            Zm = vertcat(Zm{:});            
-            
-            Z_ = mode(Zm, 1);
-                                    
-            pri = obj.prior;
-            gm = obj.gmodel;
-            X = obj.obs;
-            w = obj.weights;
-                        
-            % re-estimate parameters
-            
-            V = {K_, Z_};
-            thetas = mm_estimate(gm, pri, X, w, V, false);                        
-            H = accum_counts(V, w); 
-            
-            Pi_ = ddestimate(H, [], obj.pricount);
-            
-            % make merged sample
-            
-            S.K = K_;
-            S.Pi = Pi_;
-            S.params = thetas;
-            S.Z = Z_;
-            
+            s = fmm_merge_samples(obj.prior, obj.gmodel, obj.pricount, ...
+                obj.obs, obj.weights, samples);            
         end        
         
     end
@@ -353,83 +233,13 @@ classdef fmm_std < smi_state
             %   objv = obj.evaluate_objv();
             %
             
-            w = obj.weights.';
-            
-            % log-pri: Pi
-            
-            c0 = obj.pricount;
-            
-            log_pi = log(obj.Pi);
-            
-            if isequal(c0, 0)
-                lpri_pi = 0;
+            if ~obj.sampling
+                objv = fmm_em_objective(...
+                    obj.prior, obj.Llik, obj.weights, obj.pricount, obj.sol);
             else
-                lpri_pi = c0 * sum(log_pi);
+                error('fmm_std:invalidarg', ...
+                    'evaluate_objv can only be invoked in non-sampling mode.');
             end
-            
-            % log-pri: params
-            
-            thetas = obj.params;            
-            pri = obj.prior;
-            
-            if isempty(pri)
-                lpri_t = 0;
-            else
-                lpri_t = pri.logpdf(thetas);
-                lpri_t = sum(lpri_t);
-            end
-            
-            % log-lik: labels (Z)
-            
-            zmd = obj.Zmethod;
-            Z_ = obj.Z;
-            
-            if zmd == 0
-                llik_z = log_pi' * Z_;
-            else
-                llik_z = log_pi(Z_);
-            end
-            
-            if isempty(w)
-                llik_z = sum(llik_z);                
-            else
-                llik_z = llik_z * w;
-            end
-            
-            % log-lik: observations
-            
-            L = obj.Llik;
-            
-            if zmd == 0
-                llik_x = sum(Z_ .* L, 1);
-            else                
-                n = size(L, 2);
-                llik_x = L(sub2ind(size(L), Z_, 1:n));
-            end
-            
-            if isempty(w)
-                llik_x = sum(llik_x);
-            else
-                llik_x = llik_x * w;
-            end
-            
-            % entropy
-            
-            if zmd == 0 && size(Z_, 1) > 1
-                ent = ddentropy(Z_);
-                
-                if isempty(w)
-                    ent = sum(ent);
-                else
-                    ent = ent * w;
-                end
-            else
-                ent = 0;
-            end
-                
-            % overall sum
-            
-            objv = lpri_pi + lpri_t + llik_z + llik_x + ent;
             
         end        
     

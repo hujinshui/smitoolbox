@@ -23,10 +23,10 @@ function [C, mv] = veccov(X, w, mv)
 %
 %       where, mv is the weighted mean vector.
 %
-%       Let X be a d x n matrix, then w can be a 1 x n row vector, with
+%       Let X be a d x n matrix, then w can be an n x 1 col-vector, with
 %       w(i) gives the weight of the sample X(:, i).
 %
-%       w can also be a k x n matrix, with each row in w giving a set of
+%       w can also be a n x k matrix, with each col in w giving a set of
 %       weights. Then k covariance matrices will be computed, ans thus
 %       in the output, C is a d x d x k array, with C(:,:,i) being the
 %       covariance matrix computed based on the weights in w(i, :).
@@ -40,9 +40,9 @@ function [C, mv] = veccov(X, w, mv)
 %       compute the covariance matrix(matrices) using pre-computed 
 %       mean vector(s).
 %
-%       When w is a k x n matrix, mv should be given as a d x k matrix,
+%       When w is an n x k matrix, mv should be given as a d x k matrix,
 %       with mv(:, i) corresponding to the weighted mean vector based on
-%       the weights in w(i, :).
+%       the weights in w(:, i).
 %
 %   [C, mv] = veccov( ... );
 %       additionally returns the mean vector as the 2nd ouptut argument.
@@ -76,12 +76,12 @@ if nargin < 2 || isempty(w)
     weighted = false;
     k = 1;
 else    
-    if ~(isnumeric(w) && ndims(w) == 2 && size(w,2) == n)
+    if ~(isnumeric(w) && ndims(w) == 2 && size(w,1) == n)
         error('veccov:invalidarg', ...
             'w should be a matrix with n columns.');
     end
     
-    k = size(w, 1);
+    k = size(w, 2);
     weighted = true;
 end
 
@@ -112,7 +112,7 @@ if weighted
     if k == 1
         w = w / sum(w);
     else
-        w = bsxfun(@times, w, 1 ./ sum(w, 2));
+        w = bsxfun(@times, w, 1 ./ sum(w, 1));
     end
 end
 
@@ -122,7 +122,7 @@ if isempty(mv)
     if ~weighted
         mv = sum(X, 2) / n; 
     else
-        mv = X * w';
+        mv = X * w;
     end
 end
 
@@ -137,7 +137,7 @@ if ~weighted
     
 else
     if k == 1
-        C = X * bsxfun(@times, X, w)';
+        C = X * bsxfun(@times, X', w);
         if ~all(mv == 0)
             C = C - mv * mv';
         end        
@@ -147,10 +147,10 @@ else
         C = zeros(d, d, k, class(X));
         
         for i = 1 : k
-            cw = w(i, :);
+            cw = w(:, i);
             cmv = mv(:, i);
             
-            cc = X * bsxfun(@times, X, cw)' - cmv * cmv';
+            cc = X * bsxfun(@times, X', cw) - cmv * cmv';
             
             C(:,:,i) = 0.5 * (cc + cc');                
         end

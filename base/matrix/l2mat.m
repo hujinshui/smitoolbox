@@ -1,30 +1,35 @@
-function [M, inds] = l2mat(K, L, varargin)
-% L2MAT Creates a binary table from label map
+function A = l2mat(K, L, w, op)
+%L2MAT Assignment matrix from labels
 %
-%   M = l2mat(K, L, ...);
-%       creates a binary table M from a label map L. Here, L is a 
-%       1 x n vector, with L(i) giving the label of the i-th sample.
-%       K is the maximum label value. 
+%   A = L2MAT(K, L, w);
 %       
-%       In, for the i-th column, M(k, i) = 1 if k == L(i) otherwise
-%       M(k, i) = 0. Each column has at most one entry equaling 1.
-%       If L(i) < 1 or L(i) > K, then M(:,i) is a zero column.
+%       Constructs an assignment matrix A based on a label vector L, such 
+%       that 
 %
-%       By default, M is a full matrix of double class of size K x n.
-%       However, one can specify additional options to change the default
-%       behavior. The function supports the following options:
-%       - 'logical':    construct M in logical class
-%       - 'sparse':     construct a non-sparse matrix
+%       If L is a row vector, then A is a K x n matrix, with 
 %
-%       One can input no option or one or multiple options in a statement.
-%       For example, if you want to construct a sparse matrix of
-%       logical type, then you can write:
+%           A(L(i), i) = w(i).
 %
-%           M = l2mat(K, L, 'sparse', 'logical');
+%       If L is a column vector, then A is an n x K matrix, with
 %
-%   [M, inds] = l2mat(K, L, ...);
-%       additionally returns the indices of the labels that are within
-%       the range of [1, K].
+%           A(i, L(i)) = w(i).
+%
+%
+%       Input arguments:
+%       - K:        The number of distinct labels. 
+%
+%       - L:        The vector of labels. The value of L(i) is expected 
+%                   in {1, ..., K}. If L(i) is out of this range, it will 
+%                   be ignored.       
+%
+%       - w:        The weights, which can be either a scalar (all weights
+%                   being the same) of a vector of length n.
+%
+%                   The class of A will be the same as that of w.
+%
+%   A = L2MAT(K, L, w, 'sparse');
+%
+%       Constructs A as a sparse matrix.
 %
 
 %   History
@@ -33,65 +38,85 @@ function [M, inds] = l2mat(K, L, varargin)
 %       - Modified by Dahua Lin, on Apr 7, 2010
 %           - change name to l2mat
 %           - add support of options: logical and sparse.
+%       - Modified by Dahua Lin, on Feb 3, 2010
+%           - support user-supplied weights.
 %
 
 %% verify input arguments
 
+if ~(isscalar(K) && isnumeric(K) && K == fix(K) && K >= 1)
+    error('l2mat:invalidarg', 'K should be a positive integer.');
+end
+
 if ~(isnumeric(L) && isvector(L))
     error('l2mat:invalidarg', 'L should be a numeric vector.');
 end
+n = numel(L);
 
-n = length(L);
-
-m_sparse = false;
-m_logical = false;
-
-if ~isempty(varargin)   
-    for i = 1 : length(varargin)
-        op = varargin{i};
-        if ~ischar(op)
-            error('l2mat:invalidopt', 'Each option should be string.');
-        end
-        if strcmp(op, 'logical')
-            m_logical = true;
-        elseif strcmp(op, 'sparse')
-            m_sparse = true;
-        else
-            error('l2mat:invalidopt', 'Unknown option %s', op);
-        end
-    end    
+if ~( (isnumeric(w) || islogical(w)) && ...
+        (isscalar(w) || (isvector(w) && numel(w) == n)) )
+    error('l2mat:invalidarg', 'w should be a vector of length n.');
 end
 
+if nargin >= 4
+    if ~strcmp(op, 'sparse')
+        error('l2mat:invalidarg', 'The 4th argument is invalid.');
+    end
+    use_sparse = 1;
+else
+    use_sparse = 0;
+end
 
 %% main
 
-if size(L, 1) > 1  
+if size(L, 2) == 1
+    cf = 1;
+else
+    cf = 0;
     L = L.';
 end
 
-if any(L < 1 | L > K)
-    inds = find(L >= 1 & L <= K);
-    L = L(inds);
+valid = (L >= 1 & L <= K);
+if all(valid)
+    I = (1:n).';
+    J = double(L);
 else
-    inds = 1 : n;
+    I = find(valid);
+    J = L(valid);
+    if ~isscalar(w)
+        w = w(valid);
+    end
 end
 
-if m_sparse    
-    if m_logical
-        M = sparse(L, inds, true, K, n);
+if size(w, 2) > 1
+    w = w.';
+end
+
+
+if use_sparse            
+    if cf
+        A = sparse(I, J, w, n, K);
     else
-        M = sparse(L, inds, 1, K, n);
+        A = sparse(J, I, w, K, n);
     end
+
 else
-    idx = L + K * (inds - 1);
-    
-    if m_logical
-        M = false(K, n);
-        M(idx) = true;
+    if cf
+        if islogical(w)
+            A = false(n, K);
+        else
+            A = zeros(n, K, class(w));
+        end
+        A(I + (J - 1) * n) = w;
     else
-        M = zeros(K, n);
-        M(idx) = 1;
+        if islogical(w)
+            A = false(K, n);
+        else
+            A = zeros(K, n, class(w));
+        end
+        A(J + (I - 1) * K) = w;
     end
+
 end
 
 
