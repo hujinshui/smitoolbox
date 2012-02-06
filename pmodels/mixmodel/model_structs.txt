@@ -1,0 +1,25 @@
+Specifications of models
+============================
+
+This document specifies the data structures that represent several common
+mixture models
+
+
+1. Solution to Finite Mixture Model Estimation
+
+(1.a) For E-M algorithm, the solution s is a struct with the following 
+fields:
+
+s.K:            The number of mixture components
+s.Pi:           The prior distribution of components [K x 1 vector]
+s.params:       The parameters of mixture components
+s.Q:            The posterior probability matrix [K x n matrix]
+                (where n is the number of training samples)
+
+(1.b) For Gibbs sampling algorithm, the solution is slightly different
+
+s.K:            The number of mixture components
+s.Pi:           The prior distribution of components [K x 1 vector]
+s.params:       The parameters of mixture components
+s.z:            The per-sample labels [1 x n vector]
+
