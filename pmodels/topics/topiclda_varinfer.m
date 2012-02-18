@@ -13,7 +13,7 @@ function [Gamma, W, objVs, cvg] = topiclda_varinfer(Beta, alpha, C, w, Gamma, ma
 %       Input arguments:
 %       - Beta:     The word distributions of topics [V x K].
 %
-%       - alpha:    The Dirichlet prior parameter [scalar].
+%       - alpha:    The Dirichlet prior parameter [scalar or K x 1].
 %
 %       - C:        The word-count matrix [V x n]
 %
@@ -55,10 +55,15 @@ if ~(isfloat(Beta) && isreal(Beta) && ndims(Beta) == 2 && ~issparse(Beta))
 end
 [V, K] = size(Beta);
 
-if ~(isfloat(alpha) && isscalar(alpha) && isreal(alpha))
-    error('topiclda_varinfer:invalidarg', 'alpha should be a real scalar.');
+if ~(isfloat(alpha) && isreal(alpha) && ...
+        (isscalar(alpha) || isequal(size(alpha), [K 1])) )
+    error('topiclda_varinfer:invalidarg', ...
+        'alpha should be a real scalar or a K x 1 vector.');
 end
-alpha = double(alpha);
+if isscalar(alpha)
+    alpha = alpha(ones(K, 1));
+end
+if ~isa(alpha, 'double'); alpha = double(alpha); end
 
 if ~(isfloat(C) && isreal(C) && ndims(C) == 2 && size(C, 1) == V)
     error('topiclda_varinfer:invalidarg', ...

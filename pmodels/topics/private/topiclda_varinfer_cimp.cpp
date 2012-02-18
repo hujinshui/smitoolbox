@@ -11,8 +11,12 @@
 #include <bcslib/matlab/bcs_mex.h>
 #include "specfuncs.h"
 
+#include <limits>
+
 using namespace bcs;
 using namespace bcs::matlab;
+
+// #define TOPICLDA_VARINFER_MONITORING
 
 
 const int NUM_OBJ_ITEMS = 5;
@@ -25,7 +29,6 @@ struct DocObj
     double ent_gamma;
     double ent_phi;
 };
-
 
 struct Doc
 {
@@ -118,9 +121,10 @@ private:
 class Model
 {
 public:
-    Model(int V, int K, const double *Beta, double alpha)
+    Model(int V, int K, const double *Beta, const double *alpha)
     : m_V(V), m_K(K), m_Beta(Beta), m_alpha(alpha)
     {
+        m_lpri_gamma_const = calc_lpri_gamma_const(K, alpha);
     }
     
     int V() const { return m_V; }
@@ -129,13 +133,48 @@ public:
     
     double beta(int v, int k) const { return m_Beta[v + m_V * k]; }
     
-    double alpha() const { return m_alpha; }
+    double alpha(int k) const { return m_alpha[k]; }
+    
+    double logpri_gamma(const double *g) const
+    {
+        double a = m_lpri_gamma_const;
+        
+        double sg = 0;
+        for (int k = 0; k < m_K; ++k)
+        {
+            sg += g[k];
+        }
+        double digamma_sum = smi::digamma(sg);
+        
+        for (int k = 0; k < m_K; ++k)
+        {                        
+            a += (m_alpha[k] - 1) * (smi::digamma(g[k]) - digamma_sum);
+        }
+        return a;
+    }
+    
+private:
+    static double calc_lpri_gamma_const(int K, const double *alpha)
+    {
+        double sa = 0;
+        double sgl = 0;
+        
+        for (int k = 0; k < K; ++k)
+        {
+            sa += alpha[k];
+            sgl += smi::gammaln(alpha[k]);
+        }
+        
+        return smi::gammaln(sa) - sgl;                
+    }
     
 private:
     int m_V;
     int m_K;
     const double *m_Beta;
-    double m_alpha;
+    const double *m_alpha;
+    
+    double m_lpri_gamma_const;
 };
 
 
@@ -151,7 +190,6 @@ void calc_objv(DocObj& obj, const Model& model, const Doc& doc,
         const double *gamma, const double *Phi, double *temp)
 {
     int K = model.K();
-    double alpha = model.alpha();
     
     // pre-compute psi(gamma_k) - psi(gsum) --> temp
     
@@ -164,11 +202,7 @@ void calc_objv(DocObj& obj, const Model& model, const Doc& doc,
 
     // ell_theta
     
-    double a = 0;
-    for (int k = 0; k < K; ++k) a += temp[k];
-    
-    obj.ell_theta = smi::gammaln(K * alpha) - K * smi::gammaln(alpha) +
-            (alpha - 1) * a;
+    obj.ell_theta = model.logpri_gamma(gamma);
     
     
     // ell_z
@@ -180,7 +214,7 @@ void calc_objv(DocObj& obj, const Model& model, const Doc& doc,
     const double *phi = Phi;
     for (int i = 0; i < nw; ++i, phi += K)
     {
-        a = 0;
+        double a = 0;
         for (int k = 0; k < K; ++k)
         {
             a += phi[k] * temp[k];
@@ -197,7 +231,7 @@ void calc_objv(DocObj& obj, const Model& model, const Doc& doc,
     for (int i = 0; i < nw; ++i, phi += K)
     {
         int v = doc.words[i];
-        a = 0;
+        double a = 0;
         for (int k = 0; k < K; ++k)
         {
             a += phi[k] * std::log(model.beta(v, k));
@@ -242,10 +276,15 @@ bool infer_on_doc(const Model& model, const Doc& doc,
 {
     int V = model.V();
     int K = model.K();
-    double alpha = model.alpha();
     
     int nw = doc.nwords;
     bool converged = false;
+    
+#ifdef TOPICLDA_VARINFER_MONITORING
+    double *temp = new double[K];
+    double objv = std::numeric_limits<double>::quiet_NaN();
+#endif
+    
         
     for (int t = 0; t < maxIter; ++t)
     {                        
@@ -254,7 +293,7 @@ bool infer_on_doc(const Model& model, const Doc& doc,
         {
             exp_psi[k] = std::exp(smi::digamma(gamma[k]));
             prev_gamma[k] = gamma[k];
-            gamma[k] = alpha;
+            gamma[k] = model.alpha(k);
         }
                 
         double *phi = Phi;
@@ -288,12 +327,26 @@ bool infer_on_doc(const Model& model, const Doc& doc,
             err += std::abs(gamma[k] - prev_gamma[k]);
         }
         
+#ifdef TOPICLDA_VARINFER_MONITORING
+        double objv_pre = objv;
+        DocObj obj;
+        calc_objv(obj, model, doc, gamma, Phi, temp);
+        objv = calc_sum_objv(obj);
+        
+        mexPrintf("Iter %d: objv = %.6f (ch = %.4g), ch.gamma = %.4g\n", 
+                t, objv, objv - objv_pre, err);
+#endif
+        
         if (err < tol) 
         {
             converged = true;
             break;
         }
     }
+
+#ifdef TOPICLDA_VARINFER_MONITORING
+    delete[] temp;
+#endif
            
     return converged;
 }
@@ -333,9 +386,19 @@ void do_infer(const Model& model, const Corpus& corpus, const double *w,
     
     DocObj *objs = (DocObj*)obj_vs;
     
+#ifdef TOPICLDA_VARINFER_MONITORING
+    mexPrintf("Topic-LDA variational inference\n");
+    mexPrintf("**********************************\n");
+#endif    
+    
     for (int i = 0; i < corpus.ndocs(); ++i, gamma += K)
     {                
-        const Doc& doc = corpus.doc(i);          
+        const Doc& doc = corpus.doc(i);     
+        
+#ifdef TOPICLDA_VARINFER_MONITORING
+        mexPrintf("On Document [%d / %d] with %d words\n", 
+            i+1, corpus.ndocs(), doc.nwords);
+#endif
                        
         // per-document inference
                 
@@ -401,7 +464,7 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int len = mI.nelems();
     
     const double *Beta = mBeta.data<double>();
-    double alpha = mAlpha.get_scalar<double>();
+    const double *alpha = mAlpha.data<double>();
     const double *w = mW.data<double>();
     
     const int32_t *I = mI.data<int32_t>();
