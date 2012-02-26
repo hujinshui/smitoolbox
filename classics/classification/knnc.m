@@ -112,14 +112,15 @@ end
 Lr = L(I);
 
 if ~use_wfun
-    A = knnc_cimp(double(M), int32(Lr)-1, []);
+    A = intcount(M, Lr, 1);
 else
     W = wfun(Dr);
     assert(isequal(size(W), [K n]));
     if ~isa(W, 'double')
         W = double(W);
     end    
-    A = knnc_cimp(double(M), int32(Lr)-1, W);
+    
+    A = aggreg_percol(W, M, Lr, 'sum');
 end
 
 [~, R] = max(A, [], 1);
