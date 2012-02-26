@@ -1,7 +1,7 @@
 function d = clusvid(L1, L2)
-% Compute the variation information distance between clusters
+%CLUSVID variation information distance between clusters
 %
-%   d = clusvid(L1, L2);
+%   d = CLUSVID(L1, L2);
 %       computes the variation information distance between two
 %       clusters, which respectively label the same set of samples
 %       with labels L1 and L2.
@@ -41,7 +41,8 @@ n = numel(L1);
 
 p1 = intcount([1, m1], L1) / n;
 p2 = intcount([1, m2], L2) / n;
-P12 = confusmat([m1, m2], L1, L2, 'nrm');
+P12 = cocounts([m1, m2], L1, L2);
+P12 = P12 * (1 / sum(P12(:)));
 
 ev1 = calc_ent(p1);
 ev2 = calc_ent(p2);
