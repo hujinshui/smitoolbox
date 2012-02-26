@@ -70,13 +70,11 @@ if ~(isnumeric(I) && ~issparse(I) && isreal(I) && isvector(I))
 end
 [mI, nI] = size(I);
 
-I_form = 0;
-if mI == 1 && nI == n % 1 x n
-    I_form = 1;
-elseif mI == m && nI == 1 % m x 1
-    I_form = 2;
-end
-if ~I_form
+if mI == m && nI == 1       % m x 1
+    dim = 1;
+elseif mI == 1 && nI == n   % 1 x n
+    dim = 2;
+else
     error('aggreg:invalidarg', ...
         'I should be a vector of size 1 x n or size m x 1.');
 end
@@ -91,76 +89,67 @@ end
 
 %% main
 
-if I_form == 2
-    X = X.';
-end
-
 switch fun
     case 'sum'
-        R = ag_sum(X, K, I);
+        R = ag_sum(X, K, I, dim);
         
     case 'mean'
-        R = ag_mean(X, K, I);        
+        R = ag_mean(X, K, I, dim);        
         
     case 'min'
-        R = ag_min(X, K, I);
+        R = ag_min(X, K, I, dim);
         
     case 'max'
-        R = ag_max(X, K, I);
+        R = ag_max(X, K, I, dim);
         
     case 'var'
-        R = ag_var(X, K, I);
+        R = ag_var(X, K, I, dim);
         
     case 'std'
-        R = sqrt(ag_var(X, K, I));
+        R = sqrt(ag_var(X, K, I, dim));
         
     otherwise
         error('aggreg:invalidarg', 'The fun name is invalid.');
         
 end
 
-if I_form == 2
-    R = R.';
-end
-
-
 %% sub functions
 
-function R = ag_sum(X, K, I)
+function R = ag_sum(X, K, I, dim)
 
-R = aggreg_cimp(X, K, int32(I)-1, 1); 
+R = aggreg_cimp(X, K, int32(I)-1, dim, 1); 
 
-function R = ag_mean(X, K, I)
+function R = ag_mean(X, K, I, dim)
 
-S = ag_sum(X, K, I);
+S = ag_sum(X, K, I, dim);
 if ~isfloat(S)
     S = double(S);
 end
 C = intcount(K, I);
-R = make_mean(S, C, I);
+R = make_mean(S, C, dim);
 
 
-function R = ag_min(X, K, I)
+function R = ag_min(X, K, I, dim)
 
-R = aggreg_cimp(X, K, int32(I)-1, 2); 
-
-
-function R = ag_max(X, K, I)
-
-R = aggreg_cimp(X, K, int32(I)-1, 3);
+R = aggreg_cimp(X, K, int32(I)-1, dim, 2); 
 
 
-function R = ag_var(X, K, I)
+function R = ag_max(X, K, I, dim)
 
-S1 = ag_sum(X, K, I);
-S2 = ag_sum(X.^2, K, I);
+R = aggreg_cimp(X, K, int32(I)-1, dim, 3);
+
+
+function R = ag_var(X, K, I, dim)
+
+S1 = ag_sum(X, K, I, dim);
+S2 = ag_sum(X.^2, K, I, dim);
 C = intcount(K, I);
 
 if ~isfloat(S1); S1 = double(S1); end
 if ~isfloat(S2); S2 = double(S2); end
 
-E1 = make_mean(S1, C, I);
-E2 = make_mean(S2, C, I);
+E1 = make_mean(S1, C, dim);
+E2 = make_mean(S2, C, dim);
 R = E2 - E1.^2;
 R(R < 0) = 0;
 
@@ -168,21 +157,24 @@ R(R < 0) = 0;
 
 %% auxiliary function
 
-function R = make_mean(S, C, I)
+function R = make_mean(S, C, dim)
 
-if size(I, 1) ~= 1
+if dim == 1
     C = C.';
+    
     if size(S, 2) == 1
         R = S ./ C;
     else
         R = bsxfun(@times, S, 1./C);
     end
-else
+    
+else  % dim == 2
+    
     if size(S, 1) == 1
         R = S ./ C;
     else
         R = bsxfun(@times, S, 1./C);
     end
 end
-
+    
 

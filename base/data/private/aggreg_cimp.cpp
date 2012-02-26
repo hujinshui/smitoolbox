@@ -136,80 +136,107 @@ struct max_ag<bool>
 };
 
 
+// core algorithm
+
 
 
 template<typename T, class Aggregator>
-marray aggreg(const_marray mX, const_marray mI, int K)
+marray aggreg(const_marray mX, const_marray mI, int dim, int K)
 {
     typedef typename Aggregator::result_type Tout;
     
-    index_t m = (index_t)mX.nrows();
-    marray mR = create_marray<T>((size_t)m, (size_t)K);
-    
-    caview1d<int32_t> I = view1d<int32_t>(mI);
-    
     Aggregator ag;
+    Tout vinit = ag.init();
     
-    if (m == 1)
+    int m = mX.nrows();
+    int n = mX.ncolumns();
+    
+    const int32_t *I = mI.data<int32_t>();
+    const T *x = mX.data<T>();
+    
+    
+    if (dim == 1)
     {
-        caview1d<T> x = view1d<T>(mX);
-        index_t n = x.nelems();
+        marray mR = create_marray<Tout>(K, n);
+        Tout *r = mR.data<Tout>();
         
-        aview1d<Tout> r = view1d<Tout>(mR);
-        fill(r, ag.init());
-        
-        for (index_t i = 0; i < n; ++i)
-        {
-            int k = I(i);
-            if (k >= 0 && k < K)
+        int rn = K * n;
+        for (int i = 0; i < rn; ++i) r[i] = vinit;                
+    
+        if (n == 1)
+        {                        
+            for (int i = 0; i < m; ++i)
             {
-                ag(r(k), x(i)); 
+                int32_t k = I[i];
+                if (k >= 0 && k < K) ag(r[k], x[i]);
             }
         }
-    }
-    else
-    {
-        caview2d<T, column_major_t> X = view2d<T>(mX);
-        index_t n = X.ncolumns();
-        
-        aview2d<Tout, column_major_t> R = view2d<Tout>(mR);
-        fill(R, ag.init());
-        
-        for (index_t i = 0; i < n; ++i)
+        else
         {
-            int k = I(i);
-            
-            if (k >= 0 && k < K)
+            for (int j = 0; j < n; ++j, x += m, r += K)
             {
-                caview1d<T> x = X.column(i);
-                aview1d<Tout> r = R.column(k);
-            
-                for (index_t j = 0; j < m; ++j)
+                for (int i = 0; i < m; ++i)
                 {
-                    ag(r(j), x(j));
+                    int32_t k = I[i];
+                    if (k >= 0 && k < K) ag(r[k], x[i]);
                 }
             }
         }
+        
+        
+        return mR;
+    }
+    else  // dim == 2
+    {
+        marray mR = create_marray<Tout>(m, K);
+        Tout *R = mR.data<Tout>();
+        
+        int rn = m * K;
+        for (int i = 0; i < rn; ++i) R[i] = vinit;
+                
+        if (m == 1)
+        {
+            for (int j = 0; j < n; ++j)
+            {
+                int32_t k = I[j];
+                if (k >= 0 && k < K) ag(R[k], x[j]);
+            }
+        }
+        else
+        {
+            for (int j = 0; j < n; ++j, x += m)
+            {
+                int32_t k = I[j];
+                                
+                if (k >= 0 && k < K)
+                {
+                    Tout *r = R + k * m;
+                    
+                    for (int i = 0; i < m; ++i) ag(r[i], x[i]);
+                }
+            }            
+        }        
+        
+        return mR;
     }
     
-    return mR;
 }
 
 
 template<typename T>
-inline marray do_aggreg(const_marray mX, const_marray mI, int K, int code)
+inline marray do_aggreg(const_marray mX, const_marray mI, int K, int dim, int code)
 {    
     if (code == 1)
     {
-        return aggreg<T, sum_ag<T> >(mX, mI, K);
+        return aggreg<T, sum_ag<T> >(mX, mI, dim, K);
     }
     else if (code == 2)
     {
-        return aggreg<T, min_ag<T> >(mX, mI, K);
+        return aggreg<T, min_ag<T> >(mX, mI, dim, K);
     }
     else // code == 3
     {
-        return aggreg<T, max_ag<T> >(mX, mI, K);
+        return aggreg<T, max_ag<T> >(mX, mI, dim, K);
     }
 }
 
@@ -223,7 +250,8 @@ inline marray do_aggreg(const_marray mX, const_marray mI, int K, int code)
  *  [0]:  X:    data [double|single|int32 matrix]
  *  [1]:  K:    #classes [double scalar]
  *  [2]:  I:    indices [zero-based int32]
- *  [3]:  code: function code (1-sum, 2-min, 3-max)
+ *  [3]:  dim:  the direction along which the aggregation is performed
+ *  [4]:  code: function code (1-sum, 2-min, 3-max)
  *
  * Outputs:
  *  [0]:  R:    the results
@@ -235,9 +263,11 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     const_marray mX(prhs[0]);
     const_marray mK(prhs[1]);
     const_marray mI(prhs[2]);
-    const_marray mCode(prhs[3]);
+    const_marray mDim(prhs[3]);
+    const_marray mCode(prhs[4]);
      
     int K = (int)mK.get_scalar<double>();
+    int dim = (int)mDim.get_scalar<double>();
     int code = (int)mCode.get_scalar<double>();
     
     // main delegate
@@ -246,19 +276,19 @@ void bcsmex_main(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     if (mX.is_double())
     {
-        mR = do_aggreg<double>(mX, mI, K, code);
+        mR = do_aggreg<double>(mX, mI, K, dim, code);
     }
     else if (mX.is_single())
     {
-        mR = do_aggreg<float>(mX, mI, K, code);
+        mR = do_aggreg<float>(mX, mI, K, dim, code);
     }
     else if (mX.is_int32())
     {
-        mR = do_aggreg<int32_t>(mX, mI, K, code);
+        mR = do_aggreg<int32_t>(mX, mI, K, dim, code);
     }
     else if (mX.is_logical())
     {
-        mR = do_aggreg<bool>(mX, mI, K, code);        
+        mR = do_aggreg<bool>(mX, mI, K, dim, code);        
     }
     else
     {
