@@ -1,24 +1,26 @@
 function R = aggreg(X, K, I, fun)
-% Perform index-based aggregation
+%AGGREG Index-based aggregation
 %
-%   R = aggreg(X, K, I, 'sum');
-%   R = aggreg(X, K, I, 'mean');
-%   R = aggreg(X, K, I, 'min');
-%   R = aggreg(X, K, I, 'max');
-%   R = aggreg(X, K, I, 'var');
-%   R = aggreg(X, K, I, 'std');
+%   R = AGGREG(X, K, I, 'sum');
+%   R = AGGREG(X, K, I, 'mean');
+%   R = AGGREG(X, K, I, 'min');
+%   R = AGGREG(X, K, I, 'max');
+%   R = AGGREG(X, K, I, 'var');
+%   R = AGGREG(X, K, I, 'std');
 %
 %       performs aggregation of the rows or columns in X based on the 
 %       indices given by I. K is the number of distinct indices.       
 %
 %       Suppose X is a matrix of size m x n, then I can be a vector
 %       of size m x 1 or size 1 x n. 
-%       If size(I) == [m, 1], then the output matrix R is of size K x n,
-%       such that R(k, :) is the aggregation of the rows in X whose
-%       corresponding index in I is k. 
-%       If size(I) == [1, n], then the output matrix R is of size m x K,
-%       such that R(:, k) is the aggregation of the columns in X whose
-%       corresponding index in I is k.
+%
+%       (1) size(I) == [m, 1], then size(R) will be [K, n]:
+%           R(k, :) is the aggregation of the rows in X whose
+%           corresponding index in I is k. 
+%
+%       (2) size(I) == [1, n], then size(R) will be [m, K]
+%           R(:, k) is the aggregation of the columns in X whose
+%           corresponding index in I is k.
 %
 %       If the 4th argument is omitted, it is set to 'sum' by default.
 %

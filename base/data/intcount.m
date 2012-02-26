@@ -20,10 +20,10 @@ function c = intcount(rgn, V, dim)
 %       can be either 1 or 2. 
 %
 %       If dim == 1, it counts for each column, resulting a vector
-%       of counts, whose size is 1 x n.
+%       of counts, whose size is K x n.
 %
 %       If dim == 2, it counts for each row, resulting a vector of 
-%       counts, whose size is m x 1.
+%       counts, whose size is m x K.
 %
 
 %   History
