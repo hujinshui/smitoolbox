@@ -1,11 +1,11 @@
-function v = logcrp(alpha, M, op)
+function v = logcrp(alpha, M)
 % LOGCRP evaluates log-probability of a partition under Chinese Restaurant Process
 %
 %   Given a partition with K clusters, in which the k-th cluster has
 %   m(k) elements, the log-probability of m is 
 %
-%       log p(m) = sum_{i=1}^K ( log(alpha) + log(gamma(m(k)-1)) )
-%                - sum_{i=0}^{n-1} log(alpha + i)
+%       p(m) = alpha^K * prod_{k=1}^K (m(k) - 1)! * 
+%              Gamma(alpha) / Gamma(alpha + N).
 %
 %   In particular, we call the part of the formula in the first line
 %   to be the "upper part", and the remaining part is called "lower part".
@@ -19,11 +19,7 @@ function v = logcrp(alpha, M, op)
 %       m represents a partition as follows: there are numel(m) clusters,
 %       the k-th cluster has m(k) elements. 
 %
-%   v = LOGCRP(alpha, m, 'u');
-%       evaluates the upper part of the log-probability.
-%
 %   V = LOGCRP(alpha, M);
-%   V = LOGCRP(alpha, M, 'u');
 %
 %       evaluates the log-probabilities of a collection of partitions
 %       in M. Here M is a cell array, and each cell contains a partition.
@@ -41,8 +37,7 @@ if ~(isfloat(alpha) && isscalar(alpha) && isreal(alpha) && alpha > 0)
 end
 
 if isnumeric(M)
-    m = M;
-    if ~(isfloat(m) && isvector(m) && isreal(m))
+    if ~(isfloat(M) && isvector(M) && isreal(M))
         error('logcrp:invalidarg', 'Each m should be a real vector.');
     end
     n = 1;
@@ -59,42 +54,28 @@ else
         'The 2nd argument should be either a real vector or a cell array.');
 end
    
-cl = true;
-if nargin >= 3
-    if ~(ischar(op) && strcmpi(op, 'u'))
-        error('logcrp:invalidarg', 'The 3rd argument is invalid.');
-    end
-    cl = false;
-end
-
 
 %% Main
 
 if n == 1
-    v = eval_v(alpha, m, cl);
+    v = eval_v(alpha, M);
 else
     v = zeros(size(M));
     for i = 1 : n
-        v(i) = eval_v(alpha, M{i}, cl);
+        v(i) = eval_v(alpha, M{i});
     end
 end
 
 
 %% Evaluation
 
-function v = eval_v(alpha, m, cl)
+function v = eval_v(alpha, m)
 
-K = numel(m);
-v = K * log(alpha) + sum(gammaln(m));
+N = sum(m);
+c = gammaln(alpha) - gammaln(alpha + N);
 
-if cl
-    N = sum(m);
-    vl = sum(log( alpha + (0:N-1) ));
-    v = v - vl;
-end
-
-
-
+m = m(m > 0);
+v = numel(m) * log(alpha) + sum(gammaln(m)) + c;
 
 
 
