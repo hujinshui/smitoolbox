@@ -224,7 +224,8 @@ while ~converged && it < opts.maxiter
             rpw = ss.costs .* wx;
         end
         
-        M(:, rpi) = opts.rpickFunc(X, numel(rpi), rpw, costfunc, opts.rstream);
+        picked_inds = opts.rpickfunc(X, numel(rpi), rpw, costfunc);        
+        M(:, rpi) = X(:, picked_inds);
     end
     
     % update assignment and status
