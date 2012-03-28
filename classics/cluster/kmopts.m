@@ -1,16 +1,16 @@
-function S = kmeans_std_opts(varargin)
-%KMEANS_STD_OPTS Options for kmeans_std
+function S = kmopts(varargin)
+%KMOPTS Options for K-means and K-medoid
 %
-%   S = KMEANS_STD_OPTS;
+%   S = KMOPTS;
 %
 %       returns the default option struct.
 %
-%   S = KMEANS_STD_OPTS('name1', value1, 'name2', value2, ...);
+%   S = KMOPTS('name1', value1, 'name2', value2, ...);
 %
 %       constructs an option struct, modifying part of the option values
 %       using the input values.
 %
-%   S = KMEANS_STD_OPTS(S0, 'name1', value1, 'name2', value2, ...);
+%   S = KMOPTS(S0, 'name1', value1, 'name2', value2, ...);
 %
 %       constructs a new option struct, updating the values in an old
 %       option struct given by S0.
@@ -36,8 +36,8 @@ elseif ischar(varargin{1})
     
 elseif isstruct(varargin{1})
     S = varargin{1};
-    if ~(isscalar(S) && isfield(S, 'tag') && strcmp(S.tag, 'kmeans_std_opts'))
-        error('kmeans_std_opts:invalidarg', 'The struct S0 is invalid.');
+    if ~(isscalar(S) && isfield(S, 'tag') && strcmp(S.tag, 'kmopts'))
+        error('kmopts:invalidarg', 'The struct S0 is invalid.');
     end
     if numel(varargin) == 1
         return;
@@ -45,7 +45,7 @@ elseif isstruct(varargin{1})
     nvlist = varargin(2:end);
     
 else
-    error('kmeans_std_opts:invalidarg', 'Invalid input arguments.');
+    error('kmopts:invalidarg', 'Invalid input arguments.');
 end
     
 
@@ -59,7 +59,7 @@ ovals = nvlist(2:2:end);
 
 n = length(onames);
 if ~(iscellstr(onames) && n == length(ovals))
-    error('kmeans_std_opts:invalidarg', ...
+    error('kmopts:invalidarg', ...
         'The name/value pair list is invalid.');
 end
 
@@ -99,7 +99,7 @@ for i = 1 : n
             end
             
         otherwise
-            error('kmeans_std_set:invalidarg', 'Invalid option name %s', name);
+            error('kmopts:invalidarg', 'Invalid option name %s', name);
     end
     
     S.(name) = v;
@@ -111,7 +111,7 @@ end
 function S = default_opts()
 
 S = struct( ...
-    'tag', 'kmeans_std_opts', ...
+    'tag', 'kmopts', ...
     'maxiter', 100, ...
     'tolfun', 1e-8, ...
     'tolc', 0, ...
@@ -121,6 +121,6 @@ S = struct( ...
 
 function opterr(msg, varargin)
 
-error('kmeans_std_opts:invalidopt', msg, varargin{:});
+error('kmopts:invalidopt', msg, varargin{:});
 
 

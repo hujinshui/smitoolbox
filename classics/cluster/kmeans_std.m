@@ -6,8 +6,7 @@ function [M, L, info] = kmeans_std(X, M0, varargin)
 %   [M, L] = KMEANS_STD({X, w}, K, ...);
 %   [M, L] = KMEANS_STD({X, w}, M0, ...);
 %       
-%       This function implements the K-means algorithm, which is an
-%       extension of the standard implementation.
+%       This function implements the standard K-means algorithm.
 %
 %       Input: 
 %       - X:    The matrix of input samples. Each column in X corresponds
@@ -52,10 +51,10 @@ function [M, L, info] = kmeans_std(X, M0, varargin)
 %                               finishes
 %                   - 'iter':   display at each iteration
 %                  
-%
-%       The user can also use kmeans_std_opts function to construct
+%       The user can also use kmopts function to construct
 %       an option struct and use it as an input argument in the place
 %       of the name/value pairs.
+%
 %
 %   [M, L, info] = KMEANS_STD( ... );
 %
@@ -114,7 +113,7 @@ end
 
 % get options
 
-opts = kmeans_std_opts(varargin{:});
+opts = kmopts(varargin{:});
 
 tolfun = opts.tolfun;
 tolc = opts.tolc;
