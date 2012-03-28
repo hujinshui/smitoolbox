@@ -138,7 +138,7 @@ void bcsmex_main(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
     int k = mK.get_scalar<int32_t>();
     bool b = mB.get_scalar<bool>();
     
-    marray mR = create_marray<double>((size_t)k, 1);    
+    marray mR = create_marray<double>(1, (size_t)k);    
     double *r = mR.data<double>();
     
     if (b)

@@ -1,10 +1,10 @@
-function [L, M, info] = kmeans_std(X, M0, varargin)
-% Standard K-means algorithm
+function [M, L, info] = kmeans_std(X, M0, varargin)
+%KMEANS_STD Standard K-means algorithm
 %
-%   [L, M] = kmeans_std(X, K, ...);
-%   [L, M] = kmeans_std(X, M0, ...);
-%   [L, M] = kmeans_std({X, w}, K, ...);
-%   [L, M] = kmeans_std({X, w}, M0, ...);
+%   [M, L] = KMEANS_STD(X, K, ...);
+%   [M, L] = KMEANS_STD(X, M0, ...);
+%   [M, L] = KMEANS_STD({X, w}, K, ...);
+%   [M, L] = KMEANS_STD({X, w}, M0, ...);
 %       
 %       This function implements the K-means algorithm, which is an
 %       extension of the standard implementation.
@@ -12,22 +12,26 @@ function [L, M, info] = kmeans_std(X, M0, varargin)
 %       Input: 
 %       - X:    The matrix of input samples. Each column in X corresponds
 %               to one sample.
+%
 %       - w:    The weights of samples (when the samples are weighted)
+%
 %       - K:    The number of clusters. 
+%
 %       - M0:   The initial centers.
 %   
-%       Note that if K instead of M0 is input, the function will invoke
-%       a method to initialize the initial centers. The option 'init' 
-%       controls how to do the initialization. By default, it uses km++ 
-%       (Kmeans++) method.
+%       Note that if K instead of M0 is input, the function will randomly
+%       select K samples from X as the initial centers. One can also 
+%       use the function kmseed to generate the initial centers. 
 %
 %       Output:
-%       - L:    The assignment of samples to clusters. Suppose X contains
-%               n samples, then L is a 1 x n row vector, whose values are
-%               in {1, 2, ..., K}, and L(i) corresponds to X(:,i).
 %       - M:    The resultant means, which is a matrix of size d x K,
 %               where d is the space dimension, and K is the number of
 %               clusters.
+%
+%       - L:    The assignment of samples to clusters. Suppose X contains
+%               n samples, then L is a 1 x n row vector, whose values are
+%               in {1, 2, ..., K}, and L(i) corresponds to X(:,i).
+%
 %
 %       Options:
 %       
@@ -39,88 +43,34 @@ function [L, M, info] = kmeans_std(X, M0, varargin)
 %       - TolC:     the maximum allowable number of label changes at
 %                   convergence. (default = 0)
 %
-%       - Display:  the level of information displaying (default = 'off')
-%                   It can take either of the following values:
+%       - TolFun:   the maximum allowable change of objective value at
+%                   convergence (default = 1e-8)
+%
+%       - Display:  the level of displaying (default = 'off')
 %                   - 'off':    display nothing
-%                   - 'iter':   display information for each iteration
-%                   - 'final':  display final result information
+%                   - 'final':  display a brief summary when the procedure
+%                               finishes
+%                   - 'iter':   display at each iteration
+%                  
 %
-%       - UcWarn:   whether to raise a warning if not converged.
-%                   (default = false).
+%       The user can also use kmeans_std_opts function to construct
+%       an option struct and use it as an input argument in the place
+%       of the name/value pairs.
 %
-%       - Init:     the method to initialize centers. It can take either
-%                   of the following values (default = 'km++'):
-%                   - 'random':  randomly pick K distinct samples as centers
-%                   - 'km++':    randomly pick K samples using Kmean++
-%                   - 'mcinit':  randomly select the first one, and then
-%                                sequentially select furthest samples 
-%                                from selected centers.                   
+%   [M, L, info] = KMEANS_STD( ... );
 %
-%       - OnNil:    the action taken to deal with "nil clusters", the 
-%                   cluster to which no sample is assigned.
-%                   (default = 'repick++').
-%                   It can take either of the following values:
-%                   - 'repick':     randomly repick a sample as new center
-%                   - 'repick++':   randomly repick a sample as new center
-%                                   using moderated scheme as in Kmeans++
-%                   - 'mcpick':     pick the sample that is farthest to
-%                                   all other centers (with maximum cost)
-%                   - 'error':      raise an error.
-%                   - 'keep':       simply keep that center without change.
+%       additionally returns the information of the K-means procedure.
 %
-%       - DistFunc:  the distance function (or its name)
-%                     It can take either of the following values:
-%                     - 'sqL2':  use squared L2 distance as cost, and
-%                                component-wise arithmetic mean as center
-%                     - 'L1':    use L1 distance as cost, and 
-%                                component-wise median as center
-%                       
-%                     Or, it can be a user-defined function handle. 
-%                     (refer to the remarks below for details).
-%
-%       The user can also use kmeans_ex_set function to construct
-%       an option struct and input it to this function.   
-%
-%   Remarks
-%   -------
-%       Briefly, compared to conventional implementation, this function
-%       has additional features, as follows:
-%
-%       - It supports weighted samples. 
-%
-%       - It supports different methods in initialization and in 
-%         handling the case where there are some centers without
-%         assigned samples.
-%
-%       - It allows the use of user-defined distance. The user can
-%         implement its own distance by setting the dist_func option.
-%         The function should support the following syntax:
-%
-%               R = dist_func(X, Y, 'd');
-%                   computes the pairwise distances between X and Y.
-%
-%               R = dist_func(X, Y, 'c');
-%                   computes the pairwise costs between X and Y. 
-%                   Note that the cost used in objective function is not 
-%                   necessary the same as distance. For example, in the
-%                   standard Euclidean case, the cost of the square of
-%                   the distance.
-%
-%               R = dist_func(X, [], 'm');
-%               R = dist_func(X, w, 'm');
-%                   computes the (weighted) mean of X.
-%
-%               R = dist_func(D, [], 't');
-%                   computes the costs based on distances.
-%   
-%       - It uses various ways to increase the run-time efficiency, such
-%         as vectorizing the computation of distances, and only updating
-%         the distances / centers to affected clusters at each iteration.
+%       info is a struct with the following fields:
+%       - niters:       The number of elapsed iterations
+%       - objv:         The objective value at last step (total cost)
+%       - converged:    Whether the procedure converged
 %
 
 %   History
 %   -------
 %       - Created by Dahua Lin, on Sep 27, 2010
+%       - Modified by Dahua Lin, on Mar 27 2012
 %
     
 
@@ -133,17 +83,18 @@ elseif iscell(X) && numel(X) == 2
     X = X{1};
 end
 
-if ~(isfloat(X) && ndims(X) == 2)
-    error('kmeans_std:invalidarg', 'X should be a numeric matrix.');
+if ~(isfloat(X) && isreal(X) && ndims(X) == 2)
+    error('kmeans_std:invalidarg', 'X should be a real matrix.');
 end
 [d, n] = size(X);
 
 if ~isempty(wx)
-    if ~(isfloat(wx) && isequal(size(wx), [1 n]) && isreal(wx))
-        error('kmeans_std:invalidarg', 'w should be a real vector of size 1 x n.');
-    end
-    if issparse(wx)
-        wx = full(wx);
+    if ~(isfloat(wx) && isreal(wx) && isvector(wx) && numel(wx) == n)
+        error('kmeans_std:invalidarg', ...
+            'w should be a real vector of length n.');
+    end    
+    if size(wx, 2) > 1
+        wx = wx.';    % turn w into a column vector
     end
 end
 
@@ -163,18 +114,12 @@ end
 
 % get options
 
-if isempty(varargin)
-    opts = kmeans_std_set();
-else
-    if isstruct(varargin{1})
-        opts = kmeans_std_set(varargin{:});
-    else        
-        opts = kmeans_std_set([], varargin{:});
-    end
-end
-    
-dfunc = opts.distfunc;
-costfunc = @(x, y) dfunc(x, y, 'c');
+opts = kmeans_std_opts(varargin{:});
+
+tolfun = opts.tolfun;
+tolc = opts.tolc;
+maxiter = opts.maxiter;
+displevel = opts.displevel;
 
 
 %% main
@@ -182,190 +127,158 @@ costfunc = @(x, y) dfunc(x, y, 'c');
 % initialize centers
 
 if isempty(M0)    
-    seeds = opts.initfunc(X, K, [], costfunc);    
+    seeds = randpick(n, K); 
     M0 = X(:, seeds);
 end
 M = M0;
 
-% initialize assignment and status
+% initialize assignments and objective
 
-am = 1:K;
-[L, ss] = reassign_std(X, M, [], dfunc);
-G = intgroup([1, K], L);
+cpre = calc_costs_pre(X);
+costs = calc_costs(M, X, cpre);
+[min_costs, L] = min(costs, [], 1);
 
+objv = calc_objv(min_costs, wx);
 
 % main loop
 
-it = 0;
+t = 0;
 converged = false;
-on_nil_op = opts.onnilop;
 
-dispLevel = opts.displevel;
-if dispLevel >= 2
-    print_iter_header();    
-    print_iter(it, ss.costs, wx, am, n);
+if displevel >= 2
+    print_iter_header();
 end
 
 
-while ~converged && it < opts.maxiter
+while ~converged && t < maxiter
     
-    it = it + 1;
+    t = t + 1;
     
-    % update affected mean
+    % identify affected clusters
     
-    [M, any_nil, to_rps] = update_mean(X, wx, M, dfunc, am, G, on_nil_op);
-                
-    if any_nil && on_nil_op > 0   % repick nil centers
-        rpi = find(to_rps);
-               
-        if isempty(wx)
-            rpw = ss.costs;
-        else
-            rpw = ss.costs .* wx;
-        end
+    if t == 1
+        aff_cs = 1 : K;
+    else        
+        aff_cs = find(intcount(K, [L(chs), L_pre(chs)]));
+    end
+                      
+    % update centers        
         
-        picked_inds = opts.rpickfunc(X, numel(rpi), rpw, costfunc);        
-        M(:, rpi) = X(:, picked_inds);
+    to_rp = false(1, K);
+    
+    gs = intgroup(K, L);
+    for k = aff_cs
+        gk = gs{k};
+        if ~isempty(gk)
+            M(:,k) = calc_mean(X, wx, gk);
+        else
+            to_rp(k) = 1;   % indicate to repick the k-th center
+        end
+    end    
+    
+    % repick new centers if needed
+    
+    if any(to_rp)
+        rps = find(to_rp);
+        M(:, rps) = X(:, randpick(n, numel(rps)));
+    end
+        
+    % re-compute costs
+    
+    if numel(aff_cs) >= K / 2
+        costs = calc_costs(M, X, cpre);
+    else
+        costs(aff_cs, :) = calc_costs(M(:, aff_cs), X, cpre);
     end
     
-    % update assignment and status
-    
-    G_pre = G;
+    % re-assign samples to centers
     L_pre = L;
-  
-    [L, ss] = reassign_std(X, M, L, dfunc, ss, am);
-    G = intgroup([1, K], L);
-    
-    % identify affected means
-    
-    am = false(1, K);
-    for k = 1 : K
-        am(k) = ~isequal(G_pre{k}, G{k});
-    end
-    am = find(am);        
+    [min_costs, L] = min(costs, [], 1);
     
     % determine convergence
     
-    ch = nnz(L ~= L_pre);
-    converged = (ch <= opts.tolc);
-                
-    % display iteration info
-    if dispLevel >= 2    
-        print_iter(it, ss.costs, wx, am, ch);
-    end
-end
-
-
-% display final info
-if dispLevel >= 1
-    print_final(it, ss, wx, converged);
-end
-
-if ~converged && opts.ucwarn
-    warning('kmeans_std:unconverged', ...
-        'The K-means procedure did NOT converged.');
-end
+    objv_pre = objv;
+    objv = calc_objv(min_costs, wx);
     
-% output info
+    v_ch = objv - objv_pre;
+    
+    chs = find(L ~= L_pre);
+    converged = (abs(v_ch) <= tolfun || numel(chs) <= tolc);
+    
+    % print iteration info
+    
+    if displevel >= 2
+        print_iter(t, numel(chs), aff_cs, objv, v_ch);
+    end    
+
+end
+
+if displevel >= 1
+    print_final(t, objv, converged);
+end
+
 if nargout >= 3
-    info.niters = it;
-    info.last_ch = ch;
+    info.niters = t;
+    info.objv = objv;
     info.converged = converged;
-    
-    if isempty(wx)
-        info.totalcost = sum(ss.costs);
-    else
-        info.totalcost = dot(ss.costs, wx);
-    end
 end
 
-
-%% core sub-functions
-
-
-function [M, any_nil, to_rps] = update_mean(X, wx, M, dfunc, am, G, on_nil_op)
-% update mean(s) according to new assignment
-% and identify nil mean(s)
-
-any_nil = 0;
-if on_nil_op > 0
-    to_rps = false(1, size(M, 2));
-else
-    to_rps = [];
-end
-
-if ~isempty(am)
-    for k = am
-        gk = G{k};
-        if ~isempty(gk)
-            if isempty(wx)
-                M(:, k) = dfunc(X(:, gk), [], 'm');
-            else
-                M(:, k) = dfunc(X(:, gk), wx(gk), 'm');
-            end
-        else
-            any_nil = 1;
-            if on_nil_op > 0
-                to_rps(k) = 1;
-            elseif on_nil_op < 0
-                error('kmeans_std:nilcenter', 'Nil center encountered.');
-            end
-        end
-    end
-end
-
-
-function [L, ss] = reassign_std(X, M, L, dfunc, ss, am)
-% Do cost updating and re-assignment in standard way
-
-if isempty(L)
-    ss.type = 's';
-    ss.cmat = dfunc(M, X, 'c');
-else
-    K = size(M, 2);
-    if ~isempty(am)
-        if numel(am) < 0.5 * K
-            ss.cmat(am, :) = dfunc(M(:, am), X, 'c');
-        else
-            % when many am, don't bother to take sub-matrices
-            ss.cmat = dfunc(M, X, 'c');
-        end
-    end
-end
-
-[ss.costs, L] = min(ss.cmat, [], 1);
 
 
 %% Auxiliary functions
+
+function v = calc_mean(X, w, si)
+
+if isempty(w)
+    cn = numel(si);
+    cw = constmat(cn, 1, 1/cn);
+else
+    cw = w(si);
+    cw = cw * (1 / sum(cw));
+end
+
+v = X(:, si) * cw;
+
+
+function cpre = calc_costs_pre(X)
+
+cpre.sX2 = sum(X.^2, 1);
+
+
+function C = calc_costs(M, X, cpre)
+
+C = (-2) * (M' * X);
+C = bsxfun(@plus, C, sum(M .^ 2, 1).');
+C = bsxfun(@plus, C, cpre.sX2);
+
+
+
+function v = calc_objv(cs, w)
+
+if isempty(w)
+    v = sum(cs);
+else
+    v = cs * w;
+end
 
 
 %% Printing functions
 
 function print_iter_header()
 
-fprintf(' Iter    # af.m.  # ch.ass.     # t.cost \n');
-fprintf('-------------------------------------------\n');
+fprintf(' Iter    # ch.assign (aff.clus)     objv (change)  \n');
+fprintf('------------------------------------------------------\n');
 
 
-function print_iter(it, costs, wx, am, ch)
+function print_iter(it, ch, afc, objv, vch)
 
-if isempty(wx)
-    tcv = sum(costs);
-else
-    tcv = dot(costs, wx);
-end
-fprintf('%5d    %7d   %7d  %12.6g\n', it, numel(am), ch, tcv);
+fprintf('%5d        %7d (%5d)   %12.6g (%.4g)\n', it, ch, numel(afc), objv, vch);
 
 
-function print_final(it, ss, wx, converged)
+function print_final(it, objv, converged)
 
-if isempty(wx)
-    tcv = sum(ss.costs);
-else
-    tcv = dot(ss.costs, wx);
-end
-fprintf('K-means final: total_cost = %.6g, converged = %d [total # iters = %d]\n', ...
-    tcv, converged, it);
+fprintf('K-means: total_cost = %.6g, converged = %d [total # iters = %d]\n', ...
+    objv, converged, it);
 
 
 
