@@ -1,0 +1,114 @@
+How to install smitoolbox
+==========================
+
+Last Modified on Apirl 14, 2011, by Dahua Lin.
+
+
+Platforms
+---------
+
+- smitoolbox was developed in MATLAB 2010a, and should work well in all 
+  MATLAB versions above it.
+
+- The toolbox uses a series of C++ mex files, which were succesfully
+  built and tested using Microsoft Visual C++ 9.0/10.0 and GNU C++ 4.2.x.
+
+- The toolbox was tested and should work in three major operating systems:
+  Microsoft Windows, Linux, and Mac OS X.
+ 
+
+
+Dependencies
+------------
+
+Statistical Modeling and Inference Toolbox (smitoolbox) depends on two
+C++ libraries.
+
+- Basic Computation Supporting Library (bcslib): 
+
+http://code.google.com/p/bcslib/
+
+- Boost C++ Library:
+
+http://www.boost.org/
+
+
+
+Step by Step
+------------
+
+0. Install Mercurial (Hg). 
+
+    Mercurial is a distributed version control system used by Google 
+    Project Host. It is free, and availabel in almostly all major 
+    platforms (including Windows, Linux, and Mac OS X).
+
+    You need this software to checkout and update smitoolbox and
+    bcslib.
+
+    Linux and Mac OS X users can download it from the official website:
+    http://mercurial.selenic.com/
+
+    Windows users are strongly recommended to use TortoiseHg, which has 
+    a much friendly GUI interface integrated with windows explorer. 
+    It is also free, and is available in http://tortoisehg.bitbucket.org/
+
+    For those who have never used Mercurial before, you can consider it
+    as an improved and distributed version of SVN. There is a very nice
+    user guide in its official website.
+
+
+1. Install boost.
+
+    If you already have boost installed, you can skip this step.
+
+    Download the C++ Boost library and uncompress the package. We note 
+    that smitoolbox only uses some graph algorithms in Boost Graph Lib,
+    which are all in header files. Hence, you don't need to build the
+    Boost library if you just use it to support smitoolbox.
+
+2. Install bcslib.
+
+    If you already have bcslib installed, you can skip this step.
+
+    Checkout the library. That's it (you don't need to do 'make', as
+    smitoolbox relies only on headers of this library).
+
+3. Set environment variable.
+
+    Set BOOST_HOME to the home directory of boost library. 
+
+    (The home directory of boost is the one that contains the 
+    file "INSTALL", and sub-directories "boost", "doc", "libs", etc.)
+
+    Set BCSLIB_HOME to the home directory of bcslib.
+
+    (The home directory of bcslib is the one that contains the
+     file "Makefile", and sub-directories "bcslib", "test", and "msvc", etc.)
+
+
+4. In-MATLAB setup.
+
+    Now, you can start MATLAB, and finish the setup as follows. 
+    
+    (a) Switch into the directory of smitoolbox. 
+
+    (b) You may find a sub-directory named "tbman", which contains the
+        functions to setup and manage the toolbox.
+
+    (c) Go into the tbman directory.
+
+    (d) Run smi_add_path. It will add all necessary paths to MATLAB's path 
+        list. Note that this function only adds path to current session.
+        If you want to keep the paths after you exit matlab, you may 
+        type in "savepath" to save them.
+
+    (e) Run smi_build_mex. This will build all mex files in the toolbox.
+        
+    If both smi_add_path and smi_build_mex runs ok, the toolbox is ready 
+    for use. Congratulations!
+
+Thanks for all your patience to read through the instructions. If you have
+any questions in regard to the toolbox, please feel free to write to
+Dahua Lin <dhlin@mit.edu>.
+
