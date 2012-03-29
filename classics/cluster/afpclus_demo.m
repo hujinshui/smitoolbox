@@ -1,10 +1,13 @@
-function afpclus_demo(n)
+function afpclus_demo(n, q)
 % Demo of afpclus in clustering 2D points
 %
 %   afpclus_demo(n);
+%   afpclus_demo(n, q);
 %
 %   Input arguments:
 %   - n:        The number of sample points
+%   - q:        The quantile ratio (greater q encourages more centers)
+%               (default = 0.5)
 %
 
 % Created by Dahua Lin, on Mar 27, 2012
@@ -12,26 +15,28 @@ function afpclus_demo(n)
 
 %% prepare data
 
+if nargin < 2
+    q = 0.5;
+end
+
 X = rand(2, n);
 
 %% run
 
-S = - pwsqL2dist(X);
+D = pwsqL2dist(X);
+S = afpsmat(-D, q);
 
-ss = S(S < -1e-8);
-pref = median(ss);
-S(1:(n+1):n^2) = pref;
-
-L = afpclus(S);
-
-M = unique(L);
+tic;
+[M, L] = afpclus(S, 'Display', 'phase');
+et = toc;
+fprintf('Took %.4f sec.\n\n', et);
 
 
 %% visualize
 
 figure;
 
-A = sparse(1:n, L, true, n, n);
+A = sparse(1:n, M(L), true, n, n);
 gplot(A, X.');
 
 hold on;
