@@ -63,7 +63,7 @@ inline marray do_median(const_marray mX, int d)
         index_t m = (index_t)mX.nrows();
         index_t n = (index_t)mX.ncolumns();
         
-        array2d<T, column_major_t> temp(m, n, mX.data<T>());
+        array2d<T> temp(m, n, mX.data<T>());
         
         marray mR = create_marray<T>(1, (size_t)n);
         aview1d<T> r = view1d<T>(mR);
