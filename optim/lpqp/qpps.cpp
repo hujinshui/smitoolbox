@@ -117,8 +117,8 @@ inline marray do_qpps(const_marray mF)
     {
         mX = create_marray<T>((size_t)m, (size_t)n);
         
-        caview2d<T, column_major_t> F = view2d<T>(mF); 
-        aview2d<T, column_major_t> X = view2d<T>(mX);
+        caview2d<T> F = view2d<T>(mF); 
+        aview2d<T> X = view2d<T>(mX);
         
         es = new entry<T>[m];
         

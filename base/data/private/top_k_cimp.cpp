@@ -108,7 +108,7 @@ inline marray do_top_k(const_marray mX, size_t K)
         aview1d<T> R = view1d<T>(mR);
         
         copy(view1d<T>(mX), temp);
-        top_k((aview1d<T>)temp, R, TComp<T>());
+        top_k(temp.view(), R, TComp<T>());
         
         return mR;
     }
@@ -117,13 +117,13 @@ inline marray do_top_k(const_marray mX, size_t K)
         marray mR = create_marray<T>(K, n);
         array1d<T> temp(m);
         
-        caview2d<T, column_major_t> X = view2d<T>(mX);
-        aview2d<T, column_major_t> R = view2d<T>(mR);
+        caview2d<T> X = view2d<T>(mX);
+        aview2d<T> R = view2d<T>(mR);
         
         for (index_t i = 0; i < n; ++i)
         {
             copy(X.column(i), temp);
-            top_k((aview1d<T>)temp, R.column(i), TComp<T>());
+            top_k(temp.view(), R.column(i), TComp<T>());
         }
         
         return mR;
@@ -148,8 +148,7 @@ inline void do_indexed_top_k(const_marray mX, index_t K, marray& mR, marray& mI)
         aview1d<double> I = view1d<double>(mI);
 
         export_with_inds(X.pbase(), temp.pbase(), m);
-        top_k((aview1d<indexed_value<T> >)temp, 
-                R, I, TComp<indexed_value<T> >() );
+        top_k(temp.view(), R, I, TComp<indexed_value<T> >() );
     }
     else
     {
@@ -157,15 +156,14 @@ inline void do_indexed_top_k(const_marray mX, index_t K, marray& mR, marray& mI)
         mI = create_marray<double>((size_t)K, (size_t)n);
         array1d<indexed_value<T> > temp(m);
         
-        caview2d<T, column_major_t> X = view2d<T>(mX);
-        aview2d<T, column_major_t> R = view2d<T>(mR);
-        aview2d<double, column_major_t> I = view2d<double>(mI);
+        caview2d<T> X = view2d<T>(mX);
+        aview2d<T> R = view2d<T>(mR);
+        aview2d<double> I = view2d<double>(mI);
         
         for (index_t i = 0; i < n; ++i)
         {
             export_with_inds(&(X(0, i)), temp.pbase(), m);
-            top_k((aview1d<indexed_value<T> >)temp, 
-                    R.column(i), I.column(i), TComp<indexed_value<T> >() );
+            top_k(temp.view(), R.column(i), I.column(i), TComp<indexed_value<T> >() );
         } 
     }    
 }

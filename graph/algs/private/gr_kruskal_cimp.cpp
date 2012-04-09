@@ -11,6 +11,7 @@
 #include "../../clib/smi_graph_mex.h"
 #include <bcslib/graph/graph_minimum_span_trees.h>
 #include <bcslib/array/amap.h>
+#include <bcslib/base/smart_ptr.h>
 #include <vector>
 
 using namespace bcs;
@@ -80,7 +81,7 @@ marray get_ccs(disjoint_set_forest<vertex_t>& dsets)
     // scan clusters
     
     array1d<int32_t> L(n); 
-    set_zeros_to_elements(L.pbase(), (size_t)n);
+    mem<int32_t>::zero((size_t)n, L.pbase());
     
     int32_t m = 0;
     
