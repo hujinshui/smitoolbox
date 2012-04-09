@@ -55,8 +55,8 @@ inline marray do_wmedian(const_marray mX, const_marray mF)
         }
         else
         {
-            caview2d<T, column_major_t> X = view2d<T>(mX);
-            caview2d<T, column_major_t> F = view2d<T>(mF);
+            caview2d<T> X = view2d<T>(mX);
+            caview2d<T> F = view2d<T>(mF);
             
             marray mR = create_marray<T>(1, n);
             aview1d<T> R = view1d<T>(mR);

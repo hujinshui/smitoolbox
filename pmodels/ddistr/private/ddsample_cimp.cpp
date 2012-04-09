@@ -10,6 +10,7 @@
  ********************************************************************/
 
 #include <bcslib/matlab/bcs_mex.h>
+#include <bcslib/base/block.h>
 
 using namespace bcs;
 using namespace bcs::matlab;
@@ -115,8 +116,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     // do sampling
     
-    scoped_buffer<int> s(m * n);
-    
+    scoped_block<int> s(m * n);    
     do_ddsample(K, m, n, F, V, s.pbase());
     
     // output
